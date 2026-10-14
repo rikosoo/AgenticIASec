@@ -46,6 +46,6 @@ Categoria só conta com confiança de 0,5 ou mais. Pesos por risco padrão: baix
 
 ```bash
 make test                                   # inclui metas de precisão, recall e latência
-.venv/bin/python tests/fixtures/generate.py   # regenera o conjunto (semente fixa)
+.venv/bin/python tests/fixtures/generate.py   # regenera o conjunto (semente fixa; segredos viram marcadores expandidos por tests/fixtures/synth.py)
 .venv/bin/python packages/detection/scripts/evaluate.py --report docs/relatorio-etapa2.md
 ```
