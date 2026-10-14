@@ -26,6 +26,7 @@ services:
       OIDC_MOCK_SECRET: ${OIDC_MOCK_SECRET:-}
       ORIGINAL_TEXT_MASTER_KEY: ${ORIGINAL_TEXT_MASTER_KEY:-}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
+      CONSOLE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
     ports: ["${API_PORT:-8000}:8000"]
     depends_on:
       db:
@@ -35,6 +36,25 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    # entrega alertas e SIEM e gera relatórios agendados; usa o papel restrito (RLS), sem migrar
+    command: ["python", "-m", "app.worker"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://promptshield_app:${APP_DB_PASSWORD:?defina no .env}@db:5432/${POSTGRES_DB:-promptshield}
+      ORIGINAL_TEXT_MASTER_KEY: ${ORIGINAL_TEXT_MASTER_KEY:-}
+      CONSOLE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-promptshield@localhost}
+    depends_on:
+      api:
+        condition: service_healthy
 
   web:
     build: ./apps/web

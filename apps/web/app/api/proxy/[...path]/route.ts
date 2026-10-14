@@ -23,11 +23,14 @@ async function forward(req: Request, ctx: { params: Promise<{ path: string[] }> 
     body: hasBody ? await req.text() : undefined,
   }).catch(() => null);
   if (!upstream) return NextResponse.json({ detail: "API indisponível" }, { status: 502 });
-  const out = new NextResponse(upstream.status === 204 ? null : await upstream.text(), { status: upstream.status });
+  const out = new NextResponse(upstream.status === 204 ? null : await upstream.arrayBuffer(), { status: upstream.status });
   out.headers.set("Content-Type", upstream.headers.get("content-type") ?? "application/json");
+  const disp = upstream.headers.get("content-disposition");
+  if (disp) out.headers.set("Content-Disposition", disp);
+  out.headers.set("Cache-Control", "no-store");
   const total = upstream.headers.get("x-total-count");
   if (total) out.headers.set("X-Total-Count", total);
   return out;
 }
 
-export { forward as GET, forward as POST, forward as PUT, forward as PATCH };
+export { forward as GET, forward as POST, forward as PUT, forward as PATCH, forward as DELETE };

@@ -35,7 +35,7 @@ export async function apiPage<T>(path: string): Promise<Page<T>> {
   return { items: (await r.json()) as T, total: Number(r.headers.get("x-total-count") ?? "0") };
 }
 
-export const send = <T,>(method: "POST" | "PUT" | "PATCH", path: string, body?: unknown) =>
+export const send = <T,>(method: "POST" | "PUT" | "PATCH" | "DELETE", path: string, body?: unknown) =>
   api<T>(path, { method, body: body === undefined ? undefined : JSON.stringify(body) });
 
 export function useLoad<T>(load: () => Promise<T>, deps: unknown[]) {

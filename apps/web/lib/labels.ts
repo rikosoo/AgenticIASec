@@ -20,3 +20,14 @@ export const appLabel = (a: string) => APP_LABEL[a] ?? a;
 export function severityOf(score: number): Severity {
   return score >= 80 ? "critico" : score >= 60 ? "alto" : score >= 30 ? "medio" : "baixo";
 }
+
+export const CHANNEL_LABEL: Record<string, string> = {
+  webhook: "Webhook genérico (JSON assinado)", slack: "Slack (webhook de entrada)", teams: "Microsoft Teams (webhook)",
+  email: "E-mail (SMTP)", syslog_cef: "Syslog em CEF (SIEM)", siem_webhook: "Webhook de eventos para SIEM (JSON assinado)",
+};
+export const CHANNEL_STATUS_LABEL: Record<string, string> = { real: "REAL", parcial: "PARCIAL", experimental: "EXPERIMENTAL" };
+export const CHANNEL_TARGET_HINT: Record<string, string> = {
+  webhook: "URL https pública", slack: "URL do webhook de entrada (https)", teams: "URL do webhook do Workflows (https)", email: "endereço de e-mail",
+  syslog_cef: "host:porta do coletor", siem_webhook: "URL https pública",
+};
+export const REPORT_KIND_LABEL = { executivo: "Executivo", lgpd: "Conformidade LGPD" } as const;

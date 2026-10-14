@@ -7,7 +7,7 @@ export type Action = "allow" | "mask" | "block" | "ask_justification" | "alert";
 export interface Me { kind: string; id: string; tenant_id: string; role: Role | null; email: string | null }
 export interface Tenant {
   id: string; name: string; failure_mode: "open" | "closed"; retention_days: number; store_original: boolean;
-  policy_url: string | null; monitored_domains: string[]; is_demo: boolean;
+  policy_url: string | null; monitored_domains: string[]; is_demo: boolean; volume_threshold_per_hour: number;
 }
 export interface Category { id: string; confidence: number }
 export interface TaxonomyItem { id: string; nome: string; grupo: string; risco_padrao: string }
@@ -51,3 +51,19 @@ export interface Simulation {
   action: string; mode: string; ignored_scope: string[]; note: string;
 }
 export interface DirectoryUser { id: string; email: string; display_name: string | null; role: Role }
+
+export interface RiskUser { user_id: string; department: string | null; score: number; reasons: { rule: string; contribution: number }[]; events: number; high_events: number; series: number[] }
+export interface RiskDept { department: string; score: number; users: number; users_high: number; events: number; series: number[] }
+export interface RiskStats { score_version: string; disclaimer: string; days: string[]; users: RiskUser[]; departments: RiskDept[] }
+
+export interface AlertRow {
+  id: string; rule: string; rule_label: string; severity: Severity; title: string; user_id: string; department: string | null;
+  count: number; first_seen: string; last_seen: string; incident_id: string | null; score: number | null; categories: string[];
+}
+export type ChannelKind = "webhook" | "slack" | "teams" | "email" | "syslog_cef" | "siem_webhook";
+export interface Channel {
+  id: string; kind: ChannelKind; name: string; target: string; enabled: boolean; integration_status: "real" | "parcial" | "experimental";
+  min_severity: Severity | null; min_score: number | null; proto: string | null; has_secret: boolean; outbox: Record<string, number>;
+}
+export interface ReportRow { id: string; kind: "executivo" | "lgpd"; format: "pdf" | "csv"; period_start: string; period_end: string; sha256: string; created_by: string; created_at: string; size: number; scheduled: boolean }
+export interface ScheduleRow { id: string; kind: "executivo" | "lgpd"; format: "pdf" | "csv"; frequency: "mensal" | "semanal"; recipients: string[]; enabled: boolean; last_period_end: string | null }

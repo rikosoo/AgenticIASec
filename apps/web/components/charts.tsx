@@ -68,3 +68,18 @@ export function AppUsage({ rows, label }: { rows: Overview["by_app"]; label: (a:
     </div>
   );
 }
+
+
+/** Linha pequena de evolução do indicador (0 a 100). Descrição em texto para leitores de tela. */
+export function Spark({ series, days, label }: { series: number[]; days: string[]; label: string }) {
+  const W = 120, H = 28;
+  if (series.length < 2) return null;
+  const pts = series.map((v, i) => `${(i / (series.length - 1)) * W},${H - 2 - ((H - 4) * v) / 100}`).join(" ");
+  const last = series[series.length - 1];
+  const peak = Math.max(...series);
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${label}: de ${dayLabel(days[0])} a ${dayLabel(days[days.length - 1])}, pico ${peak}, último dia ${last}`} className="h-7 w-28">
+      <polyline points={pts} fill="none" stroke="var(--color-accent)" strokeWidth={1.5} />
+    </svg>
+  );
+}

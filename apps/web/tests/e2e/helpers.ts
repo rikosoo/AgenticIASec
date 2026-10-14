@@ -13,6 +13,14 @@ export async function login(page: Page, email: string) {
   await expect(page.getByTestId("who")).toContainText(email);
 }
 
+export async function logout(page: Page) {
+  await page.getByRole("button", { name: "Sair" }).click();
+  await expect(page).toHaveURL(/\/login/);   // espera a navegação terminar antes de um novo login
+}
+
+/** Mensagem de erro do formulário (exclui o anunciador de rotas do Next, que também usa role=alert). */
+export const formAlert = (page: Page) => page.locator("[role=alert]:not(#__next-route-announcer__)");
+
 /** Chama a API pelo próprio proxy do console, com a sessão do navegador. */
 export async function apiGet<T>(page: Page, path: string): Promise<{ data: T; total: number }> {
   const r = await page.request.get(`/api/proxy/${path}`);

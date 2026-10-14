@@ -40,4 +40,14 @@ Uma linha por decisão: contexto, escolha, alternativas.
 | 2026-10-14 | Seleção de tenant no login | Não implementada: o tenant vem do e-mail (um e-mail, um tenant) | Tela de escolha (exige modelo de usuário em vários tenants) |
 | 2026-10-14 | Login OIDC no console | Authorization Code + PKCE implementado; só o modo mock foi testado | Esperar um IdP de teste para escrever |
 | 2026-10-14 | Dados de demonstração | `seed-demo` grava eventos sintéticos e marca `tenants.is_demo`; o console mostra o selo "dados de exemplo" | Dados só no front (violaria "nada fixo no código") |
+| 2026-10-14 | Onde a repetição entra no score | Só na agregação por usuário; o score do evento continua puro (mesmo evento, mesmo score e motivos) | Somar repetição ao score do evento (dependeria do histórico e quebraria a reprodutibilidade) |
+| 2026-10-14 | Score de departamento | Média dos scores dos usuários com atividade, mais a contagem de usuários em risco alto | Máximo (um usuário alarmaria o departamento inteiro) |
+| 2026-10-14 | Deduplicação de alertas | Chave única (regra, usuário, categoria, janela) no banco; notifica só na criação | Deduplicar no worker (falha com mais de um worker) |
+| 2026-10-14 | Entrega de notificações | Fila (outbox) no Postgres e worker com retentativa exponencial | Enviar dentro da requisição de ingestão (a API ficaria dependente do destino) |
+| 2026-10-14 | Destino de webhook | Só https e IP público, conexão no IP validado, sem redirecionar | Aceitar qualquer URL (SSRF contra a rede interna do servidor) |
+| 2026-10-14 | Conteúdo das notificações e do CEF | Só metadados, nunca o texto do prompt (nem mascarado) | Incluir o texto mascarado (mais útil, mas espalha conteúdo para fora do produto) |
+| 2026-10-14 | PDF | reportlab (BSD) em Python, fontes padrão do PDF (Latin-1) | Navegador sem cabeça (dependência pesada); WeasyPrint (dependências do sistema) |
+| 2026-10-14 | Totais dos relatórios | Mesma função do painel (`compute_overview`) | Consultas próprias nos relatórios (números divergiriam) |
+| 2026-10-14 | Worker | Mesmo código e imagem da API, processo separado, papel restrito; `list_tenant_ids()` é a única função que cruza tenants | Worker com o dono do banco (ignora a RLS) |
+| 2026-10-14 | Teams | Implementado como EXPERIMENTAL / A VERIFICAR | Fingir suporte sem poder ler a documentação da Microsoft |
 

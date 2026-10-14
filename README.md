@@ -2,17 +2,17 @@
 
 Plataforma que observa o uso de IA por funcionários e agentes, classifica cada evento, calcula risco explicável e aplica políticas. Contexto completo em [`CLAUDE.md`](CLAUDE.md).
 
-**Estado:** Etapa 6 (console web ligado à API). O que existe:
+**Estado:** Etapa 7 (score por usuário, alertas, SIEM e relatórios). O que existe:
 
 | Pasta | O que tem |
 |---|---|
 | `apps/api` | FastAPI: ingestão de eventos, políticas, incidentes, auditoria, multi-tenant com RLS (ver seção abaixo) |
-| `apps/web` | console Next.js: visão geral, prompts, incidentes, políticas (ver o README da pasta) |
+| `apps/web` | console Next.js: visão geral, prompts, incidentes, políticas, risco por usuário, alertas e SIEM, relatórios (ver o README da pasta) |
 | `packages/detection` | motor de detecção, com taxonomia em `packages/taxonomy` (`docs/deteccao.md`, `docs/relatorio-etapa2.md`) |
 | `apps/extension` | extensão Chrome/Edge para ChatGPT web e Claude.ai (EXPERIMENTAL; ver o README da pasta) |
 | `packages/adapters/claude_code_hook` | hook do Claude Code (instalação, modo de falha, testes; ver o README da pasta) |
 | `prototipo/console.html` | protótipo visual com **dados simulados** (abre direto no navegador) |
-| `docs/` | `viabilidade.md` (captura por ferramenta), `arquitetura.md`, `decisoes.md` |
+| `docs/` | `viabilidade.md` (captura por ferramenta), `arquitetura.md`, `decisoes.md`, `siem.md` (alertas, CEF, relatórios) |
 
 ## Requisitos
 
@@ -105,3 +105,7 @@ DATABASE_URL_TEST=postgresql+psycopg://usuario:senha@localhost:5432/banco_de_tes
 ```
 
 O usuário precisa ser dono do banco (cria o papel `promptshield_app`) e o banco precisa ser UTF8. O teste recria o esquema (`alembic downgrade base` e `upgrade head`) e apaga os dados entre testes: **nunca aponte para um banco com dados**.
+
+## Alertas, SIEM e relatórios (Etapa 7)
+
+O serviço `worker` do compose entrega a fila de notificações e gera relatórios agendados (`python -m app.worker`, ou `--once`). Canais, regras, formatos e o estado de cada integração (Teams é EXPERIMENTAL e A VERIFICAR; e-mail e Slack são PARCIAIS): [`docs/siem.md`](docs/siem.md). Para e-mail, configure `SMTP_*` no `.env`.

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { apiGet, expectAccessible, login, USERS } from "./helpers";
+import { apiGet, expectAccessible, login, logout, USERS } from "./helpers";
 
 // Valores esperados SEMPRE vêm da API (pelo proxy do console) no momento do teste: nada é digitado aqui.
 interface Overview { totals: { events: number; high_risk: number; with_code: number; with_sensitive: number; users: number }; daily: { events: number; high_risk: number }[]; by_department: { department: string; events: number; high_risk: number }[] }
@@ -148,7 +148,7 @@ test("incidentes: leitura e auditor não triam nem pedem o original", async ({ p
     await page.getByTestId("incident-row").first().getByRole("link").click();
     await expect(page.getByLabel("Status")).toBeDisabled();
     await expect(page.getByRole("button", { name: "Ver texto original" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Sair" }).click();
+    await logout(page);
   }
 });
 

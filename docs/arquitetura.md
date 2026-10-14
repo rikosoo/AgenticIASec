@@ -26,3 +26,12 @@ navegador --cookie httpOnly--> Next.js (BFF) --Bearer--> API --RLS--> PostgreSQL
 ```
 
 O token nunca chega ao JavaScript do navegador. O proxy só aceita `/v1/...` e exige cabeçalho `X-Requested-With` e `Origin` igual ao `Host` nas mutações. Login: `mock` (desenvolvimento) ou OIDC Authorization Code + PKCE (não testado contra provedor real). Todas as telas usam a mesma janela de tempo (`window_start`: 00:00 UTC do primeiro de N dias) para que os números de visão geral, lista e categorias batam.
+
+## Alertas, SIEM e relatórios (Etapa 7)
+
+```
+ingestão -> análise -> incidente/alerta (deduplicado) -> fila de envio (outbox) -> worker -> webhook | Slack | Teams | e-mail | syslog/CEF
+                                                                              \-> relatórios agendados (PDF/CSV)
+```
+
+Tudo roda sobre o mesmo PostgreSQL com RLS. O worker (`python -m app.worker`) usa o papel restrito; só `list_tenant_ids()` (função SECURITY DEFINER que devolve ids) cruza tenants. Detalhes, estado de cada integração e mapeamento de campos: `docs/siem.md`.
