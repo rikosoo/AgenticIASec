@@ -18,11 +18,11 @@ class MasterKeyMissingError(RuntimeError):
     pass
 
 
-def _fernet(tenant_id: uuid.UUID) -> Fernet:
+def _fernet(tenant_id: uuid.UUID, purpose: bytes = b"original") -> Fernet:
     if not settings.original_text_master_key:
         raise MasterKeyMissingError("ORIGINAL_TEXT_MASTER_KEY não configurada")
     master = base64.urlsafe_b64decode(settings.original_text_master_key)
-    key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"promptshield/original/" + tenant_id.bytes).derive(master)
+    key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"promptshield/" + purpose + b"/" + tenant_id.bytes).derive(master)
     return Fernet(base64.urlsafe_b64encode(key))
 
 
@@ -32,3 +32,12 @@ def encrypt_original(tenant_id: uuid.UUID, text: str) -> bytes:
 
 def decrypt_original(tenant_id: uuid.UUID, blob: bytes) -> str:
     return _fernet(tenant_id).decrypt(blob).decode("utf-8")
+
+
+def encrypt_secret(tenant_id: uuid.UUID, value: str) -> bytes:
+    """Segredos de canais (ex.: chave HMAC do webhook). Chave derivada separada da do texto original."""
+    return _fernet(tenant_id, b"channel-secret").encrypt(value.encode("utf-8"))
+
+
+def decrypt_secret(tenant_id: uuid.UUID, blob: bytes) -> str:
+    return _fernet(tenant_id, b"channel-secret").decrypt(blob).decode("utf-8")

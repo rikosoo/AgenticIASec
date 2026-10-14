@@ -11,11 +11,12 @@ dependencies = [
   "pydantic-settings>=2.4",
   "pyjwt[crypto]>=2.8",
   "cryptography>=42",
+  "reportlab>=4",
   "promptshield-detection",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6"]
+dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6", "pypdf>=4"]
 
 [tool.setuptools]
 packages = ["app"]

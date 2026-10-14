@@ -7,6 +7,7 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -44,6 +45,7 @@ class Tenant(Base):
     retention_days: Mapped[int] = mapped_column(Integer, default=90)
     policy_url: Mapped[str | None] = mapped_column(String(500))
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    volume_threshold_per_hour: Mapped[int] = mapped_column(Integer, default=60)
     monitored_domains: Mapped[list[str]] = mapped_column(ARRAY(String), default=lambda: ["chatgpt.com", "claude.ai"])
 
 
@@ -152,3 +154,77 @@ class AuditLog(Base):
     target_type: Mapped[str | None] = mapped_column(String(40))
     target_id: Mapped[str | None] = mapped_column(String(200))
     detail: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+
+class NotificationChannel(Base):
+    __tablename__ = "notification_channels"
+    id: Mapped[uuid.UUID] = _pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    kind: Mapped[str] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(120))
+    target: Mapped[str] = mapped_column(String(1000))
+    config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    secret_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = _ts()
+
+
+class Alert(Base):
+    __tablename__ = "alerts"
+    id: Mapped[uuid.UUID] = _pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    rule: Mapped[str] = mapped_column(String(40))
+    severity: Mapped[str] = mapped_column(String(10))
+    dedup_key: Mapped[str] = mapped_column(String(300))
+    user_id: Mapped[str] = mapped_column(String(200))
+    department: Mapped[str | None] = mapped_column(String(120))
+    event_pk: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("events.id", ondelete="SET NULL"))
+    incident_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("incidents.id", ondelete="SET NULL"))
+    title: Mapped[str] = mapped_column(String(300))
+    detail: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    count: Mapped[int] = mapped_column(Integer, default=1)
+    first_seen: Mapped[datetime] = _ts()
+    last_seen: Mapped[datetime] = _ts()
+
+
+class OutboxItem(Base):
+    __tablename__ = "notification_outbox"
+    id: Mapped[uuid.UUID] = _pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    channel_id: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("notification_channels.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(String(10))
+    ref_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    status: Mapped[str] = mapped_column(String(10), default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    next_attempt_at: Mapped[datetime] = _ts()
+    last_error: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = _ts()
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ReportSchedule(Base):
+    __tablename__ = "report_schedules"
+    id: Mapped[uuid.UUID] = _pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    kind: Mapped[str] = mapped_column(String(20))
+    format: Mapped[str] = mapped_column(String(5))
+    frequency: Mapped[str] = mapped_column(String(10))
+    recipients: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_period_end: Mapped[Any | None] = mapped_column(Date)
+    created_at: Mapped[datetime] = _ts()
+
+
+class Report(Base):
+    __tablename__ = "reports"
+    id: Mapped[uuid.UUID] = _pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    kind: Mapped[str] = mapped_column(String(20))
+    format: Mapped[str] = mapped_column(String(5))
+    period_start: Mapped[Any] = mapped_column(Date)
+    period_end: Mapped[Any] = mapped_column(Date)
+    content: Mapped[bytes] = mapped_column(LargeBinary)
+    sha256: Mapped[str] = mapped_column(String(64))
+    created_by: Mapped[str] = mapped_column(String(200))
+    schedule_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("report_schedules.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = _ts()

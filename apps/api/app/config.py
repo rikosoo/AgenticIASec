@@ -24,5 +24,20 @@ class Settings(BaseSettings):
     oidc_audience: str | None = None
     oidc_jwks_url: str | None = None
 
+    # notificações (Etapa 7). Webhooks exigem https e destino público, salvo estas válvulas de desenvolvimento/teste.
+    allow_insecure_webhooks: bool = False
+    allow_private_webhook_targets: bool = False
+    webhook_timeout_seconds: float = 5.0
+    outbox_max_attempts: int = 5
+    # e-mail: sem smtp_host o envio por e-mail falha com mensagem clara (nada é fingido)
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str = "promptshield@localhost"
+    smtp_starttls: bool = True
+    # endereço do console, usado nos links das notificações (opcional)
+    console_url: str | None = None
+
 
 settings = Settings()

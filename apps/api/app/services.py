@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app import crypto
+from app import alerts, crypto
 from app.config import settings
 from app.models import Analysis, Event, Incident, Policy, Tenant
 from app.policy_engine import DEFAULT_POLICIES, PolicySpec, Subject, evaluate
@@ -124,4 +124,5 @@ def ingest(session: Session, p: Principal, ev: EventIn) -> EventResult:
     session.flush()
     event = session.get(Event, pk)
     assert event is not None
+    alerts.evaluate(session, tenant, event, analysis, incident_id, severity(an.risk["score"]) if incident_id else None)
     return _result(event, analysis, incident_id, False)

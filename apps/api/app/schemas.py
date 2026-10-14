@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -119,6 +119,7 @@ class TenantPatch(BaseModel):
     failure_mode: Literal["open", "closed"] | None = None
     retention_days: int | None = Field(default=None, ge=7, le=365)
     store_original: bool | None = None
+    volume_threshold_per_hour: int | None = Field(default=None, ge=0, le=100000)
     policy_url: str | None = Field(default=None, max_length=500, pattern=r"^https://\S+$")
     monitored_domains: list[str] | None = Field(default=None, max_length=50)
 
@@ -138,3 +139,39 @@ class TenantPatch(BaseModel):
 
 class JustificationIn(BaseModel):
     justification: str = Field(min_length=10, max_length=1000)
+
+
+class ChannelIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["webhook", "slack", "teams", "email", "syslog_cef", "siem_webhook"]
+    name: str = Field(min_length=1, max_length=120)
+    target: str = Field(min_length=3, max_length=1000)
+    enabled: bool = True
+    min_severity: Literal["baixo", "medio", "alto", "critico"] | None = None  # canais de alerta
+    min_score: int | None = Field(default=None, ge=0, le=100)  # canais de eventos (SIEM)
+    proto: Literal["udp", "tcp"] | None = None  # syslog
+    secret: str | None = Field(default=None, min_length=16, max_length=200)  # chave HMAC do webhook
+
+
+class ChannelPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    enabled: bool | None = None
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    min_severity: Literal["baixo", "medio", "alto", "critico"] | None = None
+    min_score: int | None = Field(default=None, ge=0, le=100)
+
+
+class ReportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["executivo", "lgpd"]
+    format: Literal["pdf", "csv"]
+    start: date
+    end: date
+
+
+class ScheduleIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["executivo", "lgpd"]
+    format: Literal["pdf", "csv"]
+    frequency: Literal["mensal", "semanal"]
+    recipients: list[str] = Field(default_factory=list, max_length=20)
