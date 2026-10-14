@@ -13,7 +13,7 @@ down:
 
 .venv:
 	$(PY) -m venv .venv
-	.venv/bin/pip install -q -e "packages/detection[dev]" && .venv/bin/pip install -q -e "apps/api[dev]"
+	.venv/bin/pip install -q -e "packages/detection[dev]" && .venv/bin/pip install -q -e "apps/api[dev]" -e "packages/adapters/claude_code_hook[dev]"
 
 apps/web/node_modules: apps/web/package-lock.json
 	cd apps/web && npm ci
@@ -21,10 +21,11 @@ apps/web/node_modules: apps/web/package-lock.json
 test: .venv apps/web/node_modules ## testes de api, detection e web
 	cd apps/api && ../../.venv/bin/pytest -q
 	cd packages/detection && ../../.venv/bin/pytest -q
+	cd packages/adapters/claude_code_hook && ../../../.venv/bin/pytest -q
 	cd apps/web && npm test
 
 lint: .venv apps/web/node_modules
-	.venv/bin/ruff check apps/api packages/detection
+	.venv/bin/ruff check apps/api packages/detection packages/adapters
 	cd apps/web && npm run lint
 
 SPACY_MODELS = https://github.com/explosion/spacy-models/releases/download

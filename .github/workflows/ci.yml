@@ -21,16 +21,17 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e "packages/detection[dev,ner]" && pip install -e "apps/api[dev]"
+      - run: pip install -e "packages/detection[dev,ner]" && pip install -e "apps/api[dev]" -e "packages/adapters/claude_code_hook[dev]"
       - run: >-
           pip install
           https://github.com/explosion/spacy-models/releases/download/pt_core_news_sm-3.8.0/pt_core_news_sm-3.8.0-py3-none-any.whl
           https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
-      - run: ruff check apps/api packages/detection
+      - run: ruff check apps/api packages/detection packages/adapters
       - run: cd apps/api && pytest -q
         env:
           DATABASE_URL_TEST: postgresql+psycopg://ci:ci@localhost:5432/ci
       - run: cd packages/detection && pytest -q
+      - run: cd packages/adapters/claude_code_hook && pytest -q
   web:
     runs-on: ubuntu-latest
     defaults:

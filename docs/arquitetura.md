@@ -10,7 +10,8 @@ coletor -> evento universal -> motor de detecção -> política -> console
 | Console (Next.js) | `apps/web` | página inicial que consulta `/health` da API |
 | Motor de detecção | `packages/detection` | motor de detecção (ver `docs/deteccao.md`) |
 | Taxonomia | `packages/taxonomy` | `taxonomy.yaml` com 30 categorias |
-| Adaptadores | `packages/adapters` | vazio (Etapas 4, 5, 8) |
+| Adaptador Claude Code | `packages/adapters/claude_code_hook` | hook de comando (Etapa 4) |
+| Adaptadores restantes | `packages/adapters` | extensão (Etapa 5) e inference hooks (Etapa 8) |
 | Extensão | `apps/extension` | não criada (Etapa 5) |
 
 Banco: PostgreSQL 16. Row-level security entra na Etapa 3, junto com as tabelas de eventos.

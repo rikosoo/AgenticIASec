@@ -151,3 +151,14 @@ def test_openapi_is_published(client):
     spec = client.get("/openapi.json").json()
     assert "/v1/events" in spec["paths"] and spec["info"]["title"] == "PromptShield API"
     assert client.get("/docs").status_code == 200
+
+
+def test_failure_mode_is_configurable_audited_and_readable_by_collectors(client, world):
+    assert client.get("/v1/hook-config", headers=world.key()).json() == {"failure_mode": "open"}
+    assert client.patch("/v1/tenant", json={"failure_mode": "closed"}, headers=world.user("analista")).status_code == 403
+    r = client.patch("/v1/tenant", json={"failure_mode": "closed", "retention_days": 30}, headers=world.user("admin"))
+    assert r.json()["failure_mode"] == "closed" and r.json()["retention_days"] == 30
+    assert client.get("/v1/hook-config", headers=world.key()).json() == {"failure_mode": "closed"}
+    assert client.patch("/v1/tenant", json={"retention_days": 3}, headers=world.user("admin")).status_code == 422
+    assert any(a["action"] == "tenant.update" for a in client.get("/v1/audit-log", headers=world.user("auditor")).json())
+    assert client.get("/v1/hook-config", headers=world.user("admin")).status_code == 403   # usuários não usam a rota de coletor

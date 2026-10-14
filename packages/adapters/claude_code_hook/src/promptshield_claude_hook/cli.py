@@ -1,0 +1,80 @@
+"""Ponto de entrada: lê o JSON do hook em stdin, consulta a API e responde no formato do Claude Code.
+
+Uso pelo Claude Code:  promptshield-claude-hook            (lê o evento de stdin)
+Uso do administrador:  promptshield-claude-hook check      (testa configuração e conexão)
+                       promptshield-claude-hook refresh-config   (atualiza o modo de falha a partir da API)
+"""
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+from . import client, config, decide, spool, translate
+
+MAX_STDIN = 20 * 1024 * 1024
+
+
+def run_hook(raw: str, cfg: config.Config) -> dict | None:
+    """Núcleo testável: devolve o JSON de saída (ou None). Nunca levanta exceção."""
+    hook_event = "desconhecido"
+    event = None
+    try:
+        data = json.loads(raw)
+        hook_event = str(data.get("hook_event_name", "desconhecido"))
+        event = translate.build_event(data, cfg)
+        if event is None:
+            return None
+        result = client.post_event(cfg, event)
+        return decide.render(hook_event, result)
+    except Exception as exc:  # noqa: BLE001 - qualquer falha cai no modo de falha, nunca derruba o Claude Code
+        reason = str(exc) if isinstance(exc, client.ApiError) else f"erro interno ({type(exc).__name__})"
+        if cfg.fail_mode != "closed":
+            spool.record(cfg.spool_path, hook_event, event, reason)
+        print(f"promptshield: {reason}; modo de falha: {cfg.fail_mode}", file=sys.stderr)
+        return decide.render_failure(hook_event, cfg.fail_mode, reason)
+
+
+def cmd_check(cfg: config.Config) -> int:
+    print(f"configuração: {cfg.source_path or '(nenhum arquivo; só variáveis de ambiente)'}")
+    print(f"api_url: {cfg.api_url or '(vazio)'}  chave: {'definida' if cfg.api_key else 'AUSENTE'}  modo de falha: {cfg.fail_mode}")
+    try:
+        remote = client.get_hook_config(cfg)
+    except client.ApiError as exc:
+        print(f"FALHOU: {exc}")
+        return 1
+    print(f"OK. Modo de falha no tenant: {remote.get('failure_mode')}")
+    if remote.get("failure_mode") != cfg.fail_mode:
+        print("ATENÇÃO: o modo local difere do tenant. Rode `refresh-config`.")
+    return 0
+
+
+def cmd_refresh(cfg: config.Config) -> int:
+    if not cfg.source_path:
+        print("sem arquivo de configuração para atualizar")
+        return 1
+    try:
+        mode = client.get_hook_config(cfg)["failure_mode"]
+        p = Path(cfg.source_path)
+        data = json.loads(p.read_text(encoding="utf-8"))
+        data["fail_mode"] = mode
+        p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    except (client.ApiError, OSError, KeyError, ValueError) as exc:
+        print(f"FALHOU: {exc}")
+        return 1
+    print(f"fail_mode = {mode}")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    cfg = config.load()
+    if args and args[0] == "check":
+        return cmd_check(cfg)
+    if args and args[0] == "refresh-config":
+        return cmd_refresh(cfg)
+    raw = sys.stdin.read(MAX_STDIN)
+    out = run_hook(raw, cfg)
+    if out is not None:
+        print(json.dumps(out, ensure_ascii=False))
+    return 0

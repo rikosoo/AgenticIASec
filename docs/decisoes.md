@@ -22,3 +22,8 @@ Uma linha por decisão: contexto, escolha, alternativas.
 | 2026-10-14 | Texto original | Opcional por tenant (`store_original`), Fernet com chave derivada por HKDF da chave mestra; leitura exige justificativa e vai para `audit_log` | Sempre guardar (viola privacidade por padrão); KMS por tenant fica para a Etapa 9 |
 | 2026-10-14 | Usuário de teste de banco | Testes usam o superuser de `DATABASE_URL_TEST` só para migrar e limpar; todo o resto roda com o papel restrito | Rodar tudo como superuser (esconderia falhas de RLS) |
 | 2026-10-14 | Um tenant por e-mail | `lower(email)` único globalmente (login OIDC resolve tenant pelo e-mail) | E-mail repetido em vários tenants (exigiria escolher tenant no login) |
+| 2026-10-14 | Hook `http` do Claude Code não bloqueia quando a API cai (só com `onFailure: "block"`, v2.1.295+) | Adaptador como `command` em forma exec que decide fail-open/closed sozinho | Hook `http` direto na API (fail-open silencioso) |
+| 2026-10-14 | Hook de prompt não reescreve o texto | `mask` vira bloqueio com a versão mascarada na mensagem; em ferramenta vira `ask` | Tentar `updatedInput`/`updatedToolOutput` (formato por ferramenta, risco de quebrar a ferramenta) |
+| 2026-10-14 | Registro local em fail-open | Só metadados (id, tipo, tamanho), nunca o conteúdo | Guardar o prompt no disco (vazaria o dado que queremos proteger) |
+| 2026-10-14 | Teste no Claude Code real | `--settings` em diretório isolado; sem escrever em `/etc/claude-code` | Instalar como política gerenciada (afetaria a própria sessão em curso) |
+| 2026-10-14 | Modo de falha por tenant | `GET /v1/hook-config`; `refresh-config` grava o valor no arquivo local | Consultar a API a cada evento (não funciona com a API fora do ar) |

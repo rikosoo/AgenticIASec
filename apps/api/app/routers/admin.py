@@ -9,9 +9,9 @@ from sqlalchemy.exc import IntegrityError
 
 from app import audit
 from app.db import tenant_session
-from app.models import ApiKey, AuditLog, User
-from app.schemas import ApiKeyIn, UserIn
-from app.security import READ_ROLES, Principal, current_principal, generate_api_key, require_roles
+from app.models import ApiKey, AuditLog, Tenant, User
+from app.schemas import ApiKeyIn, TenantPatch, UserIn
+from app.security import Principal, current_principal, generate_api_key, require_ingest, require_roles
 
 router = APIRouter(prefix="/v1", tags=["administração"])
 
@@ -79,4 +79,32 @@ def audit_log(p: Annotated[Principal, Depends(require_roles("admin", "auditor"))
                  "target_id": r.target_id, "detail": r.detail} for r in rows]
 
 
-_ = READ_ROLES
+
+def _tenant_view(t: Tenant) -> dict:
+    return {"id": str(t.id), "name": t.name, "failure_mode": t.failure_mode, "retention_days": t.retention_days,
+            "store_original": t.store_original}
+
+
+@router.get("/tenant", summary="Configurações do tenant")
+def get_tenant(p: Annotated[Principal, Depends(require_roles("admin", "analista", "auditor", "leitura"))]) -> dict:
+    with tenant_session(p.tenant_id) as s:
+        return _tenant_view(s.get(Tenant, p.tenant_id))
+
+
+@router.patch("/tenant", summary="Altera modo de falha, retenção ou guarda do texto original (grava auditoria)")
+def patch_tenant(body: TenantPatch, p: Annotated[Principal, Depends(require_roles("admin"))]) -> dict:
+    with tenant_session(p.tenant_id) as s:
+        t = s.get(Tenant, p.tenant_id)
+        before = _tenant_view(t)
+        for k, v in body.model_dump(exclude_unset=True).items():
+            setattr(t, k, v)
+        s.flush()
+        audit.write(s, p, "tenant.update", "tenant", str(p.tenant_id), {"before": before, "after": _tenant_view(t)})
+        return _tenant_view(t)
+
+
+@router.get("/hook-config", summary="Configuração mínima para coletores (modo de falha)")
+def hook_config(p: Annotated[Principal, Depends(require_ingest)]) -> dict:
+    with tenant_session(p.tenant_id) as s:
+        t = s.get(Tenant, p.tenant_id)
+        return {"failure_mode": t.failure_mode}

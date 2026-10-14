@@ -111,3 +111,10 @@ class UserIn(BaseModel):
 
 class ApiKeyIn(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+
+
+class TenantPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    failure_mode: Literal["open", "closed"] | None = None
+    retention_days: int | None = Field(default=None, ge=7, le=365)
+    store_original: bool | None = None

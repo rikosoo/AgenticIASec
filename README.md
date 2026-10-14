@@ -2,13 +2,14 @@
 
 Plataforma que observa o uso de IA por funcionários e agentes, classifica cada evento, calcula risco explicável e aplica políticas. Contexto completo em [`CLAUDE.md`](CLAUDE.md).
 
-**Estado:** Etapa 3 (API de ingestão). Ainda não há coletores reais (hook, extensão) nem console ligado à API. O que existe:
+**Estado:** Etapa 4 (hook do Claude Code). Ainda não há extensão de navegador nem console ligado à API. O que existe:
 
 | Pasta | O que tem |
 |---|---|
 | `apps/api` | FastAPI: ingestão de eventos, políticas, incidentes, auditoria, multi-tenant com RLS (ver seção abaixo) |
 | `apps/web` | Next.js com uma página que mostra se a API está online |
 | `packages/detection` | motor de detecção, com taxonomia em `packages/taxonomy` (`docs/deteccao.md`, `docs/relatorio-etapa2.md`) |
+| `packages/adapters/claude_code_hook` | hook do Claude Code (instalação, modo de falha, testes; ver o README da pasta) |
 | `prototipo/console.html` | protótipo visual com **dados simulados** (abre direto no navegador) |
 | `docs/` | `viabilidade.md` (captura por ferramenta), `arquitetura.md`, `decisoes.md` |
 
