@@ -328,6 +328,15 @@ for c in ["git status && npm test", "pytest -q", "ls -la", "git diff --stat", "g
     cmd("ordinario_cmd", c, [], hard=False)
 
 
+# ---------- documento declarado, mesmo inválido ou com erro de digitação (LGPD/GDPR: é dado pessoal) ----------
+for t in ["meu cpf e 3444353432123 pode ver se vazou dados", "meu CPF é 123.456.789-00, confere?", "cpf: 12345678900",
+          "Cadastre o CPF 111.222.333-44 do novo fornecedor", "my cpf number is 98765432100, was it leaked?",
+          "o cnpj da empresa é 12.345.678/0001-00", "meu RG é 12.345.678-9 e preciso do segundo via", "CPF 5299822472"]:
+    add("pii_declarado", "pt" if any(w in t for w in ("meu", "cadastre", "cpf:", "cnpj", "Cadastre", "CPF 52")) else "en", t, ["pii"])
+for t in ["Esse número 123.456.789-00 não é um CPF, é um protocolo.", "O CPF não é obrigatório neste formulário.",
+          "Explique como funciona o dígito verificador do CPF.", "Qual a diferença entre CPF e CNPJ?"]:
+    add("pii_declarado_neg", "pt", t, [] if "Explique" not in t and "Qual" not in t else ["produtividade_legitima"], hard=True)
+
 # ---------- nomes (NER opcional) e endereços (regex) ----------
 FULL = ["Maria Fernanda Souza", "João Pedro Almeida", "Carla Regina Nunes", "Ricardo Alves Barros", "Paula Menezes Lima",
         "Eduardo Campos Rocha", "Luciana Prado Costa", "Marcelo Duarte Pereira"]

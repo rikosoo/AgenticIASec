@@ -106,3 +106,19 @@ def test_taxonomy_negative_examples_do_not_fire_their_category():
             if c.id in analyze(e).category_ids():
                 failures.append((c.id, text[:50]))
     assert not failures, failures
+
+
+@pytest.mark.parametrize("text", [
+    "meu cpf e 3444353432123 pode ver se vazou dados",   # 13 dígitos, inválido: ainda é dado pessoal declarado
+    "meu CPF é 123.456.789-00, confere?",
+    "cpf: 12345678900",
+])
+def test_declared_cpf_is_pii_even_when_invalid(text):
+    a = analyze(ev(text))
+    assert "pii" in a.category_ids()
+    assert "[CPF]" in a.masked_text
+    assert not any(ch.isdigit() for ch in a.masked_text.split("cpf")[-1].split("CPF")[-1][:12]), a.masked_text
+
+
+def test_number_before_the_word_cpf_is_not_declared():
+    assert "pii" not in analyze(ev("Esse número 123.456.789-00 não é um CPF, é um protocolo.")).category_ids()

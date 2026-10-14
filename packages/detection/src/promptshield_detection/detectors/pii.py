@@ -13,6 +13,11 @@ PHONE_RE = re.compile(r"(?<![\d])(?:\+55[ -]?)?\(?\d{2}\)?[ -]?9?\d{4}[ -]\d{4}(
 RG_RE = re.compile(r"(?<![\d.])\d{1,2}\.\d{3}\.\d{3}-?[\dxX](?![\d])")
 CARD_RE = re.compile(r"(?<![\d-])(?:\d[ -]?){12,18}\d(?![\d-])")
 BANK_RE = re.compile(r"ag[eê]ncia\W{0,3}\d{3,5}\W{0,12}conta\W{0,3}\d{4,}-?\d?", re.I)
+# Número declarado como documento ("meu cpf é 3444353432123"): é dado pessoal mesmo com dígito inválido,
+# erro de digitação ou tamanho errado. Só vale quando a palavra vem ANTES do número.
+CPF_DECL_RE = re.compile(r"(?i)\b(?:cpf|c\.p\.f)\b[^\d\n.;]{0,20}?(\d[\d.\-]{6,17}\d)")
+CNPJ_DECL_RE = re.compile(r"(?i)\bcnpj\b[^\d\n.;]{0,20}?(\d[\d.\-/]{9,20}\d)")
+RG_DECL_RE = re.compile(r"(?i)\b(?:rg|identidade|registro geral)\b[^\d\n.;]{0,15}?(\d[\d.\-]{4,13}[\dxX])")
 CEP_RE = re.compile(r"(?<![\d-])\d{5}-\d{3}(?![\d-])")
 ADDR_PT_RE = re.compile(
     r"\b(?:Rua|R\.|Avenida|Av\.|Alameda|Travessa|Pra[çc]a|Estrada|Rodovia)\s+[^,\n\d]{3,50}?,?\s*(?:n[ºo°.]?\s*)?\d{1,5}\b")
@@ -51,6 +56,14 @@ def detect(ctx: Context) -> list[Finding]:
     for m in RG_RE.finditer(t):
         if _near(t, m.start(), m.end(), CTX_RG, 20):
             out.append(Finding("pii", 0.85, "RG com contexto", "rg", m.start(), m.end(), "**.***.***-*"))
+    for rx, lo, hi, kind, label, masked in (
+        (CPF_DECL_RE, 9, 14, "cpf", "CPF informado (dígito verificador inválido ou formato incomum)", "[CPF]"),
+        (CNPJ_DECL_RE, 12, 16, "cnpj", "CNPJ informado (dígito verificador inválido ou formato incomum)", "[CNPJ]"),
+        (RG_DECL_RE, 6, 12, "rg", "RG informado", "[RG]"),
+    ):
+        for m in rx.finditer(t):
+            if lo <= len(digits(m.group(1))) <= hi:
+                out.append(Finding("pii", 0.8, label, kind, m.start(1), m.end(1), masked))
     for m in EMAIL_RE.finditer(t):
         out.append(Finding("pii", 0.75, "Endereço de e-mail", "email", m.start(), m.end(),
                            "***@" + m.group().split("@")[1]))

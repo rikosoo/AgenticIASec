@@ -9,6 +9,9 @@ dependencies = [
   "alembic>=1.13",
   "psycopg[binary]>=3.2",
   "pydantic-settings>=2.4",
+  "pyjwt[crypto]>=2.8",
+  "cryptography>=42",
+  "promptshield-detection",
 ]
 
 [project.optional-dependencies]

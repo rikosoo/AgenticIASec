@@ -271,6 +271,7 @@ function detect(text,kind){
  }
  var m,re;
  re=/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g;while((m=re.exec(text))){if(cpfOk(m[0]))add("pii",.97,"cpf",m.index,m.index+m[0].length,"***.***.***-"+m[0].slice(-2),"CPF com dígito verificador válido")}
+ [[/\bcpf\b[^\d\n.;]{0,20}?(\d[\d.\-]{6,17}\d)/gi,9,14,"cpf","CPF informado (dígito verificador inválido ou formato incomum)","[CPF]"],[/\bcnpj\b[^\d\n.;]{0,20}?(\d[\d.\-\/]{9,20}\d)/gi,12,16,"cnpj","CNPJ informado (dígito verificador inválido ou formato incomum)","[CNPJ]"],[/\b(?:rg|identidade)\b[^\d\n.;]{0,15}?(\d[\d.\-]{4,13}[\dxX])/gi,6,12,"rg","RG informado","[RG]"]].forEach(function(d){var r2=d[0],q;while((q=r2.exec(text))){var n=q[1].replace(/\D/g,"").length;if(n>=d[1]&&n<=d[2]){var st=q.index+q[0].indexOf(q[1]);add("pii",.8,d[3],st,st+q[1].length,d[5],d[4])}}});
  re=/\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g;while((m=re.exec(text))){if(cnpjOk(m[0]))add("pii",.9,"cnpj",m.index,m.index+m[0].length,"**.***.***/****-"+m[0].slice(-2),"CNPJ com dígito verificador válido")}
  re=/\b[\w.+-]+@[\w-]+(\.[\w-]+)+\b/g;while((m=re.exec(text)))add("pii",.7,"email",m.index,m.index+m[0].length,"***@"+m[0].split("@")[1],"Endereço de e-mail");
  re=/(?:\+?55\s?)?\(?\b\d{2}\)?\s?9?\d{4}-?\d{4}\b/g;while((m=re.exec(text))){var dg=m[0].replace(/\D/g,"");if(dg.length>=10&&dg.length<=13&&/[\s()+-]/.test(m[0]))add("pii",.6,"telefone",m.index,m.index+m[0].length,"(**) *****-"+dg.slice(-4),"Telefone brasileiro")}
