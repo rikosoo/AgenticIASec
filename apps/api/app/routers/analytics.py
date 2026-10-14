@@ -15,8 +15,15 @@ router = APIRouter(prefix="/v1", tags=["painel"])
 HIGH = 60
 
 
-def _since(days: int) -> datetime:
-    return datetime.now(timezone.utc) - timedelta(days=days)
+def window_start(days: int) -> datetime:
+    """Início da janela: 00:00 UTC do primeiro dos `days` dias de calendário (hoje incluído).
+
+    Totais, série diária, categorias, lista de prompts e simulação usam a MESMA janela, para os números fecharem."""
+    first = datetime.now(timezone.utc).date() - timedelta(days=days - 1)
+    return datetime(first.year, first.month, first.day, tzinfo=timezone.utc)
+
+
+_since = window_start
 
 
 @router.get("/taxonomy", summary="As 30 categorias (id, nome, grupo, risco padrão)")

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -11,7 +10,8 @@ from sqlalchemy.sql.expression import cast
 
 from app import audit, crypto
 from app.db import tenant_session
-from app.models import Analysis, Event
+from app.models import Analysis, Event, Incident
+from app.routers.analytics import window_start
 from app.schemas import EventIn, EventResult, JustificationIn, OriginalRequest
 from app.security import READ_ROLES, Principal, require_ingest, require_roles
 from app.services import ingest
@@ -38,7 +38,8 @@ def list_events(
     limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0),
 ) -> list[dict]:
     with tenant_session(p.tenant_id) as s:
-        q = select(Event, Analysis).join(Analysis, Analysis.event_pk == Event.id).where(Analysis.risk_score >= min_score)
+        q = (select(Event, Analysis, Incident.id).join(Analysis, Analysis.event_pk == Event.id)
+             .outerjoin(Incident, Incident.event_pk == Event.id).where(Analysis.risk_score >= min_score))
         if user_id:
             q = q.where(Event.user_id == user_id)
         if department:
@@ -48,7 +49,7 @@ def list_events(
         if personal_account is not None:
             q = q.where(Event.personal_account.is_(personal_account))
         if days:
-            q = q.where(Event.occurred_at >= datetime.now(timezone.utc) - timedelta(days=days))
+            q = q.where(Event.occurred_at >= window_start(days))
         if category:
             q = q.where(cast(Analysis.categories, JSONB).contains([{"id": category}]))
         for key, flag in (("has_code", has_code), ("has_sensitive", has_sensitive), ("is_agent_action", agent_action)):
@@ -60,14 +61,14 @@ def list_events(
         order = (Analysis.risk_score.desc(), Event.occurred_at.desc()) if sort == "risk" else (Event.occurred_at.desc(),)
         rows = s.execute(q.order_by(*order).limit(limit).offset(offset)).all()
         response.headers["X-Total-Count"] = str(total)
-        return [_view(e, a) for e, a in rows]
+        return [_view(e, a, i) for e, a, i in rows]
 
 
 @router.get("/{event_id}", summary="Detalhe de um evento (texto mascarado)")
 def get_event(event_id: uuid.UUID, p: Annotated[Principal, Depends(require_roles(*READ_ROLES))]) -> dict:
     with tenant_session(p.tenant_id) as s:
-        row = s.execute(select(Event, Analysis).join(Analysis, Analysis.event_pk == Event.id)
-                        .where(Event.event_id == event_id)).first()
+        row = s.execute(select(Event, Analysis, Incident.id).join(Analysis, Analysis.event_pk == Event.id)
+                        .outerjoin(Incident, Incident.event_pk == Event.id).where(Event.event_id == event_id)).first()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "evento não encontrado")
         return _view(*row)
@@ -97,9 +98,10 @@ def read_original(event_id: uuid.UUID, body: OriginalRequest,
         return {"event_id": str(event_id), "text": crypto.decrypt_original(p.tenant_id, ev.original_ciphertext)}
 
 
-def _view(e: Event, a: Analysis) -> dict:
+def _view(e: Event, a: Analysis, incident_id: uuid.UUID | None = None) -> dict:
     return {"event_id": str(e.event_id), "occurred_at": e.occurred_at.isoformat(), "app": e.app, "channel": e.channel,
             "user_id": e.user_id, "department": e.department, "kind": e.kind, "personal_account": e.personal_account,
             "masked_text": e.masked_text, "has_original": e.original_ciphertext is not None,
             "categories": a.categories, "flags": a.flags, "risk_score": a.risk_score, "reasons": a.reasons,
-            "decision": a.decision, "would_decide": a.would_decide, "policy_hits": a.policy_hits}
+            "decision": a.decision, "would_decide": a.would_decide, "policy_hits": a.policy_hits,
+            "incident_id": str(incident_id) if incident_id else None}

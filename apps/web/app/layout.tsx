@@ -5,8 +5,8 @@ export const metadata = { title: "PromptShield" };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="pt-BR">
-      <body className="min-h-screen bg-slate-50 text-slate-900">{children}</body>
+    <html lang="pt-BR" data-theme="light">
+      <body className="min-h-screen bg-bg text-fg antialiased">{children}</body>
     </html>
   );
 }

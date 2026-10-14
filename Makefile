@@ -1,4 +1,4 @@
-.PHONY: up down test lint setup ner test-e2e
+.PHONY: up down test lint setup ner test-e2e test-e2e-web
 
 PY ?= python3
 
@@ -41,3 +41,6 @@ ner: .venv ## instala Presidio e os modelos spaCy (pt, en) para o NER opcional
 
 test-e2e: apps/extension/node_modules ## extensão em Chromium real (defina CHROMIUM_PATH)
 	cd apps/extension && npm run test:e2e
+
+test-e2e-web: apps/web/node_modules ## console em Chromium real com API e PostgreSQL reais (defina DATABASE_URL_TEST e CHROMIUM_PATH)
+	cd apps/web && npm run test:e2e

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -12,6 +11,7 @@ from app import audit
 from app.db import tenant_session
 from app.models import Analysis, Event, Policy
 from app.policy_engine import RANK, PolicySpec, Subject, evaluate
+from app.routers.analytics import window_start
 from app.schemas import PolicyIn, PolicyOut
 from app.security import READ_ROLES, Principal, require_roles
 
@@ -73,7 +73,7 @@ MAX_SIMULATED = 5000
 def simulate(body: SimulateIn, p: Annotated[Principal, Depends(require_roles("admin", "analista"))]) -> dict:
     spec = PolicySpec(id="simulada", name=body.policy.name, action=body.policy.action, mode=body.policy.mode, enabled=True,
                       scope=body.policy.scope, match=body.policy.match)
-    since = datetime.now(timezone.utc) - timedelta(days=body.days)
+    since = window_start(body.days)
     with tenant_session(p.tenant_id) as s:
         total = s.execute(select(text("count(*)")).select_from(Event).where(Event.occurred_at >= since)).scalar_one()
         rows = s.execute(select(Event, Analysis).join(Analysis, Analysis.event_pk == Event.id).where(Event.occurred_at >= since)

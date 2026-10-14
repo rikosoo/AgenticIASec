@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import ApiKey, Policy, Tenant
+from app.routers.analytics import window_start
 from app.schemas import EventIn
 from app.security import Principal
 from app.services import ingest
@@ -87,6 +88,7 @@ def seed_demo(session: Session, slug: str, days: int = 14, count: int = 400, see
 
     rnd = random.Random(seed)
     now = datetime.now(timezone.utc)
+    start = window_start(days)       # a mesma janela dos números do painel
     made = 0
     for _ in range(count):
         user, dept, risk = rnd.choice(PEOPLE)
@@ -94,7 +96,7 @@ def seed_demo(session: Session, slug: str, days: int = 14, count: int = 400, see
         kind, content, app, channel = rnd.choice(pool)
         if dept != "Engenharia" and channel == "agent_hook":      # só engenharia usa agentes de código
             kind, content, app, channel = rnd.choice([x for x in pool if x[3] == "browser"] or SAFE[:1])
-        at = now - timedelta(seconds=rnd.randint(60, days * 86400 - 60))
+        at = start + timedelta(seconds=rnd.randint(0, max(1, int((now - start).total_seconds()) - 60)))
         ingest(session, principal, _event(kind, content, app, channel, user, dept, rnd.random() < 0.3, at))
         made += 1
     return {"events": made, "days": days}

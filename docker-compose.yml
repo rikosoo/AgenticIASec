@@ -25,6 +25,7 @@ services:
       OIDC_MODE: ${OIDC_MODE:-off}
       OIDC_MOCK_SECRET: ${OIDC_MOCK_SECRET:-}
       ORIGINAL_TEXT_MASTER_KEY: ${ORIGINAL_TEXT_MASTER_KEY:-}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
     ports: ["${API_PORT:-8000}:8000"]
     depends_on:
       db:
@@ -39,6 +40,11 @@ services:
     build: ./apps/web
     environment:
       API_INTERNAL_URL: http://api:8000
+      AUTH_MODE: ${AUTH_MODE:-oidc}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
     ports: ["${WEB_PORT:-3000}:3000"]
     depends_on:
       api:

@@ -34,3 +34,10 @@ Uma linha por decisão: contexto, escolha, alternativas.
 | 2026-10-14 | Mascarar na extensão | A extensão pede confirmação e substitui o texto do campo pela versão mascarada da API antes de enviar | Mascarar localmente (duplicaria o motor de detecção) |
 | 2026-10-14 | Shadow DOM | Fechado em produção, aberto só no build de teste (Playwright não atravessa shadow DOM fechado) | Aberto sempre (a página poderia mexer no diálogo) |
 | 2026-10-14 | Teste ponta a ponta da extensão | Playwright em Node com API simulada (rápido) + pytest com API real e PostgreSQL (contrato, CORS, auditoria) | Só um dos dois |
+| 2026-10-14 | Como o console fala com a API | BFF: cookie `ps_session` httpOnly e proxy `/api/proxy/v1/*`, com verificação de CSRF (`X-Requested-With` + `Origin`) | Token em localStorage (exposto a XSS); CORS direto do navegador |
+| 2026-10-14 | Janela de tempo dos números | Uma só função `window_start(days)` na API, usada por estatísticas, listas e seed demo | Cada endpoint calcular a sua (números divergiam) |
+| 2026-10-14 | Detalhe do prompt | Diálogo sobre a lista | Painel lateral fixo (cortava a tabela em telas médias) |
+| 2026-10-14 | Seleção de tenant no login | Não implementada: o tenant vem do e-mail (um e-mail, um tenant) | Tela de escolha (exige modelo de usuário em vários tenants) |
+| 2026-10-14 | Login OIDC no console | Authorization Code + PKCE implementado; só o modo mock foi testado | Esperar um IdP de teste para escrever |
+| 2026-10-14 | Dados de demonstração | `seed-demo` grava eventos sintéticos e marca `tenants.is_demo`; o console mostra o selo "dados de exemplo" | Dados só no front (violaria "nada fixo no código") |
+

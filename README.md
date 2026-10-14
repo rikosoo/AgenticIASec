@@ -2,12 +2,12 @@
 
 Plataforma que observa o uso de IA por funcionários e agentes, classifica cada evento, calcula risco explicável e aplica políticas. Contexto completo em [`CLAUDE.md`](CLAUDE.md).
 
-**Estado:** Etapa 5 (extensão de navegador). O console ainda não está ligado à API. O que existe:
+**Estado:** Etapa 6 (console web ligado à API). O que existe:
 
 | Pasta | O que tem |
 |---|---|
 | `apps/api` | FastAPI: ingestão de eventos, políticas, incidentes, auditoria, multi-tenant com RLS (ver seção abaixo) |
-| `apps/web` | Next.js com uma página que mostra se a API está online |
+| `apps/web` | console Next.js: visão geral, prompts, incidentes, políticas (ver o README da pasta) |
 | `packages/detection` | motor de detecção, com taxonomia em `packages/taxonomy` (`docs/deteccao.md`, `docs/relatorio-etapa2.md`) |
 | `apps/extension` | extensão Chrome/Edge para ChatGPT web e Claude.ai (EXPERIMENTAL; ver o README da pasta) |
 | `packages/adapters/claude_code_hook` | hook do Claude Code (instalação, modo de falha, testes; ver o README da pasta) |
@@ -28,7 +28,7 @@ make up        # cria .env a partir de .env.example, sobe db, api e web
 Depois de subir:
 
 - API: <http://localhost:8000/health> (responde `{"status":"ok"}`) e <http://localhost:8000/docs>
-- Console: <http://localhost:3000>
+- Console: <http://localhost:3000> (login por OIDC; para desenvolvimento veja `apps/web/README.md`, modo `mock`, e `seed-demo` para dados sintéticos)
 
 Para parar: `Ctrl+C` e `make down`.
 

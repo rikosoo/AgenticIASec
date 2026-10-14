@@ -7,3 +7,6 @@ __pycache__/
 node_modules/
 .next/
 *.egg-info/
+apps/web/test-results/
+apps/web/playwright-report/
+*.tsbuildinfo
