@@ -8,8 +8,8 @@ coletor -> evento universal -> motor de detecção -> política -> console
 |---|---|---|
 | API (FastAPI) | `apps/api` | `GET /health`, `GET /version`, migração `tenants` |
 | Console (Next.js) | `apps/web` | página inicial que consulta `/health` da API |
-| Motor de detecção | `packages/detection` | vazio (Etapa 2) |
-| Taxonomia | `packages/taxonomy` | vazio (Etapa 2) |
+| Motor de detecção | `packages/detection` | motor de detecção (ver `docs/deteccao.md`) |
+| Taxonomia | `packages/taxonomy` | `taxonomy.yaml` com 30 categorias |
 | Adaptadores | `packages/adapters` | vazio (Etapas 4, 5, 8) |
 | Extensão | `apps/extension` | não criada (Etapa 5) |
 

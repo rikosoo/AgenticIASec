@@ -2,13 +2,13 @@
 
 Plataforma que observa o uso de IA por funcionários e agentes, classifica cada evento, calcula risco explicável e aplica políticas. Contexto completo em [`CLAUDE.md`](CLAUDE.md).
 
-**Estado:** Etapa 1 (esqueleto). Não há captura, detecção nem políticas ainda. O que existe:
+**Estado:** Etapa 2 (motor de detecção). Ainda não há captura, API de ingestão nem políticas. O que existe:
 
 | Pasta | O que tem |
 |---|---|
 | `apps/api` | FastAPI com `GET /health` e `GET /version`, Alembic com a tabela `tenants` |
 | `apps/web` | Next.js com uma página que mostra se a API está online |
-| `packages/detection` | pacote Python vazio com um teste trivial (Etapa 2) |
+| `packages/detection` | motor de detecção, com taxonomia em `packages/taxonomy` (`docs/deteccao.md`, `docs/relatorio-etapa2.md`) |
 | `prototipo/console.html` | protótipo visual com **dados simulados** (abre direto no navegador) |
 | `docs/` | `viabilidade.md` (captura por ferramenta), `arquitetura.md`, `decisoes.md` |
 
