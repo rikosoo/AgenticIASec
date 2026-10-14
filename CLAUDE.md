@@ -16,7 +16,7 @@ O núcleo é: coletor -> evento universal -> motor de detecção -> política ->
 ## Stack do MVP
 - Backend e motor de detecção: Python 3.12, FastAPI, SQLAlchemy + Alembic, Pydantic. Um único serviço no início, dividido em módulos.
 - Banco: PostgreSQL com row-level security por tenant. Redis só se for realmente necessário.
-- Console: Next.js, React, TypeScript, Tailwind. Tema escuro, estilo de consoles de SOC.
+- Console: Next.js, React, TypeScript, Tailwind. Tema claro por padrão, com alternância para escuro, estilo de consoles de segurança.
 - Extensão: TypeScript, Manifest V3, Chrome e Edge.
 - Local: Docker Compose sobe tudo com um comando. A nuvem de produção ainda não foi decidida; não escrever nada específico de AWS ou Azure.
 - Testes: pytest no backend, vitest no front e na extensão, Playwright para o fluxo principal.

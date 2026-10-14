@@ -1,0 +1,41 @@
+# Sobe tudo com: make up   (veja o README)
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-promptshield}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-promptshield}
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-promptshield}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./apps/api
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?defina no .env}
+    ports: ["${API_PORT:-8000}:8000"]
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  web:
+    build: ./apps/web
+    environment:
+      API_INTERNAL_URL: http://api:8000
+    ports: ["${WEB_PORT:-3000}:3000"]
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
