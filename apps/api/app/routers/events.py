@@ -9,7 +9,7 @@ from sqlalchemy import select
 from app import audit, crypto
 from app.db import tenant_session
 from app.models import Analysis, Event
-from app.schemas import EventIn, EventResult, OriginalRequest
+from app.schemas import EventIn, EventResult, JustificationIn, OriginalRequest
 from app.security import READ_ROLES, Principal, require_ingest, require_roles
 from app.services import ingest
 
@@ -44,6 +44,15 @@ def get_event(event_id: uuid.UUID, p: Annotated[Principal, Depends(require_roles
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "evento não encontrado")
         return _view(*row)
+
+
+@router.post("/{event_id}/justification", status_code=204,
+             summary="Registra a justificativa do usuário para enviar mesmo assim (política ask_justification)")
+def post_justification(event_id: uuid.UUID, body: JustificationIn, p: Annotated[Principal, Depends(require_ingest)]) -> None:
+    with tenant_session(p.tenant_id) as s:
+        if s.execute(select(Event.id).where(Event.event_id == event_id)).scalar() is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "evento não encontrado")
+        audit.write(s, p, "event.justification", "event", str(event_id), {"justification": body.justification})
 
 
 @router.post("/{event_id}/original", summary="Lê o texto original (exige justificativa; grava auditoria)")

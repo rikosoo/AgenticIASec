@@ -45,3 +45,17 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+  extension:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build:dev

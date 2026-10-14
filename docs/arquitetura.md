@@ -11,8 +11,8 @@ coletor -> evento universal -> motor de detecção -> política -> console
 | Motor de detecção | `packages/detection` | motor de detecção (ver `docs/deteccao.md`) |
 | Taxonomia | `packages/taxonomy` | `taxonomy.yaml` com 30 categorias |
 | Adaptador Claude Code | `packages/adapters/claude_code_hook` | hook de comando (Etapa 4) |
-| Adaptadores restantes | `packages/adapters` | extensão (Etapa 5) e inference hooks (Etapa 8) |
-| Extensão | `apps/extension` | não criada (Etapa 5) |
+| Adaptadores restantes | `packages/adapters` | inference hooks (Etapa 8) |
+| Extensão | `apps/extension` | Chrome/Edge MV3 para ChatGPT web e Claude.ai (Etapa 5, EXPERIMENTAL) |
 
 Banco: PostgreSQL 16. Row-level security entra na Etapa 3, junto com as tabelas de eventos.
 

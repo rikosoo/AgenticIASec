@@ -82,7 +82,7 @@ def audit_log(p: Annotated[Principal, Depends(require_roles("admin", "auditor"))
 
 def _tenant_view(t: Tenant) -> dict:
     return {"id": str(t.id), "name": t.name, "failure_mode": t.failure_mode, "retention_days": t.retention_days,
-            "store_original": t.store_original}
+            "store_original": t.store_original, "policy_url": t.policy_url, "monitored_domains": t.monitored_domains}
 
 
 @router.get("/tenant", summary="Configurações do tenant")
@@ -108,3 +108,10 @@ def hook_config(p: Annotated[Principal, Depends(require_ingest)]) -> dict:
     with tenant_session(p.tenant_id) as s:
         t = s.get(Tenant, p.tenant_id)
         return {"failure_mode": t.failure_mode}
+
+
+@router.get("/extension-config", summary="Configuração para a extensão de navegador (domínios, política, modo de falha)")
+def extension_config(p: Annotated[Principal, Depends(require_ingest)]) -> dict:
+    with tenant_session(p.tenant_id) as s:
+        t = s.get(Tenant, p.tenant_id)
+        return {"failure_mode": t.failure_mode, "domains": list(t.monitored_domains), "policy_url": t.policy_url}

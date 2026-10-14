@@ -162,3 +162,45 @@ def test_failure_mode_is_configurable_audited_and_readable_by_collectors(client,
     assert client.patch("/v1/tenant", json={"retention_days": 3}, headers=world.user("admin")).status_code == 422
     assert any(a["action"] == "tenant.update" for a in client.get("/v1/audit-log", headers=world.user("auditor")).json())
     assert client.get("/v1/hook-config", headers=world.user("admin")).status_code == 403   # usuários não usam a rota de coletor
+
+
+def test_extension_config_justification_and_domain_validation(client, world):
+    cfg = client.get("/v1/extension-config", headers=world.key()).json()
+    assert cfg["domains"] == ["chatgpt.com", "claude.ai"] and cfg["policy_url"] is None and cfg["failure_mode"] == "open"
+    patch = {"policy_url": "https://intranet.exemplo.test/politica-ia", "monitored_domains": ["ChatGPT.com", "gemini.google.com"]}
+    assert client.patch("/v1/tenant", json=patch, headers=world.user("admin")).json()["monitored_domains"] == ["chatgpt.com", "gemini.google.com"]
+    assert client.get("/v1/extension-config", headers=world.key()).json()["policy_url"] == patch["policy_url"]
+    for bad in ({"monitored_domains": ["https://x.com/a"]}, {"monitored_domains": ["*.com"]}, {"policy_url": "http://inseguro.test"}):
+        assert client.patch("/v1/tenant", json=bad, headers=world.user("admin")).status_code == 422
+    ev = event("CPF 529.982.247-25")
+    client.post("/v1/events", json=ev, headers=world.key())
+    u = f"/v1/events/{ev['event_id']}/justification"
+    assert client.post(u, json={"justification": "curto"}, headers=world.key()).status_code == 422
+    assert client.post(u, json={"justification": "preciso enviar para o cliente"}, headers=world.key()).status_code == 204
+    assert client.post(f"/v1/events/{uuid.uuid4()}/justification", json={"justification": "preciso enviar para o cliente"}, headers=world.key()).status_code == 404
+    assert client.post(u, json={"justification": "preciso enviar para o cliente"}, headers=world.user("analista")).status_code == 403
+    log = client.get("/v1/audit-log", headers=world.user("auditor")).json()
+    assert any(a["action"] == "event.justification" and a["detail"]["justification"] == "preciso enviar para o cliente" for a in log)
+    assert len(client.get("/v1/audit-log", headers=world.user("auditor")).json()) >= 2
+
+
+def test_cors_only_for_listed_origins():
+    import importlib
+
+    from fastapi.testclient import TestClient
+
+    import app.main as m
+    from app.config import settings
+    old = settings.cors_allowed_origins
+    settings.cors_allowed_origins = "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
+    try:
+        c = TestClient(importlib.reload(m).app)
+        h = {"Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "x-api-key,content-type"}
+        ok = c.options("/v1/events", headers={**h, "Origin": "chrome-extension://abcdefghijklmnopabcdefghijklmnop"})
+        assert ok.headers.get("access-control-allow-origin") == "chrome-extension://abcdefghijklmnopabcdefghijklmnop"
+        assert "x-api-key" in ok.headers.get("access-control-allow-headers", "").lower()
+        bad = c.options("/v1/events", headers={**h, "Origin": "https://site-malicioso.test"})
+        assert "access-control-allow-origin" not in bad.headers
+    finally:
+        settings.cors_allowed_origins = old
+        importlib.reload(m)

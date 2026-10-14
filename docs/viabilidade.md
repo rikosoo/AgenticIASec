@@ -29,6 +29,13 @@ Data da consulta: **2026-10-14**. Nenhum código foi escrito nesta etapa.
 | 13 | **Windsurf (Cascade)** | Hook `pre_user_prompt` bloqueia com exit code 2; configs de sistema em `/etc/windsurf/hooks.json` (Linux), `/Library/Application Support/Windsurf/hooks.json` (macOS), `C:\ProgramData\Windsurf\hooks.json`. Docs agora aparecem sob "Devin Desktop IDE". | Painel em nuvem para hooks de time (resumo). | Prompt: provável via hook. | Painel de time: Enterprise (**A VERIFICAR**). Possível renomeação do produto. | Hook gerenciado. | Idem. | **EXPERIMENTAL / A VERIFICAR** | [Docs Cascade hooks (espelho)](https://docs.devin.ai/pt-BR/desktop/cascade/hooks), 2026-10-14 |
 | 14 | **Agentes próprios com MCP** | O servidor MCP de inspeção é código nosso: o agente do cliente precisa chamá-lo. Claude Code expõe hooks do tipo `mcp_tool`. Prompt injection em resultados de ferramenta só é visível se a ferramenta passar pelo nosso servidor. | Os nossos próprios. | **Só o que passa por nós** (cooperativo, não é captura passiva). | Nenhuma licença de terceiro. | SDK ou servidor MCP adotado pelo cliente. | Baixo (adesão explícita). | **PARCIAL** (cobertura limitada ao que o cliente integrar) | [Hooks, tipos `mcp_tool`](https://code.claude.com/docs/en/hooks), 2026-10-14 |
 
+## Atualização da Etapa 5: extensão de navegador (2026-10-14)
+
+Implementada em `apps/extension` para **ChatGPT web** e **Claude.ai**. Continua **EXPERIMENTAL**:
+- os seletores dos dois sites **não foram conferidos contra as páginas reais** (`chatgpt.com` é negado e `claude.ai` responde 403 ao ambiente);
+- foi testada em Chromium 141 com uma página local que imita o campo, contra uma API simulada (Playwright) e contra a API real com PostgreSQL (pytest);
+- a documentação de implantação gerenciada do Chrome e do Edge não pôde ser lida (hosts bloqueados): só o formato da `ExtensionInstallForcelist` foi confirmado, no código-fonte do Chromium. Detalhes em `apps/extension/README.md`.
+
 ## Detalhes verificados em fonte primária
 
 ### Hooks do Claude Code

@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app import services
@@ -28,6 +29,11 @@ def health() -> dict[str, str]:
 def version() -> dict[str, str]:
     return {"version": settings.version}
 
+
+_origins = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
+if _origins:  # sem lista explícita, nenhum site de outra origem pode chamar a API pelo navegador
+    app.add_middleware(CORSMiddleware, allow_origins=_origins, allow_methods=["GET", "POST"],
+                       allow_headers=["X-API-Key", "Content-Type", "Authorization"], max_age=600)
 
 app.include_router(events.router)
 app.include_router(incidents.router)

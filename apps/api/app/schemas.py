@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Channel = Literal["browser", "agent_hook", "api_proxy", "inference_hook"]
 Integration = Literal["real", "partial", "experimental"]
@@ -118,3 +119,22 @@ class TenantPatch(BaseModel):
     failure_mode: Literal["open", "closed"] | None = None
     retention_days: int | None = Field(default=None, ge=7, le=365)
     store_original: bool | None = None
+    policy_url: str | None = Field(default=None, max_length=500, pattern=r"^https://\S+$")
+    monitored_domains: list[str] | None = Field(default=None, max_length=50)
+
+    @field_validator("monitored_domains")
+    @classmethod
+    def _domains(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        out = []
+        for d in v:
+            d = d.strip().lower()
+            if not re.fullmatch(r"[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+", d):
+                raise ValueError(f"domínio inválido: {d!r} (use só o nome, sem https:// nem caminho)")
+            out.append(d)
+        return out
+
+
+class JustificationIn(BaseModel):
+    justification: str = Field(min_length=10, max_length=1000)

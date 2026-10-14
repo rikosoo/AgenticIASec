@@ -27,3 +27,10 @@ Uma linha por decisão: contexto, escolha, alternativas.
 | 2026-10-14 | Registro local em fail-open | Só metadados (id, tipo, tamanho), nunca o conteúdo | Guardar o prompt no disco (vazaria o dado que queremos proteger) |
 | 2026-10-14 | Teste no Claude Code real | `--settings` em diretório isolado; sem escrever em `/etc/claude-code` | Instalar como política gerenciada (afetaria a própria sessão em curso) |
 | 2026-10-14 | Modo de falha por tenant | `GET /v1/hook-config`; `refresh-config` grava o valor no arquivo local | Consultar a API a cada evento (não funciona com a API fora do ar) |
+| 2026-10-14 | Primeira leitura de `chrome.storage.managed` leva ~3 s (medido) e deixava o envio sem inspeção nesse intervalo | Ouvintes de envio entram já; o envio fica retido até a configuração chegar; leitura aquecida no início do service worker | Esperar a configuração antes de escutar (deixa um buraco de ~3 s) |
+| 2026-10-14 | Chave de API na extensão | Só no service worker; o content script recebe configuração sem chave nem URL | Content script falando direto com a API (chave exposta ao contexto da página) |
+| 2026-10-14 | Permissão de host para a API | Nenhuma; a API libera CORS só para `chrome-extension://<ID>` (`CORS_ALLOWED_ORIGINS`) | `host_permissions` em `https://*/*` (mais poder que o necessário) |
+| 2026-10-14 | Lista de domínios (embutida, gerenciada, API) | Interseção: API e política só restringem, nunca ampliam | API poderia ampliar (um tenant comprometido faria a extensão agir em qualquer site) |
+| 2026-10-14 | Mascarar na extensão | A extensão pede confirmação e substitui o texto do campo pela versão mascarada da API antes de enviar | Mascarar localmente (duplicaria o motor de detecção) |
+| 2026-10-14 | Shadow DOM | Fechado em produção, aberto só no build de teste (Playwright não atravessa shadow DOM fechado) | Aberto sempre (a página poderia mexer no diálogo) |
+| 2026-10-14 | Teste ponta a ponta da extensão | Playwright em Node com API simulada (rápido) + pytest com API real e PostgreSQL (contrato, CORS, auditoria) | Só um dos dois |

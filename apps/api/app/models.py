@@ -42,6 +42,8 @@ class Tenant(Base):
     store_original: Mapped[bool] = mapped_column(Boolean, default=False)
     failure_mode: Mapped[str] = mapped_column(String(10), default="open")
     retention_days: Mapped[int] = mapped_column(Integer, default=90)
+    policy_url: Mapped[str | None] = mapped_column(String(500))
+    monitored_domains: Mapped[list[str]] = mapped_column(ARRAY(String), default=lambda: ["chatgpt.com", "claude.ai"])
 
 
 class User(Base):

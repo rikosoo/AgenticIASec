@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     admin_database_url: str | None = None
     version: str = "0.3.0"
 
+    # origens com permissão de CORS, separadas por vírgula (ex.: chrome-extension://<id>,https://console.empresa.com). Padrão: nenhuma.
+    cors_allowed_origins: str = ""
+
     max_text_chars: int = 2_000_000
     enable_ner: bool = False
 
