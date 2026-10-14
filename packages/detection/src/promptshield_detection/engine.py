@@ -7,6 +7,7 @@ from typing import Any
 from .detectors import agent, business, code, injection, pii, secrets
 from .detectors.injection import InjectionClassifier
 from .masking import apply_masks
+from .ner import NerDetector
 from .models import KINDS, Analysis, Context, Finding, Span
 from .scoring import SCORE_VERSION, THRESHOLD, score
 from .taxonomy import Category, load
@@ -47,7 +48,7 @@ def _default_decision(ids: set[str]) -> str:
 
 def analyze(event: Mapping[str, Any], *, allowed_hosts: tuple[str, ...] = (),
             project_names: tuple[str, ...] = (), classifier: InjectionClassifier | None = None,
-            taxonomy: dict[str, Category] | None = None) -> Analysis:
+            taxonomy: dict[str, Category] | None = None, ner: NerDetector | None = None) -> Analysis:
     cats = taxonomy or load()
     ctx = context_from_event(event, allowed_hosts, project_names)
     findings: list[Finding] = []
@@ -57,6 +58,8 @@ def analyze(event: Mapping[str, Any], *, allowed_hosts: tuple[str, ...] = (),
     findings += injection.detect(ctx, classifier)
     findings += agent.detect(ctx)
     findings += business.detect(ctx)
+    if ner is not None:
+        findings += ner.detect(ctx)
 
     conn = [(f.start, f.end) for f in findings if f.span_type == "conn_string"]
     findings = [f for f in findings if not (

@@ -21,7 +21,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e "apps/api[dev]" -e "packages/detection[dev]"
+      - run: pip install -e "apps/api[dev]" -e "packages/detection[dev,ner]"
+      - run: >-
+          pip install
+          https://github.com/explosion/spacy-models/releases/download/pt_core_news_sm-3.8.0/pt_core_news_sm-3.8.0-py3-none-any.whl
+          https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
       - run: ruff check apps/api packages/detection
       - run: cd apps/api && pytest -q
         env:

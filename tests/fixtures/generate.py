@@ -327,5 +327,28 @@ for t in ["Qual a capital da França?", "Bom dia!", "Obrigado, ajudou muito.", "
 for c in ["git status && npm test", "pytest -q", "ls -la", "git diff --stat", "grep -rn TODO src/", "python manage.py migrate", "npm run build"]:
     cmd("ordinario_cmd", c, [], hard=False)
 
+
+# ---------- nomes (NER opcional) e endereços (regex) ----------
+FULL = ["Maria Fernanda Souza", "João Pedro Almeida", "Carla Regina Nunes", "Ricardo Alves Barros", "Paula Menezes Lima",
+        "Eduardo Campos Rocha", "Luciana Prado Costa", "Marcelo Duarte Pereira"]
+for i, n in enumerate(FULL):
+    add("nome", "pt", R.choice(["Preciso falar com {n} sobre a renovação do contrato.", "Escreva um e-mail para {n} agradecendo a reunião.",
+                                 "O relatório foi assinado por {n} na sexta."]).format(n=n), ["pii"], hard=False)
+    rows[-1]["requires_ner"] = True
+for n in ["John Michael Smith", "Emily Rose Carter", "David Allen Brown"]:
+    add("nome", "en", f"Please draft a reply to {n} about the delayed shipment.", ["pii"])
+    rows[-1]["requires_ner"] = True
+for t in ["Moro na Rua das Flores, 123, bairro Centro.", "Entregar na Avenida Paulista, 1578, sala 12.", "Meu CEP é 01310-100.",
+          "Endereço: Rua Augusta 900, São Paulo", "Ship it to 221 Baker Street please.", "Visit us at 1600 Main Avenue today."]:
+    add("endereco", "pt" if any(w in t for w in ("Moro", "Entregar", "Meu", "Endereço")) else "en", t, ["pii"])
+for t in ["São Paulo é a maior cidade do Brasil.", "Qual a distância entre Rio de Janeiro e Curitiba?", "Maria é um nome comum no Brasil.",
+          "A Microsoft e a Google anunciaram parcerias.", "Windows 11 exige TPM 2.0.", "A Rua é um bom lugar para brincar, disse o poeta.",
+          "Boston is a city in Massachusetts.", "O Python Software Foundation mantém a linguagem."]:
+    add("nome_neg", "pt", t, [] if "Windows" not in t else [], hard=True)
+for r in rows:
+    r.setdefault("requires_ner", False)
+    r["has_name"] = bool(__import__("re").search(
+        r"Ana |Bruno |Carla |Diego |Elisa |Fábio |Gabriela |Hugo |Iara |Jonas |Maria F|Ricardo|Paula|Eduardo|Luciana|Marcelo", r["text"]))
+
 OUT.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
 print(len(rows), "exemplos escritos em", OUT)

@@ -13,6 +13,10 @@ PHONE_RE = re.compile(r"(?<![\d])(?:\+55[ -]?)?\(?\d{2}\)?[ -]?9?\d{4}[ -]\d{4}(
 RG_RE = re.compile(r"(?<![\d.])\d{1,2}\.\d{3}\.\d{3}-?[\dxX](?![\d])")
 CARD_RE = re.compile(r"(?<![\d-])(?:\d[ -]?){12,18}\d(?![\d-])")
 BANK_RE = re.compile(r"ag[eê]ncia\W{0,3}\d{3,5}\W{0,12}conta\W{0,3}\d{4,}-?\d?", re.I)
+CEP_RE = re.compile(r"(?<![\d-])\d{5}-\d{3}(?![\d-])")
+ADDR_PT_RE = re.compile(
+    r"\b(?:Rua|R\.|Avenida|Av\.|Alameda|Travessa|Pra[çc]a|Estrada|Rodovia)\s+[^,\n\d]{3,50}?,?\s*(?:n[ºo°.]?\s*)?\d{1,5}\b")
+ADDR_EN_RE = re.compile(r"\b\d{1,5}\s+(?:[A-Z][a-z]+\s){1,3}(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Drive)\b")
 CTX_CPF = re.compile(r"cpf|c\.p\.f|cadastro de pessoa", re.I)
 CTX_CNPJ = re.compile(r"cnpj", re.I)
 CTX_RG = re.compile(r"\brg\b|identidade|registro geral", re.I)
@@ -60,6 +64,12 @@ def detect(ctx: Context) -> list[Finding]:
         if card_plausible(d) and not (len(d) == 11 or cpf_valid(d)):
             out.append(Finding("financeiro", 0.93, "Número de cartão com Luhn válido", "cartao",
                                m.start(), m.end(), "**** **** **** " + d[-4:]))
+    for m in ADDR_PT_RE.finditer(t):
+        out.append(Finding("pii", 0.8, "Endereço residencial ou comercial", "endereco", m.start(), m.end(), "[endereço]"))
+    for m in ADDR_EN_RE.finditer(t):
+        out.append(Finding("pii", 0.75, "Street address", "endereco", m.start(), m.end(), "[endereço]"))
+    for m in CEP_RE.finditer(t):
+        out.append(Finding("pii", 0.7, "CEP", "cep", m.start(), m.end(), "*****-***"))
     for m in BANK_RE.finditer(t):
         out.append(Finding("financeiro", 0.8, "Agência e conta bancária", "conta_bancaria",
                            m.start(), m.end(), "[conta bancária]"))

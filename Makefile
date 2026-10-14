@@ -1,4 +1,4 @@
-.PHONY: up down test lint setup
+.PHONY: up down test lint setup ner
 
 PY ?= python3
 
@@ -26,3 +26,9 @@ test: .venv apps/web/node_modules ## testes de api, detection e web
 lint: .venv apps/web/node_modules
 	.venv/bin/ruff check apps/api packages/detection
 	cd apps/web && npm run lint
+
+SPACY_MODELS = https://github.com/explosion/spacy-models/releases/download
+ner: .venv ## instala Presidio e os modelos spaCy (pt, en) para o NER opcional
+	.venv/bin/pip install -q -e "packages/detection[ner]"
+	.venv/bin/pip install -q $(SPACY_MODELS)/pt_core_news_sm-3.8.0/pt_core_news_sm-3.8.0-py3-none-any.whl \
+		$(SPACY_MODELS)/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

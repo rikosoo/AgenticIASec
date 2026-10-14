@@ -1,12 +1,12 @@
 # Relatório da Etapa 2: motor de detecção
 
-Conjunto: `tests/fixtures/examples.jsonl`, 388 exemplos sintéticos (127 negativos difíceis), português e inglês.
+Conjunto: `tests/fixtures/examples.jsonl`, 413 exemplos sintéticos (135 negativos difíceis), português e inglês.
 
 **Aviso de validade.** O conjunto e o motor foram escritos pela mesma autoria. Os números abaixo medem consistência com o gabarito sintético, não desempenho em dados reais. Esperam-se piores resultados em produção, principalmente nas categorias de negócio (dicionários).
 
 | Categoria | Grupo | TP | FP | FN | Precisão | Recall |
 |---|---|---|---|---|---|---|
-| pii | Dados sensíveis | 50 | 0 | 0 | 1.00 | 1.00 |
+| pii | Dados sensíveis | 56 | 0 | 0 | 1.00 | 1.00 |
 | financeiro | Dados sensíveis | 11 | 0 | 0 | 1.00 | 1.00 |
 | saude | Dados sensíveis | 3 | 0 | 0 | 1.00 | 1.00 |
 | segredo | Dados sensíveis | 48 | 0 | 0 | 1.00 | 1.00 |
@@ -41,9 +41,20 @@ Conjunto: `tests/fixtures/examples.jsonl`, 388 exemplos sintéticos (127 negativ
 
 Texto de 2000 caracteres, 300 execuções, Python 3.13.16, Linux x86_64, CPU: Intel(R) Xeon(R) Processor @ 2.10GHz, 4 núcleos (ambiente de nuvem compartilhado).
 
-p50 4.04 ms, p95 5.70 ms, p99 6.23 ms, máx 7.94 ms. Meta: p95 < 50 ms.
+p50 4.53 ms, p95 5.60 ms, p99 7.43 ms, máx 11.14 ms. Meta: p95 < 50 ms.
 
 ## Exemplos divergentes (0)
 
 | id | grupo | esperado | obtido | texto |
 |---|---|---|---|---|
+
+## Com NER local (Presidio + spaCy `pt_core_news_sm` e `en_core_web_sm`)
+
+Exemplos que contêm nome de pessoa passam a esperar `pii` (30 exemplos); 11 exemplos só existem neste modo.
+
+`pii`: precisão 1.00, recall 1.00 ({'tp': 67, 'fp': 0, 'fn': 0}).
+
+Latência com NER: p50 31.43 ms, p95 43.43 ms, p99 49.25 ms.
+
+Divergentes com NER (0):
+

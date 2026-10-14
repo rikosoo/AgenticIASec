@@ -31,8 +31,8 @@ Categoria só conta com confiança de 0,5 ou mais. Pesos por risco padrão: baix
 
 ## Limites conhecidos (não esconder)
 
-- **Presidio (nomes e endereços) não está ligado.** Nomes de pessoas e endereços não são detectados. Pendente.
-- **Classificador de injection:** nenhum modelo está empacotado nem foi medido. Só há a interface `InjectionClassifier` e as heurísticas. O download de modelos aberto não foi tentado neste ambiente. Pendente: escolher um modelo aberto, medir no conjunto e decidir.
+- **NER (Presidio + spaCy) é opcional** (`make ner`, `analyze(..., ner=NerDetector())`). Só nomes completos (2+ palavras) contam; nome solto, cidades e nomes de empresa não. Custa cerca de 30 ms a mais por texto de 2.000 caracteres (p95 43 ms no relatório, perto do teto de 50 ms): usar em fila assíncrona ou aceitar o custo. Modelos pequenos do spaCy erram em nomes raros, estrangeiros e apelidos. Endereço (Rua/Av. com número), CEP e street address em inglês são regex e não dependem de NER.
+- **Classificador de injection:** nenhum modelo está empacotado nem foi medido. Só há a interface `InjectionClassifier` e as heurísticas. O download falhou: o `huggingface.co` é bloqueado pela política de rede deste ambiente (proxy responde 403). Pendente até liberar o host.
 - **E-mail em `tool_call` é ignorado** (evita falso positivo em `ssh user@host`); um e-mail dentro de um `curl -d` não será visto como PII.
 - **Shell:** o parser divide por `;`, `&&`, `||`, `|`. Não entende subshell, `eval`, variáveis expandidas, aliases nem comandos ofuscados (base64 e depois shell). Um atacante determinado contorna.
 - **Categorias de negócio** (jurídico, M&A, saúde, RH, PI, tóxico, uso pessoal) usam dicionários curtos. São as menos confiáveis.

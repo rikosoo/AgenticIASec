@@ -14,3 +14,4 @@ Uma linha por decisão: contexto, escolha, alternativas.
 | 2026-10-14 | Decisão no resultado do motor | Sugestão simples (`decision`); política real na Etapa 3 | Omitir o campo (quebraria o contrato do CLAUDE.md) |
 | 2026-10-14 | E-mail em tool_call | Ignorado | Detectar (falso positivo em `ssh user@host`) |
 | 2026-10-14 | Push protection do GitHub bloqueou chaves sintéticas no conjunto de teste | Fixtures guardam marcadores `@@aws:1@@`; `tests/fixtures/synth.py` gera os valores ao carregar | Liberar o bloqueio pelo link (contorna uma proteção do repositório); chaves fixas no arquivo |
+| 2026-10-14 | Nomes de pessoas | Presidio + spaCy opcional (`[ner]`), só nome completo, ignora empresas; endereço e CEP por regex | NER ligado por padrão (custa ~30 ms por texto); reportar nome solto (muitos falsos positivos) |

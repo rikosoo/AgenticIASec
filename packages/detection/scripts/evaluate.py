@@ -47,12 +47,18 @@ def load_rows() -> list[dict]:
     return rows
 
 
-def evaluate(rows: list[dict]) -> tuple[dict[str, dict[str, int]], list[dict]]:
+def evaluate(rows: list[dict], ner=None) -> tuple[dict[str, dict[str, int]], list[dict]]:
+    """Com `ner`, exemplos que contêm nome de pessoa passam a esperar `pii` (nome é dado pessoal).
+    Sem `ner`, exemplos que dependem de NER ficam de fora."""
     counts: dict[str, dict[str, int]] = defaultdict(lambda: {"tp": 0, "fp": 0, "fn": 0})
     misses = []
     for row in rows:
-        got = analyze(to_event(row)).category_ids()
+        if row.get("requires_ner") and ner is None:
+            continue
+        got = analyze(to_event(row), ner=ner).category_ids()
         exp = set(row["expected"])
+        if ner is not None and row.get("has_name"):
+            exp.add("pii")
         for c in exp & got:
             counts[c]["tp"] += 1
         for c in got - exp:
@@ -71,17 +77,17 @@ def pr(c: dict[str, int]) -> tuple[float | None, float | None]:
     return p, r
 
 
-def latency(n: int = 300) -> dict[str, float]:
+def latency(n: int = 300, ner=None) -> dict[str, float]:
     base = ("Preciso revisar o contrato do cliente Joao, CPF 529.982.247-25, e-mail joao@exemplo.com.br. "
             "A chave AKIAZ7QW4XK2M9PLR3TN está no .env. SELECT nome FROM clientes WHERE ativo = 1. ")
     text = (base * 20)[:2000]
     ev = {"kind": "prompt", "content": {"text": text}}
     for _ in range(20):
-        analyze(ev)
+        analyze(ev, ner=ner)
     times = []
     for _ in range(n):
         t0 = time.perf_counter()
-        analyze(ev)
+        analyze(ev, ner=ner)
         times.append((time.perf_counter() - t0) * 1000)
     times.sort()
     return {"n": n, "chars": len(text), "p50_ms": statistics.median(times),
@@ -125,6 +131,19 @@ def build_report(rows, counts, misses, lat) -> str:
     return "\n".join(lines) + "\n"
 
 
+def build_ner_section(rows, counts, misses, lat) -> str:
+    p, r = pr(counts["pii"])
+    lines = ["", "## Com NER local (Presidio + spaCy `pt_core_news_sm` e `en_core_web_sm`)", "",
+             f"Exemplos que contêm nome de pessoa passam a esperar `pii` ({sum(1 for x in rows if x.get('has_name'))} exemplos); "
+             f"{sum(1 for x in rows if x.get('requires_ner'))} exemplos só existem neste modo.", "",
+             f"`pii`: precisão {fmt(p)}, recall {fmt(r)} ({counts['pii']}).", "",
+             f"Latência com NER: p50 {lat['p50_ms']:.2f} ms, p95 {lat['p95_ms']:.2f} ms, p99 {lat['p99_ms']:.2f} ms.", "",
+             f"Divergentes com NER ({len(misses)}):", ""]
+    for m in misses:
+        lines.append(f"- {m['id']} ({m['group']}): esperado {', '.join(m['expected']) or '—'}, obtido {', '.join(m['got']) or '—'}: `{m['text'].replace('|', '/')}`")
+    return "\n".join(lines) + "\n"
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--report")
@@ -132,13 +151,28 @@ def main() -> None:
     rows = load_rows()
     counts, misses = evaluate(rows)
     lat = latency()
+    try:
+        from promptshield_detection.ner import NerDetector
+        ner = NerDetector()
+        ncounts, nmisses = evaluate(rows, ner)
+        nlat = latency(ner=ner)
+    except Exception as exc:  # NER é opcional
+        print("NER indisponível:", exc)
+        ner = ncounts = nmisses = nlat = None
     for cid in ("pii", "segredo", "financeiro"):
         p, r = pr(counts[cid])
         print(f"{cid}: precisão {fmt(p)} recall {fmt(r)} {counts[cid]}")
     print("latência:", {k: round(v, 2) for k, v in lat.items()})
     print("divergentes:", len(misses), "de", len(rows))
+    if ner is not None:
+        p, r = pr(ncounts["pii"])
+        print(f"com NER: pii precisão {fmt(p)} recall {fmt(r)} {ncounts['pii']}; divergentes {len(nmisses)}")
+        print("latência com NER:", {k: round(v, 2) for k, v in nlat.items()})
     if args.report:
-        Path(args.report).write_text(build_report(rows, counts, misses, lat), encoding="utf-8")
+        text = build_report(rows, counts, misses, lat)
+        if ner is not None:
+            text += build_ner_section(rows, ncounts, nmisses, nlat)
+        Path(args.report).write_text(text, encoding="utf-8")
 
 
 if __name__ == "__main__":
