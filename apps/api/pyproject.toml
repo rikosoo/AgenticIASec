@@ -22,6 +22,7 @@ packages = ["app"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["db: exige PostgreSQL real (DATABASE_URL_TEST)"]
 
 [tool.ruff]
 line-length = 130

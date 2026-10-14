@@ -13,7 +13,7 @@ down:
 
 .venv:
 	$(PY) -m venv .venv
-	.venv/bin/pip install -q -e "apps/api[dev]" -e "packages/detection[dev]"
+	.venv/bin/pip install -q -e "packages/detection[dev]" && .venv/bin/pip install -q -e "apps/api[dev]"
 
 apps/web/node_modules: apps/web/package-lock.json
 	cd apps/web && npm ci

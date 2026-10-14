@@ -81,6 +81,8 @@ def analyze(event: Mapping[str, Any], *, allowed_hosts: tuple[str, ...] = (),
     spans = [Span(f.start, f.end, f.span_type or "", f.masked or "[oculto]")
              for f in findings if f.start is not None and f.end is not None
              and f.confidence >= THRESHOLD and f.span_type not in ("shell", "file")]
+    seen: set[tuple[int, int]] = set()
+    spans = [sp for sp in spans if not ((sp.start, sp.end) in seen or seen.add((sp.start, sp.end)))]
     sensitive = any(cats[c].grupo == "Dados sensíveis" for c in reported)
     ids = set(reported)
     return Analysis(

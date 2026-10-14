@@ -6,7 +6,7 @@ coletor -> evento universal -> motor de detecção -> política -> console
 
 | Parte | Pasta | Estado |
 |---|---|---|
-| API (FastAPI) | `apps/api` | `GET /health`, `GET /version`, migração `tenants` |
+| API (FastAPI) | `apps/api` | ingestão, políticas, incidentes, auditoria; RLS por tenant (Etapa 3) |
 | Console (Next.js) | `apps/web` | página inicial que consulta `/health` da API |
 | Motor de detecção | `packages/detection` | motor de detecção (ver `docs/deteccao.md`) |
 | Taxonomia | `packages/taxonomy` | `taxonomy.yaml` com 30 categorias |

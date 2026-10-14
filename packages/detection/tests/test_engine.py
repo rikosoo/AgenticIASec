@@ -122,3 +122,9 @@ def test_declared_cpf_is_pii_even_when_invalid(text):
 
 def test_number_before_the_word_cpf_is_not_declared():
     assert "pii" not in analyze(ev("Esse número 123.456.789-00 não é um CPF, é um protocolo.")).category_ids()
+
+
+def test_same_range_is_reported_once():
+    a = analyze(ev("Cliente CPF 529.982.247-25"))
+    assert len({(s.start, s.end) for s in a.spans}) == len(a.spans)
+    assert a.masked_text == "Cliente CPF ***.***.***-25"

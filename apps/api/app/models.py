@@ -3,8 +3,8 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import (
-    JSON,
     ARRAY,
+    JSON,
     BigInteger,
     Boolean,
     DateTime,

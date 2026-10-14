@@ -6,6 +6,7 @@ Revises: 0001
 import os
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "0002"
@@ -154,7 +155,7 @@ def upgrade() -> None:
     exists = bind.execute(sa.text("SELECT 1 FROM pg_roles WHERE rolname = :r"), {"r": APP_ROLE}).scalar()
     verb = "ALTER" if exists else "CREATE"
     ddl = bind.execute(
-        sa.text(f"SELECT format('{verb} ROLE {APP_ROLE} WITH LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD %L', :pw)"),
+        sa.text(f"SELECT format('{verb} ROLE {APP_ROLE} WITH LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE PASSWORD %L', CAST(:pw AS text))"),
         {"pw": password},
     ).scalar()
     bind.exec_driver_sql(ddl)

@@ -15,3 +15,10 @@ Uma linha por decisão: contexto, escolha, alternativas.
 | 2026-10-14 | E-mail em tool_call | Ignorado | Detectar (falso positivo em `ssh user@host`) |
 | 2026-10-14 | Push protection do GitHub bloqueou chaves sintéticas no conjunto de teste | Fixtures guardam marcadores `@@aws:1@@`; `tests/fixtures/synth.py` gera os valores ao carregar | Liberar o bloqueio pelo link (contorna uma proteção do repositório); chaves fixas no arquivo |
 | 2026-10-14 | Nomes de pessoas | Presidio + spaCy opcional (`[ner]`), só nome completo, ignora empresas; endereço e CEP por regex | NER ligado por padrão (custa ~30 ms por texto); reportar nome solto (muitos falsos positivos) |
+| 2026-10-14 | CPF digitado com erro ("meu cpf é 3444353432123") | Palavra CPF/CNPJ/RG antes de um número conta como dado pessoal mesmo com dígito inválido | Exigir dígito verificador válido (deixava vazar o dado declarado; LGPD/GDPR tratam como dado pessoal) |
+| 2026-10-14 | Papel do banco | API usa `promptshield_app` (sem BYPASSRLS); migrações e CLI usam o dono (`ADMIN_DATABASE_URL`) | Um único papel superuser (RLS seria ignorado) |
+| 2026-10-14 | Login antes de saber o tenant | Funções SECURITY DEFINER `auth_api_key` e `auth_user_by_email` | Desligar RLS em `api_keys` e `users` |
+| 2026-10-14 | Chave de API | Formato `ps_<prefixo>_<segredo>`, SHA-256 no banco (192 bits de entropia), mostrada uma vez | bcrypt/argon2 (desnecessário para segredo aleatório longo, e lento por requisição) |
+| 2026-10-14 | Texto original | Opcional por tenant (`store_original`), Fernet com chave derivada por HKDF da chave mestra; leitura exige justificativa e vai para `audit_log` | Sempre guardar (viola privacidade por padrão); KMS por tenant fica para a Etapa 9 |
+| 2026-10-14 | Usuário de teste de banco | Testes usam o superuser de `DATABASE_URL_TEST` só para migrar e limpar; todo o resto roda com o papel restrito | Rodar tudo como superuser (esconderia falhas de RLS) |
+| 2026-10-14 | Um tenant por e-mail | `lower(email)` único globalmente (login OIDC resolve tenant pelo e-mail) | E-mail repetido em vários tenants (exigiria escolher tenant no login) |

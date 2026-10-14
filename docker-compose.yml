@@ -15,9 +15,16 @@ services:
       retries: 20
 
   api:
-    build: ./apps/api
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
     environment:
-      DATABASE_URL: ${DATABASE_URL:?defina no .env}
+      DATABASE_URL: postgresql+psycopg://promptshield_app:${APP_DB_PASSWORD:?defina no .env}@db:5432/${POSTGRES_DB:-promptshield}
+      ADMIN_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-promptshield}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-promptshield}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      OIDC_MODE: ${OIDC_MODE:-off}
+      OIDC_MOCK_SECRET: ${OIDC_MOCK_SECRET:-}
+      ORIGINAL_TEXT_MASTER_KEY: ${ORIGINAL_TEXT_MASTER_KEY:-}
     ports: ["${API_PORT:-8000}:8000"]
     depends_on:
       db:
