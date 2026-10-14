@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel, Field
 from sqlalchemy import select, text
 
 from app import audit
 from app.db import tenant_session
-from app.models import Policy
+from app.models import Analysis, Event, Policy
+from app.policy_engine import RANK, PolicySpec, Subject, evaluate
 from app.schemas import PolicyIn, PolicyOut
 from app.security import READ_ROLES, Principal, require_roles
 
@@ -56,3 +59,39 @@ def update_policy(policy_id: uuid.UUID, body: PolicyIn, p: Annotated[Principal, 
         audit.write(s, p, "policy.update", "policy", str(policy_id), {"before": before, "after": _snapshot(pol)})
         s.refresh(pol)
         return _out(pol)
+
+
+class SimulateIn(BaseModel):
+    policy: PolicyIn
+    days: int = Field(default=30, ge=1, le=90)
+
+
+MAX_SIMULATED = 5000
+
+
+@router.post("/simulate", summary="Simula uma política sobre os eventos passados, sem salvar nada")
+def simulate(body: SimulateIn, p: Annotated[Principal, Depends(require_roles("admin", "analista"))]) -> dict:
+    spec = PolicySpec(id="simulada", name=body.policy.name, action=body.policy.action, mode=body.policy.mode, enabled=True,
+                      scope=body.policy.scope, match=body.policy.match)
+    since = datetime.now(timezone.utc) - timedelta(days=body.days)
+    with tenant_session(p.tenant_id) as s:
+        total = s.execute(select(text("count(*)")).select_from(Event).where(Event.occurred_at >= since)).scalar_one()
+        rows = s.execute(select(Event, Analysis).join(Analysis, Analysis.event_pk == Event.id).where(Event.occurred_at >= since)
+                         .order_by(Event.occurred_at.desc()).limit(MAX_SIMULATED)).all()
+        matched, users, stronger, examples = 0, set(), 0, []
+        for e, a in rows:
+            ev = evaluate([spec], Subject(e.department, e.app, ()), a.categories, a.risk_score)
+            if not ev.hits:
+                continue
+            matched += 1
+            users.add(e.user_id)
+            if RANK[spec.action] > RANK[a.would_decide]:
+                stronger += 1
+            if len(examples) < 5:
+                examples.append({"event_id": str(e.event_id), "user_id": e.user_id, "risk_score": a.risk_score,
+                                 "masked_text": e.masked_text[:200], "current_decision": a.decision})
+    return {"days": body.days, "events_in_period": total, "events_evaluated": len(rows), "truncated": total > len(rows),
+            "matched": matched, "matched_users": len(users), "would_be_stronger_than_current": stronger, "examples": examples,
+            "action": spec.action, "mode": spec.mode,
+            "ignored_scope": ["groups"] if (body.policy.scope or {}).get("groups") else [],
+            "note": "Em modo monitorar nada seria bloqueado; os números mostram o que a política faria em modo aplicar."}

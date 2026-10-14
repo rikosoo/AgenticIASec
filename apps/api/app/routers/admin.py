@@ -21,6 +21,13 @@ def me(p: Annotated[Principal, Depends(current_principal)]) -> dict:
     return {"kind": p.kind, "id": p.id, "tenant_id": str(p.tenant_id), "role": p.role, "email": p.email}
 
 
+@router.get("/users/directory", summary="Pessoas que podem receber incidentes")
+def user_directory(p: Annotated[Principal, Depends(require_roles("admin", "analista"))]) -> list[dict]:
+    with tenant_session(p.tenant_id) as s:
+        rows = s.execute(select(User).where(User.active.is_(True)).order_by(User.email)).scalars()
+        return [{"id": str(u.id), "email": u.email, "display_name": u.display_name, "role": u.role} for u in rows]
+
+
 @router.get("/users")
 def list_users(p: Annotated[Principal, Depends(require_roles("admin"))]) -> list[dict]:
     with tenant_session(p.tenant_id) as s:
@@ -82,7 +89,8 @@ def audit_log(p: Annotated[Principal, Depends(require_roles("admin", "auditor"))
 
 def _tenant_view(t: Tenant) -> dict:
     return {"id": str(t.id), "name": t.name, "failure_mode": t.failure_mode, "retention_days": t.retention_days,
-            "store_original": t.store_original, "policy_url": t.policy_url, "monitored_domains": t.monitored_domains}
+            "store_original": t.store_original, "policy_url": t.policy_url, "monitored_domains": t.monitored_domains,
+            "is_demo": t.is_demo}
 
 
 @router.get("/tenant", summary="Configurações do tenant")

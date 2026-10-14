@@ -43,6 +43,7 @@ class Tenant(Base):
     failure_mode: Mapped[str] = mapped_column(String(10), default="open")
     retention_days: Mapped[int] = mapped_column(Integer, default=90)
     policy_url: Mapped[str | None] = mapped_column(String(500))
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     monitored_domains: Mapped[list[str]] = mapped_column(ARRAY(String), default=lambda: ["chatgpt.com", "claude.ai"])
 
 

@@ -39,8 +39,29 @@ def main() -> None:
     c.add_argument("--name", required=True)
     c.add_argument("--slug", required=True)
     c.add_argument("--admin-email", required=True)
+    d = sub.add_parser("seed-demo", help="gera eventos SINTÉTICOS e marca o tenant como demonstração")
+    d.add_argument("--slug", required=True)
+    d.add_argument("--days", type=int, default=14)
+    d.add_argument("--count", type=int, default=400)
+    u = sub.add_parser("create-user")
+    u.add_argument("--slug", required=True)
+    u.add_argument("--email", required=True)
+    u.add_argument("--role", required=True, choices=["admin", "analista", "auditor", "leitura"])
     args = ap.parse_args()
     url = settings.admin_database_url or settings.database_url
+    if args.cmd == "seed-demo":
+        from app.demo import seed_demo
+
+        with Session(create_engine(url)) as s, s.begin():
+            print(seed_demo(s, args.slug, args.days, args.count))
+        return
+    if args.cmd == "create-user":
+        with Session(create_engine(url)) as s, s.begin():
+            tid = s.execute(text("SELECT id FROM tenants WHERE slug = :s"), {"s": args.slug}).scalar_one()
+            s.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tid)})
+            s.add(User(tenant_id=tid, email=args.email, role=args.role))
+        print("criado:", args.email, args.role)
+        return
     with Session(create_engine(url)) as s, s.begin():
         out = create_tenant(s, args.name, args.slug, args.admin_email)
     print(f"tenant_id:  {out['tenant_id']}\nadmin:      {args.admin_email}\napi_key:    {out['api_key']}\n"
