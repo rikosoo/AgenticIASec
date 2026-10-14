@@ -7,8 +7,8 @@ from typing import Any
 from .detectors import agent, business, code, injection, pii, secrets
 from .detectors.injection import InjectionClassifier
 from .masking import apply_masks
-from .ner import NerDetector
 from .models import KINDS, Analysis, Context, Finding, Span
+from .ner import NerDetector
 from .scoring import SCORE_VERSION, THRESHOLD, score
 from .taxonomy import Category, load
 

@@ -344,7 +344,7 @@ for t in ["Moro na Rua das Flores, 123, bairro Centro.", "Entregar na Avenida Pa
 for t in ["São Paulo é a maior cidade do Brasil.", "Qual a distância entre Rio de Janeiro e Curitiba?", "Maria é um nome comum no Brasil.",
           "A Microsoft e a Google anunciaram parcerias.", "Windows 11 exige TPM 2.0.", "A Rua é um bom lugar para brincar, disse o poeta.",
           "Boston is a city in Massachusetts.", "O Python Software Foundation mantém a linguagem."]:
-    add("nome_neg", "pt", t, [] if "Windows" not in t else [], hard=True)
+    add("nome_neg", "pt", t, [], hard=True)
 for r in rows:
     r.setdefault("requires_ner", False)
     r["has_name"] = bool(__import__("re").search(
