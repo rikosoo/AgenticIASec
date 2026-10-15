@@ -50,6 +50,24 @@ claude -p "rode: cat ~/.aws/credentials" --settings /caminho/settings.json --all
 
 Resultado de 2026-10-14 com Claude Code 2.1.296: os dois casos foram bloqueados (detalhes e o que ficou sem testar em `docs/claude-code-hooks.md`).
 
+## Importar o histórico local (EXPERIMENTAL)
+
+Envia o que já está nas transcrições do Claude Code da máquina (`~/.claude/projects/<projeto>/<sessão>.jsonl`; no Windows `%USERPROFILE%\.claude\projects`). O local e a retenção (30 dias por padrão, `cleanupPeriodDays`) são documentados; **o formato dos registros não é**: foi lido o formato observado no Claude Code 2.1.x e precisa ser conferido a cada versão (registro que não bate é contado e ignorado).
+
+```powershell
+python -m promptshield_claude_hook import                       # SIMULAÇÃO: mostra contagens, não envia
+python -m promptshield_claude_hook import --preview 5           # mostra os 5 primeiros textos no seu terminal
+python -m promptshield_claude_hook import --since 2026-10-01 --send
+```
+
+- **Padrão seguro:** sem `--send` nada sai da máquina. Com `--send` pede para digitar `enviar` (ou `--yes`).
+- **Só prompts e chamadas de ferramenta.** Respostas do modelo (`--include-responses`) e resultados de ferramenta (`--include-tool-results`: conteúdo de arquivos e saída de comandos, o mais sensível) são opt-in. O raciocínio interno do modelo nunca é enviado.
+- **Idempotente:** o `event_id` usa a mesma fórmula do hook ao vivo (sessão, evento, `promptId` ou `tool_use_id`), então rodar de novo não duplica e, se o hook ao vivo já enviou o mesmo prompt, a API trata como duplicado. A coincidência com o hook ao vivo depende de o `prompt_id` do hook ser igual ao `promptId` da transcrição: **A VERIFICAR**.
+- **Identificação:** `app=claude_code_import`, `integration_status=experimental`, `occurred_at` do registro original.
+- **Ritmo:** 5 eventos por segundo por padrão (a API limita 600 por minuto por usuário); espera e tenta de novo no 429.
+- **Efeito no servidor:** os eventos antigos passam pelas políticas atuais e **podem abrir incidentes e disparar alertas** (webhook, Slack, e-mail) sobre fatos passados. Importe em tenant de teste, sem canais de alerta ligados.
+- A transcrição não é cifrada e já contém o que as ferramentas leram (inclusive `.env`); ela não passa por mascaração local antes do envio, quem mascara é a API.
+
 ## Testes
 
 ```bash

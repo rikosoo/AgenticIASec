@@ -3,6 +3,7 @@
 Uso pelo Claude Code:  promptshield-claude-hook            (lê o evento de stdin)
 Uso do administrador:  promptshield-claude-hook check      (testa configuração e conexão)
                        promptshield-claude-hook refresh-config   (atualiza o modo de falha a partir da API)
+                       promptshield-claude-hook import --help    (importa o histórico local do Claude Code; EXPERIMENTAL)
 """
 from __future__ import annotations
 
@@ -73,6 +74,9 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_check(cfg)
     if args and args[0] == "refresh-config":
         return cmd_refresh(cfg)
+    if args and args[0] == "import":
+        from . import importer
+        return importer.main(args[1:], cfg)
     raw = sys.stdin.read(MAX_STDIN)
     out = run_hook(raw, cfg)
     if out is not None:

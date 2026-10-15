@@ -45,6 +45,18 @@ Depois siga `docs/teste-windows.md`, passo 1, com `api_url` = `http://localhost:
 
 Se o túnel cair, o hook segue em `fail_mode: open` (grava só metadados localmente), então o Claude Code não trava.
 
+## Histórico que já existe na sua máquina
+
+Além do uso ao vivo, dá para importar as transcrições locais (últimos 30 dias, se você não mudou `cleanupPeriodDays`). Primeiro simule, depois envie, ainda com o túnel aberto e em tenant sem canais de alerta:
+
+```powershell
+$env:PROMPTSHIELD_HOOK_CONFIG = "C:\ps-teste\hook.json"
+python -m promptshield_claude_hook import --preview 5
+python -m promptshield_claude_hook import --send
+```
+
+Detalhes e opt-ins (respostas, resultados de ferramenta) em `packages/adapters/claude_code_hook/README.md`. As transcrições contêm tudo que o Claude Code leu, inclusive arquivos `.env`: o que a API não reconhecer como segredo fica no banco da VM.
+
 ## Ao terminar
 
 ```bash

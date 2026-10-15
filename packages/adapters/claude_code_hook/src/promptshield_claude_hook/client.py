@@ -10,7 +10,10 @@ from .config import Config
 
 
 class ApiError(Exception):
-    pass
+    def __init__(self, message: str, status: int | None = None, retry_after: float | None = None) -> None:
+        super().__init__(message)
+        self.status = status
+        self.retry_after = retry_after
 
 
 def _request(cfg: Config, method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -26,7 +29,12 @@ def _request(cfg: Config, method: str, path: str, body: dict[str, Any] | None = 
         with urllib.request.urlopen(req, timeout=cfg.timeout_seconds) as r:  # noqa: S310
             return json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        raise ApiError(f"API respondeu {exc.code}") from exc
+        retry = exc.headers.get("Retry-After") if exc.headers else None
+        try:
+            wait = float(retry) if retry else None
+        except ValueError:
+            wait = None
+        raise ApiError(f"API respondeu {exc.code}", status=exc.code, retry_after=wait) from exc
     except (urllib.error.URLError, OSError, ValueError) as exc:  # inclui timeout e conexão recusada
         raise ApiError(f"API indisponível ({type(exc).__name__})") from exc
 

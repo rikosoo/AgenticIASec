@@ -166,3 +166,28 @@ def test_wrong_key_is_a_failure_not_a_pass_through_in_closed_mode(client, world,
     out, _ = run_hook(live, "ps_00000000_chave-errada", hook("PreToolUse", tool_name="Bash", tool_input={"command": "ls"}, tool_use_id="x"),
                       tmp_path, PROMPTSHIELD_FAIL_MODE="closed")
     assert out["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+# ---------- 6. importação do histórico local (transcrição SINTÉTICA no formato observado) ----------
+def test_import_history_is_idempotent_deduplicates_live_and_masks(client, world, live, tmp_path):
+    from promptshield_claude_hook import importer
+    from promptshield_claude_hook.config import Config
+
+    cfg = Config(api_url=live, api_key=world.a["api_key"], user_id="rafael.moreira", timeout_seconds=5)
+    d = tmp_path / "proj"
+    d.mkdir()
+    base = {"sessionId": "sess-i", "timestamp": "2026-10-10T12:00:00Z", "isSidechain": False}
+    recs = [
+        {**base, "type": "user", "uuid": "u1", "promptId": "pi-1", "message": {"role": "user", "content": f"SIMULADO: use a chave {SECRET}"}},
+        {**base, "type": "assistant", "uuid": "a1", "message": {"role": "assistant", "content": [
+            {"type": "tool_use", "id": "toolu_i1", "name": "Bash", "input": {"command": "rm -rf ~/projetos/*"}}]}},
+    ]
+    (d / "sess-i.jsonl").write_text("\n".join(json.dumps(r) for r in recs), encoding="utf-8")
+    evs, _ = importer.collect(tmp_path, cfg, since=None, project=None, responses=False, tool_results=False)
+    assert importer.send(evs, cfg, 100, say=lambda *_: None) == {"enviados": 2}
+    got = events(client, world)
+    assert len(got) == 2 and {e["app"] for e in got} == {"claude_code_import"}
+    assert SECRET not in json.dumps(got) and all(e["decision"] == "allow" for e in got)   # monitor: nada bloqueado
+    assert {c["id"] for e in got for c in e["categories"]} >= {"segredo", "shell_destrutivo"}
+    assert importer.send(evs, cfg, 100, say=lambda *_: None) == {"duplicados (já existiam)": 2}   # rodar de novo não duplica
+    assert len(events(client, world)) == 2
