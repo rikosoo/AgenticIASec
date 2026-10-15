@@ -79,6 +79,16 @@ def delete_schedule(schedule_id: uuid.UUID, p: Annotated[Principal, Depends(requ
         audit.write(s, p, "report.schedule_delete", "schedule", str(schedule_id))
 
 
+@router.delete("/{report_id}", status_code=204, summary="Apaga um relatório gerado")
+def delete_report(report_id: uuid.UUID, p: Annotated[Principal, Depends(require_roles("admin"))]) -> None:
+    with tenant_session(p.tenant_id) as s:
+        r = s.get(Report, report_id)
+        if r is None:
+            raise HTTPException(404, "relatório não encontrado")
+        s.delete(r)
+        audit.write(s, p, "report.delete", "report", str(report_id), {"kind": r.kind})
+
+
 @router.get("/{report_id}/download")
 def download(report_id: uuid.UUID, p: Annotated[Principal, Depends(require_roles(*ROLES))]) -> Response:
     with tenant_session(p.tenant_id) as s:

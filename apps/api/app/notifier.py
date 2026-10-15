@@ -173,6 +173,11 @@ def send_email(to: str, subject: str, body: str) -> None:
         raise DeliveryError(f"falha no envio SMTP ({type(exc).__name__})") from exc
 
 
+def channel_target(ch: NotificationChannel) -> str:
+    """Destino completo (URLs de webhook ficam cifradas no banco; `ch.target` guarda só o host para exibição)."""
+    return crypto.decrypt_secret(ch.tenant_id, ch.target_ciphertext) if ch.target_ciphertext else ch.target
+
+
 # ---------- mensagens ----------
 def alert_dict(a: Alert, tenant_name: str) -> dict[str, Any]:
     d = a.detail or {}
@@ -196,26 +201,26 @@ def alert_text(d: dict[str, Any]) -> str:
 def send_alert(ch: NotificationChannel, d: dict[str, Any], secret: str | None) -> None:
     text_msg = alert_text(d)
     if ch.kind == "email":
-        send_email(ch.target, f"[PromptShield] {d['severity']}: {d['title']}", text_msg)
+        send_email(channel_target(ch), f"[PromptShield] {d['severity']}: {d['title']}", text_msg)
     elif ch.kind == "slack":
-        post_json(ch.target, json.dumps({"text": text_msg}).encode(), {})
+        post_json(channel_target(ch), json.dumps({"text": text_msg}).encode(), {})
     elif ch.kind == "teams":  # EXPERIMENTAL / A VERIFICAR (ver docs/siem.md)
         card = {"type": "message", "attachments": [{"contentType": "application/vnd.microsoft.card.adaptive", "content": {
             "$schema": "http://adaptivecards.io/schemas/adaptive-card.json", "type": "AdaptiveCard", "version": "1.4",
             "body": [{"type": "TextBlock", "text": text_msg, "wrap": True}]}}]}
-        post_json(ch.target, json.dumps(card).encode(), {})
+        post_json(channel_target(ch), json.dumps(card).encode(), {})
     else:  # webhook genérico
         body = json.dumps({"schema": "promptshield.alert.v1", "alert": d}, sort_keys=True).encode()
-        post_json(ch.target, body, _signed_headers(secret, body))
+        post_json(channel_target(ch), body, _signed_headers(secret, body))
 
 
 def send_event(ch: NotificationChannel, rec: dict[str, Any], secret: str | None) -> None:
     if ch.kind == "syslog_cef":
         line = cef.syslog_5424(cef.event_to_cef(rec, settings_version()), when=rec["occurred_at"])
-        send_syslog(ch.target, (ch.config or {}).get("proto", "udp"), line)
+        send_syslog(channel_target(ch), (ch.config or {}).get("proto", "udp"), line)
     else:
         body = json.dumps({"schema": "promptshield.event.v1", "event": json_safe(rec)}, sort_keys=True).encode()
-        post_json(ch.target, body, _signed_headers(secret, body))
+        post_json(channel_target(ch), body, _signed_headers(secret, body))
 
 
 def settings_version() -> str:

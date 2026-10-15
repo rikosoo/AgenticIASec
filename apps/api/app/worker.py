@@ -15,7 +15,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import select, text
 
-from app import audit_system, notifier, reports
+from app import audit_system, notifier, reports, retention
 from app.db import anonymous_session, tenant_session
 from app.models import Report, ReportSchedule, Tenant
 
@@ -62,11 +62,20 @@ def run_schedules(tenant_id, today: date | None = None) -> int:
     return made
 
 
+def run_retention(tenant_id) -> bool:
+    with tenant_session(tenant_id) as s:
+        if not retention.due(s, tenant_id):
+            return False
+        retention.run(s, tenant_id)
+        return True
+
+
 def run_once() -> dict:
     out = notifier.deliver_all()
     with anonymous_session() as s:
         ids = [r.tenant_id for r in s.execute(text("SELECT tenant_id FROM list_tenant_ids()"))]
     out["reports"] = sum(run_schedules(t) for t in ids)
+    out["retention"] = sum(run_retention(t) for t in ids)
     return out
 
 

@@ -64,6 +64,9 @@ def _configure(request):
     settings.oidc_mock_secret = "x" * 40
     settings.original_text_master_key = base64.urlsafe_b64encode(b"k" * 32).decode()
     appdb.reset_engine()
+    from app import crypto
+
+    crypto.clear_cache()
     with admin_engine.begin() as c:
         c.execute(text("TRUNCATE tenants CASCADE"))
     yield

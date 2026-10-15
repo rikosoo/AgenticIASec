@@ -118,6 +118,7 @@ class TenantPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
     failure_mode: Literal["open", "closed"] | None = None
     retention_days: int | None = Field(default=None, ge=7, le=365)
+    original_retention_days: int | None = Field(default=None, ge=1, le=365)
     store_original: bool | None = None
     volume_threshold_per_hour: int | None = Field(default=None, ge=0, le=100000)
     policy_url: str | None = Field(default=None, max_length=500, pattern=r"^https://\S+$")

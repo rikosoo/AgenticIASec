@@ -11,6 +11,7 @@ from app import audit
 from app.db import tenant_session
 from app.models import Analysis, AuditLog, Event, Incident, User
 from app.recommendations import recommend
+from app.routers.admin import actor_label
 from app.schemas import IncidentPatch
 from app.security import READ_ROLES, Principal, require_roles
 
@@ -44,7 +45,7 @@ def _detail(s: Session, incident_id: uuid.UUID) -> dict | None:
         after = (log.detail or {}).get("after", {})
         what = "; ".join(x for x in (f"status: {after['status']}" if "status" in after else "",
                                      "responsável alterado" if "assignee_id" in after else "") if x) or "atualizado"
-        steps.append({"at": log.at.isoformat(), "what": f"{what} (por {log.actor_id})"})
+        steps.append({"at": log.at.isoformat(), "what": f"{what} (por {actor_label(s, log)})"})
     out["timeline"] = sorted(steps, key=lambda x: x["at"])
     out["recommendations"] = recommend(a.categories, a.decision, a.would_decide)
     return out

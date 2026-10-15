@@ -47,6 +47,7 @@ def main() -> None:
     u.add_argument("--slug", required=True)
     u.add_argument("--email", required=True)
     u.add_argument("--role", required=True, choices=["admin", "analista", "auditor", "leitura"])
+    sub.add_parser("rewrap-keys", help="troca a chave mestra: reembrulha as chaves de dados (lê OLD_MASTER_KEY e NEW_MASTER_KEY do ambiente)")
     args = ap.parse_args()
     url = settings.admin_database_url or settings.database_url
     if args.cmd == "seed-demo":
@@ -54,6 +55,17 @@ def main() -> None:
 
         with Session(create_engine(url)) as s, s.begin():
             print(seed_demo(s, args.slug, args.days, args.count))
+        return
+    if args.cmd == "rewrap-keys":
+        import os
+
+        from app import crypto
+
+        old, new = os.environ.get("OLD_MASTER_KEY"), os.environ.get("NEW_MASTER_KEY")
+        if not old or not new or old == new:
+            raise SystemExit("defina OLD_MASTER_KEY e NEW_MASTER_KEY (diferentes), em base64 urlsafe de 32 bytes")
+        with Session(create_engine(url)) as s, s.begin():
+            print("chaves reembrulhadas:", crypto.rewrap_keys(s, old, new))
         return
     if args.cmd == "create-user":
         with Session(create_engine(url)) as s, s.begin():

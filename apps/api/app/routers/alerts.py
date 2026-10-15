@@ -66,14 +66,25 @@ def create_channel(body: ChannelIn, p: Annotated[Principal, Depends(require_role
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
     cfg = {k: v for k, v in (("min_severity", body.min_severity), ("min_score", body.min_score), ("proto", body.proto)) if v is not None}
     secret = None
+    target_blob = None
+    shown = body.target
+    if body.kind in ("webhook", "slack", "teams", "siem_webhook"):  # a URL é um segredo (Slack/Teams): cifrada, e só o host fica visível
+        from urllib.parse import urlsplit
+
+        parts = urlsplit(body.target)
+        shown = f"{parts.scheme}://{parts.hostname}/…"
+        try:
+            target_blob = crypto.encrypt_secret(p.tenant_id, body.target)
+        except crypto.MasterKeyMissingError as exc:
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "chave mestra não configurada: não dá para guardar a URL do canal") from exc
     if body.secret:
         try:
             secret = crypto.encrypt_secret(p.tenant_id, body.secret)
         except crypto.MasterKeyMissingError as exc:
             raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "chave mestra não configurada: não dá para guardar o segredo") from exc
     with tenant_session(p.tenant_id) as s:
-        ch = NotificationChannel(tenant_id=p.tenant_id, kind=body.kind, name=body.name, target=body.target, config=cfg,
-                                 secret_ciphertext=secret, enabled=body.enabled)
+        ch = NotificationChannel(tenant_id=p.tenant_id, kind=body.kind, name=body.name, target=shown, config=cfg,
+                                 secret_ciphertext=secret, target_ciphertext=target_blob, enabled=body.enabled)
         s.add(ch)
         s.flush()
         audit.write(s, p, "channel.create", "channel", str(ch.id), {"kind": body.kind, "name": body.name})

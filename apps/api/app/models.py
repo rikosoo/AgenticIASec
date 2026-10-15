@@ -46,6 +46,8 @@ class Tenant(Base):
     policy_url: Mapped[str | None] = mapped_column(String(500))
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     volume_threshold_per_hour: Mapped[int] = mapped_column(Integer, default=60)
+    original_retention_days: Mapped[int] = mapped_column(Integer, default=30)
+    last_retention_run: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     monitored_domains: Mapped[list[str]] = mapped_column(ARRAY(String), default=lambda: ["chatgpt.com", "claude.ai"])
 
 
@@ -73,6 +75,7 @@ class ApiKey(Base):
     created_at: Mapped[datetime] = _ts()
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Policy(Base):
@@ -165,6 +168,7 @@ class NotificationChannel(Base):
     target: Mapped[str] = mapped_column(String(1000))
     config: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     secret_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
+    target_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = _ts()
 
