@@ -27,7 +27,12 @@ jobs:
           https://github.com/explosion/spacy-models/releases/download/pt_core_news_sm-3.8.0/pt_core_news_sm-3.8.0-py3-none-any.whl
           https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
       - run: ruff check apps/api packages/detection packages/adapters
+      - run: ruff check --config ruff.toml packages
       - run: cd apps/api && pytest -q
+        env:
+          DATABASE_URL_TEST: postgresql+psycopg://ci:ci@localhost:5432/ci
+      - name: Testes de segurança (controle de acesso, limite de requisições, chaves, logs)
+        run: cd apps/api && pytest -q -m security
         env:
           DATABASE_URL_TEST: postgresql+psycopg://ci:ci@localhost:5432/ci
       - run: cd packages/detection && pytest -q
@@ -46,6 +51,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      - run: npm audit --omit=dev --audit-level=high
   extension:
     runs-on: ubuntu-latest
     defaults:
@@ -60,3 +66,23 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build:dev
+      - run: npm audit --omit=dev --audit-level=high
+  dependencies:
+    # varredura de dependências Python (pip-audit usa a base de avisos do PyPI)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e packages/detection -e packages/adapters/inference_hooks && pip install -e apps/api pip-audit
+      - run: pip-audit --skip-editable
+  secrets:
+    # nenhum .env, chave privada ou token real no repositório (só .env.example)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest && pytest -q tests/test_repo_hygiene.py

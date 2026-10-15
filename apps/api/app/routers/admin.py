@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from app import audit
 from app.db import tenant_session
 from app.models import ApiKey, AuditLog, Tenant, User
-from app.schemas import ApiKeyIn, TenantPatch, UserIn
+from app.schemas import ApiKeyIn, ApiKeyRotate, TenantPatch, UserIn
 from app.security import Principal, current_principal, generate_api_key, require_ingest, require_roles
 
 router = APIRouter(prefix="/v1", tags=["administração"])
@@ -78,19 +79,33 @@ def delete_user(user_id: uuid.UUID, p: Annotated[Principal, Depends(require_role
 def create_key(body: ApiKeyIn, p: Annotated[Principal, Depends(require_roles("admin"))]) -> dict:
     key, prefix, digest = generate_api_key()
     with tenant_session(p.tenant_id) as s:
-        k = ApiKey(tenant_id=p.tenant_id, name=body.name, prefix=prefix, key_hash=digest, scopes=["ingest"])
+        expires = datetime.now(timezone.utc) + timedelta(days=body.expires_in_days) if body.expires_in_days else None
+        k = ApiKey(tenant_id=p.tenant_id, name=body.name, prefix=prefix, key_hash=digest, scopes=["ingest"], expires_at=expires)
         s.add(k)
         s.flush()
         audit.write(s, p, "api_key.create", "api_key", str(k.id), {"name": body.name, "prefix": prefix})
         return {"id": str(k.id), "name": k.name, "prefix": prefix, "key": key}
 
 
+def _key_status(k: ApiKey, now: datetime) -> str:
+    if k.revoked_at is not None:
+        return "revogada"
+    if k.expires_at is not None:
+        return "expirada" if k.expires_at <= now else "expira em breve"
+    return "ativa"
+
+
+def _key_view(k: ApiKey, now: datetime) -> dict:
+    return {"id": str(k.id), "name": k.name, "prefix": k.prefix, "status": _key_status(k, now), "revoked": k.revoked_at is not None,
+            "created_at": k.created_at.isoformat(), "expires_at": k.expires_at.isoformat() if k.expires_at else None,
+            "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None}
+
+
 @router.get("/api-keys")
 def list_keys(p: Annotated[Principal, Depends(require_roles("admin"))]) -> list[dict]:
+    now = datetime.now(timezone.utc)
     with tenant_session(p.tenant_id) as s:
-        return [{"id": str(k.id), "name": k.name, "prefix": k.prefix, "revoked": k.revoked_at is not None,
-                 "last_used_at": k.last_used_at.isoformat() if k.last_used_at else None}
-                for k in s.execute(select(ApiKey).order_by(ApiKey.created_at)).scalars()]
+        return [_key_view(k, now) for k in s.execute(select(ApiKey).order_by(ApiKey.created_at)).scalars()]
 
 
 @router.post("/api-keys/{key_id}/revoke")
@@ -102,6 +117,28 @@ def revoke_key(key_id: uuid.UUID, p: Annotated[Principal, Depends(require_roles(
         s.execute(text("UPDATE api_keys SET revoked_at = now() WHERE id = :i AND revoked_at IS NULL"), {"i": key_id})
         audit.write(s, p, "api_key.revoke", "api_key", str(key_id), {"prefix": k.prefix})
         return {"id": str(key_id), "revoked": True}
+
+
+@router.post("/api-keys/{key_id}/rotate", status_code=201,
+             summary="Rotaciona: cria uma chave nova (mostrada só aqui) e deixa a antiga valer por `grace_hours` (0 revoga já)")
+def rotate_key(key_id: uuid.UUID, body: ApiKeyRotate, p: Annotated[Principal, Depends(require_roles("admin"))]) -> dict:
+    now = datetime.now(timezone.utc)
+    with tenant_session(p.tenant_id) as s:
+        old = s.get(ApiKey, key_id)
+        if old is None or old.revoked_at is not None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "chave não encontrada ou já revogada")
+        key, prefix, digest = generate_api_key()
+        new = ApiKey(tenant_id=p.tenant_id, name=old.name, prefix=prefix, key_hash=digest, scopes=list(old.scopes))
+        s.add(new)
+        if body.grace_hours == 0:
+            old.revoked_at = now
+        else:  # nunca estende uma expiração que já era mais curta
+            until = now + timedelta(hours=body.grace_hours)
+            old.expires_at = min(until, old.expires_at) if old.expires_at else until
+        s.flush()
+        audit.write(s, p, "api_key.rotate", "api_key", str(key_id), {"new_prefix": prefix, "old_prefix": old.prefix, "grace_hours": body.grace_hours})
+        return {"id": str(new.id), "name": new.name, "prefix": prefix, "key": key, "replaces": str(key_id),
+                "old_key_valid_until": None if body.grace_hours == 0 else old.expires_at.isoformat()}
 
 
 @router.get("/audit-log")

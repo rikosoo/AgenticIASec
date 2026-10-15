@@ -22,6 +22,9 @@ from app.routers.analytics import compute_overview
 PERSONAL_DATA_CATEGORIES = ("pii", "saude", "financeiro", "rh", "cliente")
 KINDS = ("executivo", "lgpd")
 TITLES = {"executivo": "Relatório executivo de uso de IA", "lgpd": "Relatório de conformidade LGPD: dados pessoais enviados à IA"}
+# fragmento SQL constante (sem entrada do usuário); as categorias entram por parâmetro
+PERSONAL_FILTER = ("WHERE e.occurred_at >= :s AND e.occurred_at < :u AND EXISTS (SELECT 1 FROM jsonb_array_elements(a.categories::jsonb) c "
+                   "WHERE c->>'id' = ANY(CAST(:cats AS text[])))")
 LGPD_NOTE = ("Modelo de relatório. Não constitui parecer jurídico: a base legal, o aviso aos colaboradores e a política de uso "
              "de IA devem ser revisados por um advogado.")
 
@@ -85,19 +88,21 @@ def collect(s: Session, tenant: Tenant, kind: str, start: date, end: date) -> di
                     departments=[{k: d[k] for k in ("department", "score", "users", "users_high", "events")} for d in r["departments"]],
                     score_version=r["score_version"])
     else:
-        cats = ",".join(f"'{c}'" for c in PERSONAL_DATA_CATEGORIES)  # constantes do código, não entrada do usuário
-        f = f"WHERE e.occurred_at >= :s AND e.occurred_at < :u AND EXISTS (SELECT 1 FROM jsonb_array_elements(a.categories::jsonb) c WHERE c->>'id' IN ({cats}))"
-        p = {"s": since, "u": until}
-        tot = s.execute(text(f"""SELECT count(*) events, count(DISTINCT e.user_id) users,
-                                 count(*) FILTER (WHERE e.personal_account) personal FROM events e JOIN analyses a ON a.event_pk = e.id {f}"""), p).one()
-        by_type = s.execute(text(f"""SELECT sp->>'type' dtype, count(*) n FROM events e JOIN analyses a ON a.event_pk = e.id,
-                                     jsonb_array_elements(a.spans::jsonb) sp {f} GROUP BY 1 ORDER BY 2 DESC, 1"""), p).all()
-        by_cat = s.execute(text(f"""SELECT c->>'id' id, count(DISTINCT e.id) n FROM events e JOIN analyses a ON a.event_pk = e.id,
-                                    jsonb_array_elements(a.categories::jsonb) c {f} AND c->>'id' IN ({cats}) GROUP BY 1 ORDER BY 2 DESC, 1"""), p).all()
-        by_app = s.execute(text(f"SELECT e.app, count(*) n FROM events e JOIN analyses a ON a.event_pk = e.id {f} GROUP BY 1 ORDER BY 2 DESC, 1"), p).all()
-        by_dept = s.execute(text(f"""SELECT coalesce(e.department,'(sem departamento)') d, count(*) n FROM events e JOIN analyses a ON a.event_pk = e.id {f}
-                                     GROUP BY 1 ORDER BY 2 DESC, 1"""), p).all()
-        dec = s.execute(text(f"""SELECT a.decision, a.would_decide, count(*) n FROM events e JOIN analyses a ON a.event_pk = e.id {f} GROUP BY 1, 2"""), p).all()
+        p = {"s": since, "u": until, "cats": list(PERSONAL_DATA_CATEGORIES)}
+
+        def q(sql: str):
+            return s.execute(text(sql.replace("{F}", PERSONAL_FILTER)), p)
+
+        tot = q("""SELECT count(*) events, count(DISTINCT e.user_id) users,
+                   count(*) FILTER (WHERE e.personal_account) personal FROM events e JOIN analyses a ON a.event_pk = e.id {F}""").one()
+        by_type = q("""SELECT sp->>'type' dtype, count(*) n FROM events e JOIN analyses a ON a.event_pk = e.id,
+                       jsonb_array_elements(a.spans::jsonb) sp {F} GROUP BY 1 ORDER BY 2 DESC, 1""").all()
+        by_cat = q("""SELECT c->>'id' id, count(DISTINCT e.id) n FROM events e JOIN analyses a ON a.event_pk = e.id,
+                      jsonb_array_elements(a.categories::jsonb) c {F} AND c->>'id' = ANY(CAST(:cats AS text[])) GROUP BY 1 ORDER BY 2 DESC, 1""").all()
+        by_app = q("SELECT e.app, count(*) n FROM events e JOIN analyses a ON a.event_pk = e.id {F} GROUP BY 1 ORDER BY 2 DESC, 1").all()
+        by_dept = q("""SELECT coalesce(e.department,'(sem departamento)') d, count(*) n FROM events e JOIN analyses a ON a.event_pk = e.id {F}
+                       GROUP BY 1 ORDER BY 2 DESC, 1""").all()
+        dec = q("SELECT a.decision, a.would_decide, count(*) n FROM events e JOIN analyses a ON a.event_pk = e.id {F} GROUP BY 1, 2").all()
         views = s.execute(text("""SELECT count(*) FROM audit_log WHERE action = 'event.original_read' AND at >= :s AND at < :u"""), p).scalar_one()
         tax = load_taxonomy()
         base.update(

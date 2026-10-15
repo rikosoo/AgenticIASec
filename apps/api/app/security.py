@@ -8,9 +8,10 @@ from dataclasses import dataclass
 from typing import Annotated, Any
 
 import jwt
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy import text
 
+from app import metrics, ratelimit
 from app.config import settings
 from app.db import anonymous_session
 
@@ -129,15 +130,21 @@ def _resolve_user(token: str) -> Principal:
 
 
 def current_principal(
+    request: Request,
     authorization: Annotated[str | None, Header()] = None,
     x_api_key: Annotated[str | None, Header()] = None,
 ) -> Principal:
     raw = x_api_key or _bearer(authorization)
     if not raw:
         raise _unauthorized("envie X-API-Key ou Authorization: Bearer")
-    if raw.startswith(KEY_PREFIX):
-        return _resolve_key(raw)
-    return _resolve_user(raw)
+    p = _resolve_key(raw) if raw.startswith(KEY_PREFIX) else _resolve_user(raw)
+    request.state.tenant_id = str(p.tenant_id)  # para o log de acesso
+    limit = settings.rate_limit_key_per_minute if p.kind == "api_key" else settings.rate_limit_user_per_minute
+    wait = ratelimit.check(f"{p.kind}:{p.id}", limit)
+    if wait is not None:
+        metrics.inc("ps_rate_limited_total", kind=p.kind)
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "limite de requisições excedido", headers={"Retry-After": str(wait)})
+    return p
 
 
 def require_ingest(p: Annotated[Principal, Depends(current_principal)]) -> Principal:

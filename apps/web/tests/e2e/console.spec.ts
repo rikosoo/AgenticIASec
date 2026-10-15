@@ -246,3 +246,24 @@ test("tablet (768 px): sem rolagem horizontal da página", async ({ page }) => {
     expect(overflow, path).toBeLessThanOrEqual(0);
   }
 });
+
+test("cabeçalhos de segurança e nenhuma violação da política de conteúdo", async ({ page }) => {
+  const violations: string[] = [];
+  page.on("console", (m) => { if (/Content Security Policy|Refused to/i.test(m.text())) violations.push(m.text()); });
+  page.on("pageerror", (e) => violations.push(e.message));
+  const r = await page.goto("/login");
+  const h = r!.headers();
+  expect(h["content-security-policy"]).toContain("frame-ancestors 'none'");
+  expect(h["x-frame-options"]).toBe("DENY");
+  expect(h["x-content-type-options"]).toBe("nosniff");
+  expect(h["referrer-policy"]).toBe("no-referrer");
+  expect(h["x-powered-by"]).toBeUndefined();
+  await login(page, USERS.admin);
+  for (const path of ["/", "/prompts", "/incidents", "/policies", "/risk", "/alerts", "/reports", "/inference-hooks"]) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  }
+  const api = await page.request.get("/api/proxy/v1/me");
+  expect(api.headers()["content-security-policy"]).toBeTruthy();   // também nas rotas da API do console
+  expect(violations).toEqual([]);
+});

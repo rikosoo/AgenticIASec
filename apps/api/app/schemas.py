@@ -111,7 +111,14 @@ class UserIn(BaseModel):
 
 
 class ApiKeyIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
     name: str = Field(min_length=1, max_length=120)
+    expires_in_days: int | None = Field(default=None, ge=1, le=730)
+
+
+class ApiKeyRotate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    grace_hours: int = Field(default=24, ge=0, le=168)  # por quanto tempo a chave antiga continua valendo; 0 = revoga já
 
 
 class TenantPatch(BaseModel):

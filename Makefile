@@ -1,4 +1,4 @@
-.PHONY: up down test lint setup ner test-e2e test-e2e-web
+.PHONY: up down test lint setup ner test-e2e test-e2e-web audit
 
 PY ?= python3
 
@@ -31,6 +31,7 @@ test: .venv apps/web/node_modules apps/extension/node_modules ## testes de api, 
 
 lint: .venv apps/web/node_modules apps/extension/node_modules
 	.venv/bin/ruff check apps/api packages/detection packages/adapters
+	.venv/bin/ruff check --config ruff.toml packages  # regras de segurança (S) também nos pacotes
 	cd apps/web && npm run lint
 	cd apps/extension && npm run lint
 
@@ -45,3 +46,8 @@ test-e2e: apps/extension/node_modules ## extensão em Chromium real (defina CHRO
 
 test-e2e-web: apps/web/node_modules ## console em Chromium real com API e PostgreSQL reais (defina DATABASE_URL_TEST e CHROMIUM_PATH)
 	cd apps/web && npm run test:e2e
+
+audit: .venv apps/web/node_modules apps/extension/node_modules ## varredura de dependências (precisa de rede)
+	.venv/bin/pip install -q pip-audit && .venv/bin/pip-audit --skip-editable
+	cd apps/web && npm audit --omit=dev --audit-level=high
+	cd apps/extension && npm audit --omit=dev --audit-level=high

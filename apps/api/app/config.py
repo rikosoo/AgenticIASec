@@ -44,5 +44,12 @@ class Settings(BaseSettings):
     inference_hook_max_body_bytes: int = 64 * 1024 * 1024  # o protocolo permite até 64 MiB
     inference_hook_previous_secret_minutes: int = 10  # a troca de segredo é imediata do lado da Anthropic; aceitamos o anterior por um tempo
 
+    # limites de requisição por credencial por minuto, por processo (0 desliga). Coletores de uma empresa inteira usam UMA chave.
+    rate_limit_key_per_minute: int = 6000
+    rate_limit_user_per_minute: int = 600
+    # /metrics só existe se houver token (Authorization: Bearer ...); sem token a rota responde 404
+    metrics_token: str | None = None
+    log_json: bool = True
+
 
 settings = Settings()

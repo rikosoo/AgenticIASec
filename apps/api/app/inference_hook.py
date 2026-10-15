@@ -17,7 +17,7 @@ from promptshield_inference_hooks import Block, Frame, allow, deny
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import crypto
+from app import crypto, metrics
 from app.config import settings
 from app.models import Analysis, Event, InferenceHookConfig, InferenceHookRequest, Tenant
 from app.schemas import Actor, Content, Context, EventIn, Source
@@ -187,4 +187,5 @@ def process(session: Session, p: Principal, cfg: InferenceHookConfig, frame: Fra
     elif o.outcome == "failure_deny":
         o.verdict = deny(o.verdict["deny_reason"], ref)
     record(session, p, frame, request_id, o, started, ref)
+    metrics.inc("ps_inference_hook_total", outcome=o.outcome)
     return o.verdict
