@@ -60,4 +60,18 @@ Uma linha por decisão: contexto, escolha, alternativas.
 | 2026-10-15 | Estado de integração dos eventos do hook | `partial` (protocolo documentado, nunca chamado por um tenant Enterprise real) | `real` (CLAUDE.md: REAL é documentada e testada) |
 | 2026-10-15 | `deny_reason` | Só nomes de categorias, nunca o conteúdo; inclui a política de uso do tenant se houver | Mostrar o trecho detectado (devolveria dado sensível ao usuário e aos registros da Anthropic) |
 | 2026-10-15 | Troca de segredo | Aceita o novo e o anterior por 10 minutos (a troca é imediata na Anthropic) | Só o novo (retardatários seriam rejeitados e contariam para o disjuntor) |
+| 2026-10-15 | Cifra em repouso | Chave de dados (DEK) aleatória por tenant, embrulhada pela chave mestra, em tabela própria; derivações por finalidade | Derivar tudo da chave mestra (rotação exigiria recifrar os dados); DEK na linha do tenant (disputava a linha e travou o seed de demonstração) |
+| 2026-10-15 | Retenção | `received_at` (hora do servidor), original com prazo menor (30 d) que o geral (90 d), job diário e execução sob demanda; auditoria imutável fica de fora | `occurred_at` (o coletor poderia adiantar a data para fugir da retenção); apagar a auditoria (perde a prova) |
+| 2026-10-15 | Auditoria e usuários removidos | O registro guarda só o UUID do ator; o e-mail vem do cadastro e some ao remover o usuário | Guardar o e-mail no registro imutável (impossível apagar depois) |
+| 2026-10-15 | Eliminação de titular | Apaga eventos, análises, incidentes, alertas e fila; a auditoria guarda só o hash do identificador e a justificativa | Marcar como apagado (o dado continuaria no banco) |
+| 2026-10-15 | Texto livre sensível | Categorias configuráveis cujo texto não é guardado (saúde por padrão); o evento continua classificado e pontuado | Confiar no mascaramento (ele cobre identificadores estruturados, não diagnóstico digitado) |
+| 2026-10-15 | Limite de requisições | Balde de fichas em memória, por chave e por usuário, 429 com `Retry-After` | Redis (o projeto só adota se for realmente necessário); sem limite |
+| 2026-10-15 | Rotação de chave de API | Cria a nova e a antiga vale por `grace_hours`; expiração no banco | Revogar sempre na hora (derruba coletores em produção) |
+| 2026-10-15 | Controle de acesso | Matriz rota × papel nos testes; rota nova sem expectativa reprova | Testar só as rotas que alguém lembrou |
+| 2026-10-15 | Cabeçalhos do console | CSP restritiva com `'unsafe-inline'` em scripts (exigido pelo Next.js), sem `unsafe-eval` em produção | CSP com nonce (mais forte; pendente) |
+| 2026-10-15 | Logs e métricas | JSON só com modelo da rota, método, status, duração e UUID do tenant; métricas sem tenant, usuário ou conteúdo; `/metrics` só com token | Log de acesso padrão com caminho e query (vazaria identificadores) |
+| 2026-10-15 | Análise estática e dependências | Regras de segurança do ruff (S), `pip-audit` e `npm audit` no CI, higiene do repositório | Só lint de estilo |
+| 2026-10-15 | Backup | `pg_dump` custom + SHA-256, restauração só em banco vazio, chave mestra fora do backup, teste de ida e volta | Backup com a chave junto (um arquivo roubado leria tudo) |
+| 2026-10-15 | Métricas do piloto | Cobertura, falso positivo por amostra aleatória dos sinalizados (Wilson 95%, aviso abaixo de 30 itens), tempo até o primeiro alerta; metas são sugestões | Taxa de falso positivo sem intervalo e sem aviso; apresentar a taxa como acurácia |
+| 2026-10-15 | Documentos jurídicos | Modelos marcados para revisão de advogado, com **A VERIFICAR** onde a norma não foi lida; teste que confere rotas, variáveis, testes e padrões citados | Documento "pronto" sem fonte (afirmaria o que não foi verificado) |
 

@@ -126,10 +126,24 @@ class TenantPatch(BaseModel):
     failure_mode: Literal["open", "closed"] | None = None
     retention_days: int | None = Field(default=None, ge=7, le=365)
     original_retention_days: int | None = Field(default=None, ge=1, le=365)
+    omit_text_categories: list[str] | None = Field(default=None, max_length=30)
     store_original: bool | None = None
     volume_threshold_per_hour: int | None = Field(default=None, ge=0, le=100000)
     policy_url: str | None = Field(default=None, max_length=500, pattern=r"^https://\S+$")
     monitored_domains: list[str] | None = Field(default=None, max_length=50)
+
+    @field_validator("omit_text_categories")
+    @classmethod
+    def _omit(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        from promptshield_detection.taxonomy import load as load_taxonomy
+
+        known = set(load_taxonomy())
+        bad = [c for c in v if c not in known]
+        if bad:
+            raise ValueError(f"categoria desconhecida: {bad[0]}")
+        return sorted(set(v))
 
     @field_validator("monitored_domains")
     @classmethod

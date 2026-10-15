@@ -75,6 +75,16 @@ test("privacidade: mapa de dados, retenção, direito do titular e chaves de API
   await expect(page.getByRole("status").filter({ hasText: "Retenção executada" })).toBeVisible();
   expect((await apiGet<DataMap>(page, "v1/privacy/data-map")).data.counts.events).toBe(map.counts.events);   // 14 dias de dados: nada venceu
 
+  // texto livre sensível: saúde vem marcada; desmarcar e marcar de novo muda o que o tenant guarda
+  const omit = page.getByTestId("omit-categories");
+  await omit.locator("summary").click();
+  await expect(omit.getByLabel("Dados de saúde")).toBeChecked();
+  await omit.getByLabel("Dados de saúde").click();        // controlado: só muda depois que a API responde
+  await expect(page.getByRole("status").filter({ hasText: "Categorias sem guarda de texto atualizadas." })).toBeVisible();
+  expect((await apiGet<{ omit_text_categories: string[] }>(page, "v1/tenant")).data.omit_text_categories).toEqual([]);
+  await omit.getByLabel("Dados de saúde").click();
+  await expect.poll(async () => (await apiGet<{ omit_text_categories: string[] }>(page, "v1/tenant")).data.omit_text_categories).toEqual(["saude"]);
+
   // titular: consulta e eliminação de UMA pessoa dos dados de exemplo
   const evs = (await apiGet<{ user_id: string }[]>(page, "v1/events?limit=200&days=14")).data;
   const person = evs[0].user_id;

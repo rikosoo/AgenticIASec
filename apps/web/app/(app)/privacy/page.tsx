@@ -6,6 +6,7 @@ import { Empty, ErrorBox, Kpi, Loading, Panel } from "@/components/ui";
 import { api, send, useLoad } from "@/lib/api";
 import { whenFull } from "@/lib/format";
 import type { ApiKeyRow, DataMap, Tenant } from "@/lib/types";
+import { useTaxonomy } from "@/lib/useTaxonomy";
 
 interface Subject { subject: string; events: unknown[]; incidents: number; alerts: number; truncated: boolean }
 
@@ -13,6 +14,7 @@ export default function PrivacyPage() {
   const { me } = useSession();
   const isAdmin = me.role === "admin";
   const canAudit = isAdmin || me.role === "auditor";
+  const { groups } = useTaxonomy();
   const map = useLoad(() => api<DataMap>("v1/privacy/data-map"), []);
   const tenant = useLoad(() => api<Tenant>("v1/tenant"), []);
   const keys = useLoad(() => (isAdmin ? api<ApiKeyRow[]>("v1/api-keys") : Promise.resolve([] as ApiKeyRow[])), [isAdmin]);
@@ -33,6 +35,7 @@ export default function PrivacyPage() {
     try { const extra = await fn(); setMsg({ ok: true, text: typeof extra === "string" && extra ? extra : ok }); map.reload(); tenant.reload(); keys.reload(); } catch (e) { setMsg({ ok: false, text: e instanceof Error ? e.message : "Erro" }); } finally { setBusy(false); }
   }
   const saveRetention = (ev: FormEvent) => { ev.preventDefault(); void run(() => send("PATCH", "v1/tenant", { ...(retention ? { retention_days: Number(retention) } : {}), ...(original ? { original_retention_days: Number(original) } : {}) }), "Retenção salva."); };
+  const toggleOmit = (id: string, on: boolean) => run(() => send("PATCH", "v1/tenant", { omit_text_categories: on ? [...(tenant.data?.omit_text_categories ?? []), id] : (tenant.data?.omit_text_categories ?? []).filter((c) => c !== id) }), "Categorias sem guarda de texto atualizadas.");
   const toggleOriginal = (on: boolean) => run(() => send("PATCH", "v1/tenant", { store_original: on }), on ? "Guarda do texto original LIGADA (cifrado, com prazo próprio)." : "Guarda do texto original desligada.");
   const runRetention = () => { if (confirm("Apagar agora tudo o que passou do prazo de retenção? Não dá para desfazer.")) void run(async () => { const c = await send<Record<string, number>>("POST", "v1/privacy/retention/run"); return `Retenção executada: ${c.events} evento(s) e ${c.originals_erased} texto(s) original(is) apagados.`; }, ""); };
   const lookup = async () => { setMsg(null); try { setSubject(await api<Subject>(`v1/privacy/subject?user_id=${encodeURIComponent(subjectId)}`)); } catch (e) { setSubject(null); setMsg({ ok: false, text: e instanceof Error ? e.message : "Erro" }); } };
@@ -73,6 +76,17 @@ export default function PrivacyPage() {
               <button type="button" className="btn" disabled={busy} onClick={runRetention}>Executar retenção agora</button>
             </form>
             <label className="flex items-center gap-2"><input type="checkbox" checked={t.store_original} disabled={busy} onChange={(e) => toggleOriginal(e.target.checked)} /> Guardar também o texto <strong>original</strong> (cifrado). Desligado por padrão: o padrão é guardar só o texto mascarado.</label>
+            <details className="rounded border border-line p-3" data-testid="omit-categories">
+              <summary className="cursor-pointer font-medium">Categorias cujo texto <strong>não é guardado</strong> ({t.omit_text_categories.length} marcada{t.omit_text_categories.length === 1 ? "" : "s"})</summary>
+              <p className="mt-2 text-xs text-muted">O mascaramento cobre identificadores estruturados (CPF, cartões, chaves...). Texto livre sensível, como saúde, só é protegido se a categoria estiver marcada aqui: o evento guarda um aviso no lugar do texto e continua classificado e pontuado. Saúde vem marcada por padrão.</p>
+              <div className="mt-2 grid max-h-56 gap-3 overflow-y-auto sm:grid-cols-2">
+                {groups.map((g) => (
+                  <fieldset key={g.group}><legend className="text-xs font-semibold text-muted">{g.group}</legend>
+                    {g.items.map((c) => <label key={c.id} className="flex items-center gap-2 py-0.5"><input type="checkbox" checked={t.omit_text_categories.includes(c.id)} disabled={busy} onChange={(e) => toggleOmit(c.id, e.target.checked)} /> {c.nome}</label>)}
+                  </fieldset>
+                ))}
+              </div>
+            </details>
             <p className="text-xs text-muted">O texto original sempre vence antes dos demais dados (nunca depois). O worker executa a retenção uma vez por dia.</p>
           </div>
         )}

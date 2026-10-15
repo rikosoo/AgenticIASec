@@ -7,7 +7,7 @@ export type Action = "allow" | "mask" | "block" | "ask_justification" | "alert";
 export interface Me { kind: string; id: string; tenant_id: string; role: Role | null; email: string | null }
 export interface Tenant {
   id: string; name: string; failure_mode: "open" | "closed"; retention_days: number; store_original: boolean;
-  policy_url: string | null; monitored_domains: string[]; is_demo: boolean; volume_threshold_per_hour: number; original_retention_days: number;
+  policy_url: string | null; monitored_domains: string[]; is_demo: boolean; volume_threshold_per_hour: number; original_retention_days: number; omit_text_categories: string[];
 }
 export interface Category { id: string; confidence: number }
 export interface TaxonomyItem { id: string; nome: string; grupo: string; risco_padrao: string }

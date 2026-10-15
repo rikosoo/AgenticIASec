@@ -151,7 +151,7 @@ def audit_log(p: Annotated[Principal, Depends(require_roles("admin", "auditor"))
 
 
 def _tenant_view(t: Tenant) -> dict:
-    return {"id": str(t.id), "name": t.name, "failure_mode": t.failure_mode, "retention_days": t.retention_days, "original_retention_days": t.original_retention_days,
+    return {"id": str(t.id), "name": t.name, "failure_mode": t.failure_mode, "retention_days": t.retention_days, "original_retention_days": t.original_retention_days, "omit_text_categories": list(t.omit_text_categories),
             "store_original": t.store_original, "policy_url": t.policy_url, "monitored_domains": t.monitored_domains,
             "is_demo": t.is_demo, "volume_threshold_per_hour": t.volume_threshold_per_hour}
 

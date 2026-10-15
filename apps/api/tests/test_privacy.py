@@ -233,3 +233,38 @@ def test_cannot_remove_yourself_or_the_last_admin_and_only_admins_remove(client,
     second = client.post("/v1/users", json={"email": "dois@a.example.com", "role": "admin"}, headers=world.user("admin")).json()
     assert client.delete(f"/v1/users/{me}", headers=world.tok("dois@a.example.com")).status_code == 204   # agora há outro admin
     assert client.delete(f"/v1/users/{second['id']}", headers=world.tok("dois@a.example.com")).status_code == 409   # ele é o último
+
+
+# ---------- texto livre sensível (o mascaramento só cobre identificadores estruturados) ----------
+HEALTH = "Prontuário do paciente: diagnóstico CID J45, tomar 10 mg ao dia."
+
+
+def test_health_text_is_not_stored_by_default_but_is_still_classified(client, world):
+    r = post(client, world, event(HEALTH))
+    assert "saude" in {c["id"] for c in r["categories"]}
+    assert r["masked_text"].startswith("[texto não guardado: categoria ")
+    row = world.sql("SELECT masked_text, text_length FROM events").one()
+    assert "CID" not in row.masked_text and "paciente" not in row.masked_text and row.text_length == len(HEALTH)
+    listed = client.get("/v1/events", headers=world.user("admin")).json()[0]
+    assert "CID" not in json.dumps(listed) and listed["risk_score"] > 0
+
+
+def test_health_original_is_kept_encrypted_only_if_the_tenant_enabled_it(client, world):
+    with_original(client, world)
+    r = post(client, world, event(HEALTH))
+    assert "CID" not in r["masked_text"]
+    out = client.post(f"/v1/events/{r['event_id']}/original", json={"justification": "revisão autorizada pelo encarregado"}, headers=world.user("admin"))
+    assert out.status_code == 200 and "CID J45" in out.json()["text"]       # o original cifrado continua disponível com justificativa
+
+
+def test_omit_categories_are_configurable_validated_and_do_not_touch_structured_masking(client, world):
+    admin = world.user("admin")
+    assert client.get("/v1/tenant", headers=admin).json()["omit_text_categories"] == ["saude"]
+    assert client.patch("/v1/tenant", json={"omit_text_categories": ["nao_existe"]}, headers=admin).status_code == 422
+    masked = post(client, world, event("Cliente CPF 529.982.247-25"))["masked_text"]
+    assert masked == "Cliente CPF ***.***.***-25"                              # CPF segue mascarado normalmente
+    assert client.patch("/v1/tenant", json={"omit_text_categories": []}, headers=admin).json()["omit_text_categories"] == []
+    assert post(client, world, event(HEALTH))["masked_text"] == HEALTH           # o cliente pode optar por guardar o texto
+    assert client.patch("/v1/tenant", json={"omit_text_categories": ["segredo", "segredo", "rh"]}, headers=admin).json()["omit_text_categories"] == ["rh", "segredo"]
+    assert post(client, world, event(f"chave {SECRET}"))["masked_text"].startswith("[texto não guardado: categoria ")
+    assert client.patch("/v1/tenant", json={"omit_text_categories": ["saude"]}, headers=world.user("analista")).status_code == 403

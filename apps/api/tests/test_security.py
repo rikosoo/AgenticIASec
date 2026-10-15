@@ -74,9 +74,10 @@ def _call(client, method: str, path: str, headers: dict):
 
 
 def test_every_route_has_an_explicit_access_expectation():
-    routes = _routes()
-    assert set(routes) == set(EXPECTED), (f"sem expectativa: {sorted(set(routes) - set(EXPECTED))}; "
-                                          f"expectativa sem rota: {sorted(set(EXPECTED) - set(routes))}")
+    dev = ("POST", "/dev/token")      # só existe se o app foi importado com OIDC_MODE=mock; coberto por teste próprio
+    routes = [r for r in _routes() if r != dev]
+    assert set(routes) == set(EXPECTED) - {dev}, (f"sem expectativa: {sorted(set(routes) - set(EXPECTED))}; "
+                                                 f"expectativa sem rota: {sorted(set(EXPECTED) - set(routes) - {dev})}")
 
 
 def test_dev_token_route_does_not_exist_unless_mock_mode_is_on():

@@ -40,6 +40,22 @@ def seed_default_policies(session: Session, tenant_id: uuid.UUID) -> None:
                            mode="monitor", enabled=True))
 
 
+OMIT_CONFIDENCE = 0.5
+
+
+def stored_text(tenant: Tenant, an: Any) -> str:
+    """Texto que vai para `events.masked_text`. Para categorias que o tenant escolheu não guardar (saúde por padrão: o mascaramento
+    só cobre identificadores estruturados, não texto livre sensível), guarda um aviso no lugar do texto."""
+    omit = set(tenant.omit_text_categories or [])
+    hit = [c["id"] for c in an.categories if c["id"] in omit and c["confidence"] >= OMIT_CONFIDENCE]
+    if not hit:
+        return an.masked_text
+    from promptshield_detection.taxonomy import load as load_taxonomy
+
+    tax = load_taxonomy()
+    return "[texto não guardado: categoria " + ", ".join(tax[c].nome if c in tax else c for c in hit) + "]"
+
+
 def _engine_event(ev: EventIn) -> dict[str, Any]:
     return {"kind": ev.kind,
             "content": {"text": ev.content.text, "tool_name": ev.content.tool_name, "tool_input": ev.content.tool_input},
@@ -105,7 +121,7 @@ def ingest(session: Session, p: Principal, ev: EventIn, force_monitor: bool = Fa
         user_id=ev.actor.user_id, department=ev.actor.department, device_id=ev.actor.device_id,
         agent_id=ev.actor.agent_id, kind=ev.kind, session_id=ev.context.session_id,
         personal_account=ev.context.personal_account, tool_name=ev.content.tool_name,
-        masked_text=an.masked_text, text_length=len(text), original_ciphertext=original,
+        masked_text=stored_text(tenant, an), text_length=len(text), original_ciphertext=original,
     ).on_conflict_do_nothing(index_elements=["tenant_id", "event_id"]).returning(Event.id)
     pk = session.execute(stmt).scalar()
     if pk is None:  # corrida: outro pedido gravou o mesmo event_id

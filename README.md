@@ -2,7 +2,7 @@
 
 Plataforma que observa o uso de IA por funcionários e agentes, classifica cada evento, calcula risco explicável e aplica políticas. Contexto completo em [`CLAUDE.md`](CLAUDE.md).
 
-**Estado:** Etapa 8 (inference hooks do Claude Enterprise, beta). O que existe:
+**Estado:** Etapa 9 (endurecimento e preparação do piloto). As Etapas 0 a 9 estão feitas; leia as pendências em cada documento antes de ir a produção. O que existe:
 
 | Pasta | O que tem |
 |---|---|
@@ -13,7 +13,7 @@ Plataforma que observa o uso de IA por funcionários e agentes, classifica cada 
 | `packages/adapters/inference_hooks` | biblioteca dos inference hooks do Claude Enterprise (assinatura, frames, veredito; ver `docs/inference-hooks.md`) |
 | `packages/adapters/claude_code_hook` | hook do Claude Code (instalação, modo de falha, testes; ver o README da pasta) |
 | `prototipo/console.html` | protótipo visual com **dados simulados** (abre direto no navegador) |
-| `docs/` | `viabilidade.md` (captura por ferramenta), `arquitetura.md`, `decisoes.md`, `siem.md` (alertas, CEF, relatórios), `inference-hooks.md` |
+| `docs/` | `viabilidade.md` (captura por ferramenta), `arquitetura.md`, `decisoes.md`, `siem.md` (alertas, CEF, relatórios), `inference-hooks.md`, `ameacas.md` (STRIDE), `lgpd.md` (LGPD, GDPR, EUA: modelos para advogado), `operacao.md`, `piloto.md` |
 
 ## Requisitos
 
@@ -114,3 +114,10 @@ O serviço `worker` do compose entrega a fila de notificações e gera relatóri
 ## Inference hooks do Claude Enterprise (Etapa 8)
 
 Endpoint `POST /v1/inference-hook` e tela **Inference hooks** no console. **Depende do plano Claude Enterprise e de uma funcionalidade em beta da Anthropic (o suporte também é beta).** O protocolo foi lido na documentação oficial e o endpoint é testado com requisições simuladas conforme essa documentação; **nunca foi chamado por um tenant Enterprise real** (PARCIAL). Nasce em modo **sombra** (sempre permite e registra o que teria feito). Passo a passo do administrador do cliente, requisitos (HTTPS na porta 443, certificado público) e latência medida: [`docs/inference-hooks.md`](docs/inference-hooks.md) e o README de [`packages/adapters/inference_hooks`](packages/adapters/inference_hooks/README.md).
+
+## Privacidade, segurança e piloto (Etapa 9)
+
+- **Privacidade por padrão:** guarda só texto com identificadores mascarados; texto livre de saúde **não é guardado**; o original é opt-in, cifrado e apagado mais cedo; retenção configurável com job diário; acesso e eliminação por titular; mapa de dados por tenant. Documento jurídico (**modelo para revisão de advogado**, LGPD, GDPR e EUA): [`docs/lgpd.md`](docs/lgpd.md).
+- **Segurança:** modelo de ameaças [`docs/ameacas.md`](docs/ameacas.md); limite de requisições por credencial, rotação de chaves, cabeçalhos de segurança, logs sem conteúdo; `make audit` (dependências) e as regras de segurança no `make lint`.
+- **Operação:** backup e restauração testados (`infra/backup.sh`, `infra/restore.sh`), chaves, retenção, métricas: [`docs/operacao.md`](docs/operacao.md).
+- **Piloto de 30 dias:** roteiro, checklist e métricas em [`docs/piloto.md`](docs/piloto.md); tela **Piloto** e relatório final em PDF.

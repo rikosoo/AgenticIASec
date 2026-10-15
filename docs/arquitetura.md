@@ -44,3 +44,13 @@ Anthropic --POST assinado (frame prompt | tool_call)--> /v1/inference-hook --ver
 ```
 
 `packages/adapters/inference_hooks` (biblioteca pura: assinatura Standard Webhooks, frames, veredito) e `apps/api/app/inference_hook.py` (escopo, deduplicação por bloco, modo sombra, modo de falha, registro sem conteúdo em `inference_hook_requests`). Protocolo, limites e medição de latência: `docs/inference-hooks.md`. Estado: PARCIAL (nunca chamado por um tenant Enterprise real).
+
+## Privacidade, segurança e operação (Etapa 9)
+
+```
+chave mestra (ambiente, fora do banco e do backup) --embrulha--> chave de dados do tenant (tabela tenant_keys) --deriva--> texto original, segredos de canais
+worker (diário): retenção por tenant (original 30 d, resto 90 d)   |   API: direitos do titular, mapa de dados, limite por credencial, rotação de chaves
+logs JSON e /metrics sem conteúdo   |   infra/backup.sh + restore.sh   |   piloto: cobertura, falso positivo por amostragem, tempo até o primeiro alerta
+```
+
+Modelo de ameaças (STRIDE): `docs/ameacas.md`. Mapa de dados, bases legais sugeridas (LGPD, GDPR, EUA) e modelos de aviso e política: `docs/lgpd.md`. Operação: `docs/operacao.md`. Piloto: `docs/piloto.md`.
