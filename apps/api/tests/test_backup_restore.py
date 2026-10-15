@@ -67,7 +67,7 @@ def test_backup_and_restore_round_trip(client, world, admin_engine, tmp_path):
         assert subprocess.run([str(ROOT / "infra/restore.sh"), str(bad), restored], env=env, capture_output=True).returncode != 0
         subprocess.run([str(ROOT / "infra/restore.sh"), str(dump), restored], check=True, env=env, capture_output=True)
 
-        eng = create_engine(ADMIN_URL.replace(make_url(ADMIN_URL).database or "", name))
+        eng = create_engine(make_url(ADMIN_URL).set(database=name).render_as_string(hide_password=False))  # não usar replace: o nome do banco pode coincidir com usuário/senha
         with eng.begin() as c:
             got = {t: c.execute(text(f"SELECT count(*) FROM {t}")).scalar() for t in expected}  # noqa: S608
             assert got == expected                                                       # tudo voltou
