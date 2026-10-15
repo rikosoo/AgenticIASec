@@ -50,4 +50,14 @@ Uma linha por decisão: contexto, escolha, alternativas.
 | 2026-10-14 | Totais dos relatórios | Mesma função do painel (`compute_overview`) | Consultas próprias nos relatórios (números divergiriam) |
 | 2026-10-14 | Worker | Mesmo código e imagem da API, processo separado, papel restrito; `list_tenant_ids()` é a única função que cruza tenants | Worker com o dono do banco (ignora a RLS) |
 | 2026-10-14 | Teams | Implementado como EXPERIMENTAL / A VERIFICAR | Fingir suporte sem poder ler a documentação da Microsoft |
+| 2026-10-15 | Identificar o tenant nos inference hooks | Cabeçalho estático `X-API-Key` (chave `ingest`, revogável) configurado no Claude; o `tenant_id` do corpo é da Anthropic e não vale para isso | Um token na URL (vaza em logs); mapear o `tenant_id` da Anthropic (exigiria cadastro à parte) |
+| 2026-10-15 | Requisição sem assinatura | Sempre 401, mesmo para organizações antigas que ainda enviam sem segredo | Aceitar sem assinatura até confirmação (a documentação permite, mas abre uma porta) |
+| 2026-10-15 | Modo do hook | Sombra por padrão; aplicar exige segredo e é opção do administrador, além do modo de cada política | Aplicar assim que o hook é ligado (viola o princípio 7) |
+| 2026-10-15 | O que analisar a cada turno | Transcrição inteira, cada bloco uma vez (hash de conteúdo, usuário e sessão); `latest` é opcional | Só a última mensagem (conteúdo negado chega ao modelo no turno seguinte, como a documentação avisa) |
+| 2026-10-15 | O que pode negar no frame `prompt` | Só conteúdo de origem do usuário (texto, anexo, resultado de ferramenta); respostas e chamadas antigas do assistente só são registradas | Negar por qualquer bloco (negaria o usuário por algo que o modelo já fez) |
+| 2026-10-15 | Mascarar e pedir justificativa | Viram `deny` com mensagem pedindo para remover o dado (o hook só aceita allow/deny) | Fingir que mascara (a documentação diz que reescrita não é suportada) |
+| 2026-10-15 | Falha do nosso lado (erro ou orçamento de tempo) | Segue `failure_mode` do tenant; em sombra sempre permite; orçamento 3.000 ms, abaixo dos 5.000 ms padrão da Anthropic | Devolver 5xx (a Anthropic trata como falha do webhook e pode abrir o disjuntor para toda a organização) |
+| 2026-10-15 | Estado de integração dos eventos do hook | `partial` (protocolo documentado, nunca chamado por um tenant Enterprise real) | `real` (CLAUDE.md: REAL é documentada e testada) |
+| 2026-10-15 | `deny_reason` | Só nomes de categorias, nunca o conteúdo; inclui a política de uso do tenant se houver | Mostrar o trecho detectado (devolveria dado sensível ao usuário e aos registros da Anthropic) |
+| 2026-10-15 | Troca de segredo | Aceita o novo e o anterior por 10 minutos (a troca é imediata na Anthropic) | Só o novo (retardatários seriam rejeitados e contariam para o disjuntor) |
 

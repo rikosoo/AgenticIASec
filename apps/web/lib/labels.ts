@@ -11,7 +11,7 @@ export const ACTION_LABEL: Record<Action, string> = {
 };
 export const ROLE_LABEL = { admin: "Administrador", analista: "Analista", auditor: "Auditor", leitura: "Leitura" } as const;
 export const APP_LABEL: Record<string, string> = {
-  claude_code: "Claude Code", chatgpt_web: "ChatGPT (web)", claude_web: "Claude (web)", cursor: "Cursor",
+  claude_code: "Claude Code", chatgpt_web: "ChatGPT (web)", claude_web: "Claude (web)", claude_ai: "Claude Enterprise (claude.ai)", cowork: "Claude Cowork", cursor: "Cursor",
 };
 
 export const appLabel = (a: string) => APP_LABEL[a] ?? a;

@@ -122,7 +122,7 @@ def test_same_event_always_same_score_and_reasons(client, world):
 def test_user_and_department_risk_with_evolution(client, world):
     now = datetime.now(timezone.utc)
     for i in range(3):
-        post(client, world, f"chave {SECRET}", user="ana", dept="Financeiro", when=now - timedelta(hours=i + 1))
+        post(client, world, f"chave {SECRET}", user="ana", dept="Financeiro", when=now - timedelta(seconds=i + 1))
     post(client, world, "oi, tudo bem?", user="bia", dept="Financeiro")
     r = client.get("/v1/stats/risk?days=7", headers=world.user("leitura")).json()
     assert r["score_version"] and "revisão humana" in r["disclaimer"]

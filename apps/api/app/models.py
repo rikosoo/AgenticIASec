@@ -228,3 +228,40 @@ class Report(Base):
     created_by: Mapped[str] = mapped_column(String(200))
     schedule_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("report_schedules.id", ondelete="SET NULL"))
     created_at: Mapped[datetime] = _ts()
+
+
+class InferenceHookConfig(Base):
+    __tablename__ = "inference_hook_configs"
+    id: Mapped[uuid.UUID] = _pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    mode: Mapped[str] = mapped_column(String(10), default="shadow")
+    scope: Mapped[str] = mapped_column(String(10), default="full")
+    evaluate_tool_calls: Mapped[bool] = mapped_column(Boolean, default=True)
+    secret_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
+    previous_secret_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
+    previous_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    rejected_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_request_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_test_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = _ts()
+    updated_at: Mapped[datetime] = _ts()
+
+
+class InferenceHookRequest(Base):
+    __tablename__ = "inference_hook_requests"
+    id: Mapped[uuid.UUID] = _pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    request_id: Mapped[str] = mapped_column(String(200))
+    frame_type: Mapped[str] = mapped_column(String(40))
+    application: Mapped[str] = mapped_column(String(80))
+    outcome: Mapped[str] = mapped_column(String(20))
+    would_deny: Mapped[bool] = mapped_column(Boolean, default=False)
+    blocks_total: Mapped[int] = mapped_column(Integer, default=0)
+    blocks_new: Mapped[int] = mapped_column(Integer, default=0)
+    skipped_attachments: Mapped[int] = mapped_column(Integer, default=0)
+    categories: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    reference_id: Mapped[str | None] = mapped_column(String(50))
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = _ts()

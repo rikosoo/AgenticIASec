@@ -2,7 +2,7 @@
 
 Plataforma que observa o uso de IA por funcionários e agentes, classifica cada evento, calcula risco explicável e aplica políticas. Contexto completo em [`CLAUDE.md`](CLAUDE.md).
 
-**Estado:** Etapa 7 (score por usuário, alertas, SIEM e relatórios). O que existe:
+**Estado:** Etapa 8 (inference hooks do Claude Enterprise, beta). O que existe:
 
 | Pasta | O que tem |
 |---|---|
@@ -10,9 +10,10 @@ Plataforma que observa o uso de IA por funcionários e agentes, classifica cada 
 | `apps/web` | console Next.js: visão geral, prompts, incidentes, políticas, risco por usuário, alertas e SIEM, relatórios (ver o README da pasta) |
 | `packages/detection` | motor de detecção, com taxonomia em `packages/taxonomy` (`docs/deteccao.md`, `docs/relatorio-etapa2.md`) |
 | `apps/extension` | extensão Chrome/Edge para ChatGPT web e Claude.ai (EXPERIMENTAL; ver o README da pasta) |
+| `packages/adapters/inference_hooks` | biblioteca dos inference hooks do Claude Enterprise (assinatura, frames, veredito; ver `docs/inference-hooks.md`) |
 | `packages/adapters/claude_code_hook` | hook do Claude Code (instalação, modo de falha, testes; ver o README da pasta) |
 | `prototipo/console.html` | protótipo visual com **dados simulados** (abre direto no navegador) |
-| `docs/` | `viabilidade.md` (captura por ferramenta), `arquitetura.md`, `decisoes.md`, `siem.md` (alertas, CEF, relatórios) |
+| `docs/` | `viabilidade.md` (captura por ferramenta), `arquitetura.md`, `decisoes.md`, `siem.md` (alertas, CEF, relatórios), `inference-hooks.md` |
 
 ## Requisitos
 
@@ -109,3 +110,7 @@ O usuário precisa ser dono do banco (cria o papel `promptshield_app`) e o banco
 ## Alertas, SIEM e relatórios (Etapa 7)
 
 O serviço `worker` do compose entrega a fila de notificações e gera relatórios agendados (`python -m app.worker`, ou `--once`). Canais, regras, formatos e o estado de cada integração (Teams é EXPERIMENTAL e A VERIFICAR; e-mail e Slack são PARCIAIS): [`docs/siem.md`](docs/siem.md). Para e-mail, configure `SMTP_*` no `.env`.
+
+## Inference hooks do Claude Enterprise (Etapa 8)
+
+Endpoint `POST /v1/inference-hook` e tela **Inference hooks** no console. **Depende do plano Claude Enterprise e de uma funcionalidade em beta da Anthropic (o suporte também é beta).** O protocolo foi lido na documentação oficial e o endpoint é testado com requisições simuladas conforme essa documentação; **nunca foi chamado por um tenant Enterprise real** (PARCIAL). Nasce em modo **sombra** (sempre permite e registra o que teria feito). Passo a passo do administrador do cliente, requisitos (HTTPS na porta 443, certificado público) e latência medida: [`docs/inference-hooks.md`](docs/inference-hooks.md) e o README de [`packages/adapters/inference_hooks`](packages/adapters/inference_hooks/README.md).

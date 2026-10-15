@@ -65,7 +65,8 @@ def _existing(session: Session, event_id: uuid.UUID) -> EventResult | None:
     return _result(ev, an, inc, True)
 
 
-def ingest(session: Session, p: Principal, ev: EventIn) -> EventResult:
+def ingest(session: Session, p: Principal, ev: EventIn, force_monitor: bool = False) -> EventResult:
+    """`force_monitor`: grava a decisão que a política tomaria (`would_decide`), mas devolve `allow` (modo sombra do coletor)."""
     if ev.tenant_id is not None and ev.tenant_id != p.tenant_id:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "tenant_id do evento não corresponde ao da chave de API")
     text = ev.content.text
@@ -88,6 +89,8 @@ def ingest(session: Session, p: Principal, ev: EventIn) -> EventResult:
              for x in session.execute(select(Policy).where(Policy.enabled.is_(True))).scalars()]
     pe = evaluate(specs, Subject(ev.actor.department, ev.source.app, tuple(ev.actor.groups)), an.categories, an.risk["score"])
 
+    if force_monitor:
+        pe.decision = "allow"
     original = None
     if tenant.store_original and text:
         try:

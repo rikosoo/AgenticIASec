@@ -13,6 +13,7 @@ dependencies = [
   "cryptography>=42",
   "reportlab>=4",
   "promptshield-detection",
+  "promptshield-inference-hooks",
 ]
 
 [project.optional-dependencies]

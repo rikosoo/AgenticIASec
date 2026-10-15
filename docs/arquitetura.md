@@ -35,3 +35,12 @@ ingestão -> análise -> incidente/alerta (deduplicado) -> fila de envio (outbox
 ```
 
 Tudo roda sobre o mesmo PostgreSQL com RLS. O worker (`python -m app.worker`) usa o papel restrito; só `list_tenant_ids()` (função SECURITY DEFINER que devolve ids) cruza tenants. Detalhes, estado de cada integração e mapeamento de campos: `docs/siem.md`.
+
+## Inference hooks do Claude Enterprise (Etapa 8)
+
+```
+Anthropic --POST assinado (frame prompt | tool_call)--> /v1/inference-hook --verifica assinatura--> blocos --> motor --> política
+                                                                                     \-> veredito {allow|deny} (HTTP 200)
+```
+
+`packages/adapters/inference_hooks` (biblioteca pura: assinatura Standard Webhooks, frames, veredito) e `apps/api/app/inference_hook.py` (escopo, deduplicação por bloco, modo sombra, modo de falha, registro sem conteúdo em `inference_hook_requests`). Protocolo, limites e medição de latência: `docs/inference-hooks.md`. Estado: PARCIAL (nunca chamado por um tenant Enterprise real).

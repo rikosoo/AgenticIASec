@@ -39,5 +39,10 @@ class Settings(BaseSettings):
     # endereço do console, usado nos links das notificações (opcional)
     console_url: str | None = None
 
+    # inference hooks do Claude Enterprise (Etapa 8). O orçamento fica abaixo do tempo limite padrão da Anthropic (5.000 ms).
+    inference_hook_budget_ms: int = 3000
+    inference_hook_max_body_bytes: int = 64 * 1024 * 1024  # o protocolo permite até 64 MiB
+    inference_hook_previous_secret_minutes: int = 10  # a troca de segredo é imediata do lado da Anthropic; aceitamos o anterior por um tempo
+
 
 settings = Settings()

@@ -13,7 +13,7 @@ down:
 
 .venv:
 	$(PY) -m venv .venv
-	.venv/bin/pip install -q -e "packages/detection[dev]" && .venv/bin/pip install -q -e "apps/api[dev]" -e "packages/adapters/claude_code_hook[dev]"
+	.venv/bin/pip install -q -e "packages/detection[dev]" -e "packages/adapters/inference_hooks[dev]" && .venv/bin/pip install -q -e "apps/api[dev]" -e "packages/adapters/claude_code_hook[dev]"
 
 apps/web/node_modules: apps/web/package-lock.json
 	cd apps/web && npm ci
@@ -25,6 +25,7 @@ test: .venv apps/web/node_modules apps/extension/node_modules ## testes de api, 
 	cd apps/api && ../../.venv/bin/pytest -q
 	cd packages/detection && ../../.venv/bin/pytest -q
 	cd packages/adapters/claude_code_hook && ../../../.venv/bin/pytest -q
+	cd packages/adapters/inference_hooks && ../../../.venv/bin/pytest -q
 	cd apps/web && npm test
 	cd apps/extension && npm test
 

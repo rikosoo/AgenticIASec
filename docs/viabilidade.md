@@ -105,3 +105,8 @@ A ordem difere da dada em `CLAUDE.md` apenas em um ponto: o plano de negócio (P
 7. **Privacidade e legalidade**: ler prompts de colaboradores exige base legal, aviso e minimização (LGPD). Documentos de política serão modelos a validar com advogado (Etapa 9).
 8. **Dependência de fontes não oficiais**: Codex, Cursor, Windsurf, OpenAI e GitHub Copilot estão marcados A VERIFICAR; não construir adaptadores para eles antes de ler a documentação primária.
 9. **Concorrência direta**: Microsoft Purview/Defender e fornecedores que já implementam inference hooks (Cisco, TrueFoundry, Speakeasy, Check Point, segundo resultados de busca) reduzem o tempo de vantagem. Isso é uma observação de mercado vinda de busca, não verificada aqui.
+
+## Atualização da Etapa 8 (2026-10-15)
+
+Os inference hooks foram implementados (ver `docs/inference-hooks.md`, lido por inteiro nas três páginas oficiais). A classe de integração passa a **PARCIAL** nos nossos eventos (`integration_status = partial`): o protocolo é documentado, mas o endpoint só foi testado com requisições simuladas conforme a documentação, nunca por um tenant Claude Enterprise real. Continua valendo: só o prompt e as chamadas de ferramenta passam pelo hook (**a resposta do modelo não**), sem reescrita, só Enterprise, beta.
+

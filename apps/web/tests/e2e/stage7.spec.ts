@@ -121,7 +121,7 @@ test("relatórios: CSV e PDF baixados trazem os mesmos números do painel", asyn
 
 test("novas telas: acessibilidade, tema escuro e tablet", async ({ page }) => {
   await login(page, USERS.admin);
-  for (const path of ["/risk", "/alerts", "/reports"]) {
+  for (const path of ["/risk", "/alerts", "/reports", "/inference-hooks"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await page.waitForLoadState("networkidle");
@@ -131,7 +131,7 @@ test("novas telas: acessibilidade, tema escuro e tablet", async ({ page }) => {
   await expectAccessible(page, "tema escuro em /reports");
   await page.getByRole("button", { name: "Tema escuro" }).click();
   await page.setViewportSize({ width: 768, height: 1024 });
-  for (const path of ["/risk", "/alerts", "/reports"]) {
+  for (const path of ["/risk", "/alerts", "/reports", "/inference-hooks"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await page.waitForLoadState("networkidle");

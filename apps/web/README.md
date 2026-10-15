@@ -1,8 +1,8 @@
-# Console web (Etapas 6 e 7)
+# Console web (Etapas 6, 7 e 8)
 
 Next.js 16, React, TypeScript e Tailwind v4. Tema claro por padrão, com alternância para escuro. Todos os dados vêm da API real; nada é fixo no código.
 
-Telas: visão geral, análise de prompts (painel das 30 categorias que filtra ao clicar), incidentes (fila, detalhe com linha do tempo, evidência mascarada e texto original só com justificativa e auditoria) e políticas (criar/editar, escopo, modo, simulação sobre eventos passados). Etapa 7: risco por usuário e departamento (com o aviso "indicador de risco, requer revisão humana"), alertas e canais de notificação/SIEM (só o administrador configura) e relatórios PDF/CSV com agendamento. Veja `docs/siem.md`.
+Telas: visão geral, análise de prompts (painel das 30 categorias que filtra ao clicar), incidentes (fila, detalhe com linha do tempo, evidência mascarada e texto original só com justificativa e auditoria) e políticas (criar/editar, escopo, modo, simulação sobre eventos passados). Etapa 7: risco por usuário e departamento (com o aviso "indicador de risco, requer revisão humana"), alertas e canais de notificação/SIEM (só o administrador configura) e relatórios PDF/CSV com agendamento. Veja `docs/siem.md`. Etapa 8: tela **Inference hooks** (modo sombra/aplicar, segredo de assinatura, números das últimas 24 h, passo a passo; `docs/inference-hooks.md`).
 
 ## Como funciona o acesso à API
 
@@ -48,4 +48,4 @@ DATABASE_URL_TEST=postgresql+psycopg://postgres@localhost:5432/ps_e2e \
 CHROMIUM_PATH=/opt/pw-browsers/chromium npm run test:e2e
 ```
 
-O e2e (Playwright) recria o schema em `DATABASE_URL_TEST` (**apaga o banco indicado**), semeia 300 eventos sintéticos, sobe a API real e o console (`next start`) e roda 14 cenários: login, análise de prompts, filtro por categoria, abrir incidente, original com justificativa, selo, simulação de política, isolamento entre tenants, risco por usuário, alertas e teste de webhook assinado contra um servidor local, relatórios baixados com os mesmos números do painel e verificação de acessibilidade (axe-core) nas telas.
+O e2e (Playwright) recria o schema em `DATABASE_URL_TEST` (**apaga o banco indicado**), semeia 300 eventos sintéticos, sobe a API real e o console (`next start`) e roda 16 cenários: login, análise de prompts, filtro por categoria, abrir incidente, original com justificativa, selo, simulação de política, isolamento entre tenants, risco por usuário, alertas e teste de webhook assinado contra um servidor local, relatórios baixados com os mesmos números do painel e verificação de acessibilidade (axe-core) nas telas.

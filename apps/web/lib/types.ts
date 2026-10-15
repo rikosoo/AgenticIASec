@@ -67,3 +67,10 @@ export interface Channel {
 }
 export interface ReportRow { id: string; kind: "executivo" | "lgpd"; format: "pdf" | "csv"; period_start: string; period_end: string; sha256: string; created_by: string; created_at: string; size: number; scheduled: boolean }
 export interface ScheduleRow { id: string; kind: "executivo" | "lgpd"; format: "pdf" | "csv"; frequency: "mensal" | "semanal"; recipients: string[]; enabled: boolean; last_period_end: string | null }
+
+export interface InferenceHookConfig {
+  mode: "shadow" | "enforce"; scope: "full" | "latest"; evaluate_tool_calls: boolean; has_secret: boolean; previous_secret_active: boolean;
+  rejected_count: number; last_rejected_at: string | null; last_request_at: string | null; last_test_at: string | null;
+  endpoint_path: string; budget_ms: number; integration_status: string; notice: string;
+  stats_24h: { requests: number; denied: number; would_deny: number; failures: number; skipped_attachments: number; p95_ms: number; max_ms: number };
+}
