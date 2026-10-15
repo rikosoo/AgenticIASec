@@ -8,6 +8,7 @@ Plataforma que observa o uso de IA por funcionários e agentes, classifica cada 
 |---|---|
 | `apps/api` | FastAPI: ingestão de eventos, políticas, incidentes, auditoria, multi-tenant com RLS (ver seção abaixo) |
 | `apps/web` | console Next.js: visão geral, prompts, incidentes, políticas, risco por usuário, alertas e SIEM, relatórios (ver o README da pasta) |
+| `docs/teste-vm.md` | servidor em uma VM e coletor no seu computador, via túnel SSH (não executado ainda) |
 | `docs/teste-windows.md` | passo a passo para rodar os testes reais em uma máquina Windows (não executado ainda) |
 | `docs/roteiro-testes-reais.md` | roteiro para validar as integrações em serviços reais (nenhum passo executado ainda) |
 | `packages/detection` | motor de detecção, com taxonomia em `packages/taxonomy` (`docs/deteccao.md`, `docs/relatorio-etapa2.md`) |

@@ -1,0 +1,58 @@
+# Teste com o servidor em uma VM e o coletor no seu computador
+
+Cenário: API, banco e console em uma VM Linux com Docker (qualquer nuvem; este guia não depende de produto de nuvem), e o hook do Claude Code rodando no seu Windows, enviando para a VM. **Não executado ainda.** É um ambiente de teste, não uma decisão de produção (a nuvem de produção continua indefinida).
+
+## Avisos antes de começar (são dados reais seus)
+
+Com o hook ligado, o que você digita no Claude Code e as ações dele passam a ser enviados e guardados. Isso foge da regra de só usar dados sintéticos nos testes, então:
+
+- Só o seu uso, por sua decisão, em um tenant de teste. Nada de terceiros.
+- Mantenha tudo em **modo monitorar** (padrão). Não crie política de bloqueio com dados reais sem querer.
+- Deixe desligado o armazenamento de texto original (padrão). O texto é guardado mascarado e a categoria saúde nem guarda texto.
+- A mascaração é heurística e erra (ver `docs/deteccao.md`: cerca de 82% de acerto em conjunto sintético independente). **Trate o banco da VM como se contivesse segredos seus**: não coloque chave, senha ou dado de cliente em prompts durante o teste.
+- Defina a retenção curta (padrão 90 dias; para o teste, apague o volume ao terminar: `docker compose down -v`).
+
+## Regra de ouro de exposição
+
+`OIDC_MODE=mock` habilita `POST /dev/token`, que **emite token para qualquer e-mail**. Em máquina acessível pela internet isso é uma porta aberta. Por isso:
+
+1. **Não abra as portas 8000, 3000 e 5432 para a internet.** No firewall da VM (grupo de segurança), deixe só a porta 22 (SSH), restrita ao seu IP.
+2. Acesse tudo por túnel SSH. Sem domínio, sem certificado, sem exposição.
+
+## Passos
+
+Na VM (Linux com Docker e Git):
+
+```bash
+git clone https://github.com/rikosoo/AgenticIASec.git && cd AgenticIASec
+git checkout claude/wonderful-hamilton-9dsk59
+cp .env.example .env     # edite: senhas do banco, OIDC_MODE=mock, AUTH_MODE=mock, OIDC_MOCK_SECRET com 32+ caracteres
+docker compose up --build -d
+docker compose exec api python -m app.cli create-tenant --name "Teste" --slug teste --admin-email voce@exemplo.com
+```
+
+Guarde a chave `ps_...` (aparece uma vez). Sem `seed-demo`: você quer ver só os seus eventos.
+
+O `docker-compose.yml` publica as portas em todas as interfaces. O firewall do passo 1 é o que protege. Se quiser proteção dupla, copie o arquivo e troque `"8000:8000"` por `"127.0.0.1:8000:8000"` (idem 3000 e 5432).
+
+No seu Windows (PowerShell), abra o túnel e deixe a janela aberta:
+
+```powershell
+ssh -N -L 8000:localhost:8000 -L 3000:localhost:3000 usuario@IP_DA_VM
+```
+
+Depois siga `docs/teste-windows.md`, passo 1, com `api_url` = `http://localhost:8000` (que agora cai na VM pelo túnel) e o console em <http://localhost:3000>. O tráfego vai cifrado pelo SSH; o `http://` local é só até o túnel.
+
+Se o túnel cair, o hook segue em `fail_mode: open` (grava só metadados localmente), então o Claude Code não trava.
+
+## Ao terminar
+
+```bash
+docker compose down -v      # apaga banco e eventos
+```
+
+Apague também `C:\ps-teste\hook.json` (tem a chave) e revogue a chave no console.
+
+## Limites deste arranjo
+
+Não valida TLS com domínio, nem OIDC com provedor real, nem o que um colaborador de outra máquina faria. Serve para ver o fluxo real de ponta a ponta com o seu uso.
