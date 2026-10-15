@@ -313,8 +313,9 @@ def test_syslog_cef_over_udp_has_the_documented_fields(client, world, monkeypatc
 
 @pytest.mark.db
 def test_pull_export_cef_and_jsonl_and_audit(client, world):
-    post(client, world, f"deploy com {SECRET}", user="rafael")
-    post(client, world, "oi", user="rafael")  # score 0: abaixo do corte
+    now = datetime.now(timezone.utc)  # a exportação usa janela padrão de 1 dia: data fixa vira bomba-relógio
+    post(client, world, f"deploy com {SECRET}", user="rafael", when=now)
+    post(client, world, "oi", user="rafael", when=now)  # score 0: abaixo do corte
     txt = client.get("/v1/export/cef", headers=world.user("auditor"))
     assert txt.status_code == 200
     lines = [x for x in txt.text.splitlines() if x]
