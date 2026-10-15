@@ -38,6 +38,26 @@ def make(kind: str, n: int) -> str:
         return "AccountKey=" + _s(r, 86, _AN + "+/") + "=="
     if kind == "awssecret":
         return _s(r, 40, _AN + "/+")
+    if kind == "openai":
+        return "sk-proj-" + _s(r, 48, _AN + "_-")
+    if kind == "anthropic":
+        return "sk-ant-api03-" + _s(r, 64, _AN + "_-")
+    if kind == "npm":
+        return "npm_" + _s(r, 36)
+    if kind == "gitlab":
+        return "glpat-" + _s(r, 20, _AN + "_-")
+    if kind == "sendgrid":
+        return "SG." + _s(r, 22, _AN + "_-") + "." + _s(r, 43, _AN + "_-")
+    if kind == "hf":
+        return "hf_" + _s(r, 34)
+    if kind == "pypi":
+        return "pypi-AgEIcHlwaS5vcmc" + _s(r, 60, _AN + "_-")
+    if kind == "dopat":
+        return "dop_v1_" + _s(r, 64, "0123456789abcdef")
+    if kind == "slackhook":
+        return "https://hooks.slack.com/services/T" + _s(r, 10, _UP) + "/B" + _s(r, 10, _UP) + "/" + _s(r, 24)
+    if kind == "pwd":
+        return _s(r, 12, _AN + "!@#$%")
     raise ValueError(kind)
 
 

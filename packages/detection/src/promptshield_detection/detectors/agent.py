@@ -13,20 +13,21 @@ DEFAULT_ALLOWED_HOSTS = (
 )
 TEMPLATE_SUFFIX = re.compile(r"\.(?:example|sample|template|dist|pub)$")
 SENSITIVE_READ = re.compile(
-    r"(?:^|/)\.env(?:\.[\w.-]+)?$|\.aws/credentials|\.ssh/id_[a-z0-9]+(?![\w.])|"
+    r"(?:^|/)\.env(?:\.[\w.*-]+|\*)?$|\.aws/credentials|\.config/(?:gh/hosts\.yml|gcloud/|doctl/)|\.azure/|\.pgpass|\.my\.cnf|"
+    r"\.terraform\.d/credentials|\.ssh/id_[a-z0-9]+(?![\w.])|"
     r"\.npmrc$|\.netrc$|\.pypirc$|\.kube/config|\.git-credentials|/etc/(?:shadow|sudoers)|\.docker/config\.json|"
-    r"\.gnupg/|service[-_]account.*\.json$|credentials\.json$|id_rsa$|id_ed25519$")
+    r"\.gnupg/|\.(?:aws|ssh|gnupg|kube|azure)/?$|service[-_]account.*\.json$|credentials\.json$|id_rsa$|id_ed25519$")
 
 
 def is_sensitive_read(path: str) -> bool:
-    p = path.replace("~", "").lstrip("@=")
+    p = path.replace("~", "").replace("\\", "/").replace("$HOME", "").lstrip("@=")
     return not TEMPLATE_SUFFIX.search(p) and bool(SENSITIVE_READ.search(p))
 
 
 SENSITIVE_WRITE = re.compile(
     r"^(?:/etc/|/usr/|/bin/|/sbin/|/boot/|/root/|/var/spool/cron|/lib/systemd|~/\.ssh/|~/\.(?:bashrc|zshrc|profile|bash_profile)|"
     r"\$HOME/\.(?:ssh|bashrc|zshrc|profile)|~/\.config/|~/\.aws/|/home/[^/]+/\.(?:ssh|bashrc|zshrc|profile|aws)(?:/|$))")
-READERS = {"cat", "less", "more", "head", "tail", "cp", "scp", "rsync", "base64", "xxd", "strings", "grep", "rg",
+READERS = {"get-content", "gc", "select-string", "cat", "less", "more", "head", "tail", "cp", "scp", "rsync", "base64", "xxd", "strings", "grep", "rg",
            "awk", "sed", "type", "tar", "zip", "source", ".", "openssl", "nl", "bat"}
 NETWORK = {"curl", "wget", "nc", "ncat", "netcat", "scp", "sftp", "ftp", "rsync", "http", "httpie"}
 PKG = {"pip", "pip3", "npm", "pnpm", "yarn", "gem", "cargo", "apt", "apt-get", "yum", "brew", "uv", "poetry"}
@@ -44,7 +45,7 @@ def _split(cmd: str) -> list[tuple[list[str], bool]]:
         if not part:
             continue
         try:
-            toks = shlex.split(part, posix=True)
+            toks = part.split() if "\\" in part else shlex.split(part, posix=True)   # caminhos do Windows: aspas e barras não são de POSIX
         except ValueError:
             toks = part.split()
         while toks and (toks[0] in ("sudo", "doas", "nohup", "time", "env") or re.match(r"^\w+=\S*$", toks[0])):
@@ -61,6 +62,10 @@ def _flags(tokens: list[str]) -> str:
 
 def _broad_target(tok: str) -> bool:
     t = tok.rstrip("/") or "/"
+    if re.search(r"(?:^|/)\.\.(?:/|$)", tok) and tok.count("..") >= 2:   # sobe pastas (~/x/../..): sai do projeto
+        return True
+    if re.search(r"(?:^|/)\.\.(?:/|$)", tok) and tok.count("..") >= 2:   # sobe pastas (~/x/../..): sai do projeto
+        return True
     if t in ("/", "~", "$HOME", "${HOME}", "*", ".", "..", "./*", "~/*", "$HOME/*", "/*", "../*"):
         return True
     if re.match(r"^(?:/|~/|\$HOME/)[\w.-]*/?\*?$", tok) and t.count("/") <= 2 and not t.startswith("~/.cache"):
@@ -77,13 +82,37 @@ def _allowed(host: str, allowed: tuple[str, ...]) -> bool:
     return any(host == a or host.endswith("." + a) for a in allowed)
 
 
+# Regras sobre o comando inteiro (padrões que o parser por segmento não enxerga: bomba de fork, SQL destrutivo, shell reverso...)
+CMD_RULES: list[tuple[re.Pattern[str], str, float, str]] = [
+    (re.compile(r":\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:"), "shell_destrutivo", 0.95, "Bomba de fork"),
+    (re.compile(r"(?i)\bgit\s+push\b[^\n;|&]*?(?:--force(?!-with-lease)|\s-f\b|\s\+\w+)"), "shell_destrutivo", 0.75, "git push forçado (reescreve o histórico remoto)"),
+    (re.compile(r"(?i)\bgit\s+reset\s+--hard\s+(?:HEAD~\d{2,}|origin/\w+)"), "shell_destrutivo", 0.6, "git reset --hard descartando muitos commits"),
+    (re.compile(r"(?i)\b(?:drop\s+(?:table|database|schema)|truncate\s+table)\b"), "shell_destrutivo", 0.9, "SQL destrutivo (DROP/TRUNCATE) executado no shell"),
+    (re.compile(r"(?i)\bdelete\s+from\s+\w+\s*;?\s*(?:['\"]|$)"), "shell_destrutivo", 0.8, "DELETE sem WHERE executado no shell"),
+    (re.compile(r"(?i)\bdocker\s+(?:system\s+prune\s+[^\n]*-a|volume\s+prune|rm\s+-f\s+\$\(docker\s+ps)"), "shell_destrutivo", 0.8, "docker apagando tudo"),
+    (re.compile(r"(?i)\bkubectl\s+delete\s+(?:namespace|ns|pvc|pv|--all|all\s+--all)\b"), "shell_destrutivo", 0.85, "kubectl delete em namespace ou volume"),
+    (re.compile(r"(?i)\bterraform\s+destroy\b|\baws\s+s3\s+rm\s+[^\n]*--recursive|\baws\s+ec2\s+terminate-instances\b|\bgcloud\s+[^\n]*\bdelete\b[^\n]*--quiet"),
+     "shell_destrutivo", 0.85, "Apagando infraestrutura na nuvem"),
+    (re.compile(r"^\s*(?:env|set|export\s+-p)\s*(?:\||>|$)|/proc/(?:self|\d+|\*)/environ"), "leitura_env", 0.65, "Despeja o ambiente (pode conter segredos)"),
+    (re.compile(r"(?i)\bget-childitem\s+env:|\bdir\s+env:|\bgci\s+env:"), "leitura_env", 0.65, "Lista variáveis de ambiente (PowerShell)"),
+    (re.compile(r"/dev/(?:tcp|udp)/[\w.\-]+/\d+"), "rede_externa", 0.95, "Conexão por /dev/tcp (shell reverso)"),
+    (re.compile(r"\b(?:nc|ncat|netcat)\b[^\n;|&]*\s-(?:e|c)\s"), "rede_externa", 0.95, "netcat com execução (shell reverso)"),
+    (re.compile(r"\bsocat\b[^\n]*\bexec:"), "rede_externa", 0.9, "socat com exec (shell reverso)"),
+    (re.compile(r"\|\s*crontab\s+-|\bcrontab\s+-[er]\b|\bschtasks\s+/create\b|\bsystemctl\s+enable\b"), "escrita_fora_projeto", 0.75, "Cria tarefa agendada ou serviço (persistência)"),
+    (re.compile(r"(?i)import socket[^\n]*(?:connect|subprocess)|socket\.socket\(\)[^\n]*connect\("), "rede_externa", 0.85,
+     "Conexão de socket no comando (possível shell reverso)"),
+    (re.compile(r"(?i)\b(?:icacls|cacls)\b[^\n]*(?:/grant|/g)\s+[^\n]*(?:everyone|todos|users)|\btakeown\s+/f\s+[a-z]:\\|"
+                r"\bnet\s+localgroup\s+administrators\b[^\n]*/add|\bAdd-LocalGroupMember\b[^\n]*administrators"), "alteracao_permissao", 0.85, "Concede acesso amplo (Windows)"),
+]
+
+
 def detect_command(cmd: str, allowed_hosts: tuple[str, ...] = ()) -> list[Finding]:
     cmd_text = cmd
     allowed = tuple(allowed_hosts) + DEFAULT_ALLOWED_HOSTS
     out: list[Finding] = []
     segs = _split(cmd)
     for toks, pipe_to_sh in segs:
-        prog = toks[0].split("/")[-1]
+        prog = toks[0].replace("\\", "/").split("/")[-1]
         args = toks[1:]
         flags = _flags(args)
         # --- destrutivo
@@ -112,8 +141,9 @@ def detect_command(cmd: str, allowed_hosts: tuple[str, ...] = ()) -> list[Findin
             out.append(Finding("alteracao_permissao", 0.9, "sudoers NOPASSWD", "shell"))
         # --- leitura de credenciais
         paths = [a for a in args if not a.startswith("-")]
-        if prog in READERS:
-            if any(is_sensitive_read(p) for p in paths):
+        sources = paths[:-1] if prog in ("cp", "mv", "rsync", "scp", "install", "ln") and len(paths) > 1 else paths  # o último é o destino
+        if prog.lower() in READERS:
+            if any(is_sensitive_read(p) for p in sources):
                 out.append(Finding("leitura_env", 0.92, "Leitura de .env, credenciais ou chave SSH", "shell"))
         if prog in ("printenv",) or (prog == "env" and not args) or \
                 (prog == "echo" and any(re.search(r"\$\{?(?:\w*(?:KEY|TOKEN|SECRET|PASSWORD)\w*)\}?", a) for a in args)):
@@ -154,6 +184,9 @@ def detect_command(cmd: str, allowed_hosts: tuple[str, ...] = ()) -> list[Findin
                 out.append(Finding("instalacao_pacote", 0.35, "Instalação de pacote", "shell"))
         # --- escrita
     out.extend(_writes(cmd, segs))
+    for rx, category, conf, rule in CMD_RULES:
+        if rx.search(cmd):
+            out.append(Finding(category, conf, rule, "shell"))
     return out
 
 

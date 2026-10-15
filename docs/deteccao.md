@@ -36,11 +36,33 @@ Categoria só conta com confiança de 0,5 ou mais. Pesos por risco padrão: baix
 - **E-mail em `tool_call` é ignorado** (evita falso positivo em `ssh user@host`); um e-mail dentro de um `curl -d` não será visto como PII.
 - **Shell:** o parser divide por `;`, `&&`, `||`, `|`. Não entende subshell, `eval`, variáveis expandidas, aliases nem comandos ofuscados (base64 e depois shell). Um atacante determinado contorna.
 - **Categorias de negócio** (jurídico, M&A, saúde, RH, PI, tóxico, uso pessoal) usam dicionários curtos. São as menos confiáveis.
-- **Conjunto de teste:** 388 exemplos sintéticos escritos pela mesma autoria do motor. A concordância alta mede consistência, não generalização. Ver `docs/relatorio-etapa2.md`.
+- **Conjunto de teste:** os números altos medem consistência com um gabarito escrito pela mesma autoria do motor, não generalização. Ver a seção "Avaliação em português e inglês" abaixo e `docs/relatorio-etapa2.md`.
 - **Repetição** (parte do score previsto na Etapa 7) não existe aqui: o motor não guarda histórico.
 - `decision` é uma sugestão simples (bloquear segredos e ações destrutivas, mascarar PII, alertar injection) para testes; não substitui a política.
 - Taxonomia: carregada por caminho relativo ao monorepo ou por `PROMPTSHIELD_TAXONOMY`. Instalação fora do monorepo precisa dessa variável.
 - OWASP LLM Top 10 e MITRE ATLAS **não** foram mapeados: exigem abrir as versões atuais antes (regra do CLAUDE.md).
+
+## Avaliação em português e inglês (Etapa 9b)
+
+Reforço para os dois idiomas: comparação sem acento e sem caixa com offsets preservados (`textnorm.fold`), validadores de IBAN e ABA, formatos de documento e telefone dos EUA, Reino Unido e Brasil, mais tokens de provedores, comandos de agente (Windows, nuvem, persistência, shell reverso) e paráfrases de injection/jailbreak.
+
+Metodologia: quatro conjuntos sintéticos, cada um escrito depois de ver os erros dos anteriores. Só o D nunca foi usado para ajustar regra.
+
+| Conjunto | Exemplos | 1ª medição (às cegas) | Depois do ajuste | Papel hoje |
+|---|---|---|---|---|
+| Original | 425 | n/d | 0 divergências | desenvolvimento |
+| A | 266 | 68,0% | 96,2% | desenvolvimento |
+| B | 194 | 81,4% | 97,9% | desenvolvimento |
+| C | 168 | 84,5% | 97,6% | desenvolvimento |
+| **D** | 152 | **82,2%** (F1 0,818; PT 81,4%, EN 82,8%; negativos difíceis limpos 67/70) | não ajustado | **estimativa independente** |
+
+Leitura honesta: a estimativa de generalização é a primeira medição de cada conjunto novo (cerca de 82% de acerto exato, F1 0,82), não os 96% a 98% dos conjuntos já ajustados. As lacunas conhecidas do D: paráfrases de injection e extração de system prompt, `conteudo_toxico` e `uso_pessoal` coloquiais, remuneração/comissão em RH, divulgação de condição de saúde em primeira pessoa, cláusulas contratuais, e falsos positivos em e-mail de exemplo e cartão de teste. Ajustar contra o D o tornaria conjunto de desenvolvimento e exigiria um conjunto E; por isso ele fica como está. `produtividade_legitima` é neutra na medição. Alguns rótulos foram corrigidos durante a revisão (cartão e IBAN isolados não são `pii`), e isso está nos próprios arquivos.
+
+Medição de verdade só vem do piloto (amostra aleatória de sinalizados, ver `docs/piloto.md`).
+
+```bash
+.venv/bin/python packages/detection/scripts/holdout.py holdout_d --misses
+```
 
 ## Reproduzir
 

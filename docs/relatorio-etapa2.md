@@ -41,7 +41,7 @@ Conjunto: `tests/fixtures/examples.jsonl`, 425 exemplos sintéticos (139 negativ
 
 Texto de 2000 caracteres, 300 execuções, Python 3.13.16, Linux x86_64, CPU: Intel(R) Xeon(R) Processor @ 2.10GHz, 4 núcleos (ambiente de nuvem compartilhado).
 
-p50 3.82 ms, p95 4.71 ms, p99 5.64 ms, máx 5.77 ms. Meta: p95 < 50 ms.
+p50 9.41 ms, p95 12.80 ms, p99 14.90 ms, máx 16.54 ms. Meta: p95 < 50 ms.
 
 ## Exemplos divergentes (0)
 
@@ -54,7 +54,7 @@ Exemplos que contêm nome de pessoa passam a esperar `pii` (30 exemplos); 11 exe
 
 `pii`: precisão 1.00, recall 1.00 ({'tp': 75, 'fp': 0, 'fn': 0}).
 
-Latência com NER: p50 34.70 ms, p95 43.96 ms, p99 49.69 ms.
+Latência com NER: p50 43.02 ms, p95 56.89 ms, p99 59.75 ms.
 
 Divergentes com NER (0):
 

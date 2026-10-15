@@ -17,7 +17,7 @@ from promptshield_detection import analyze
 from promptshield_detection.taxonomy import load
 
 ROOT = Path(__file__).resolve().parents[3]
-FIXTURES = ROOT / "tests" / "fixtures" / "examples.jsonl"
+FIXTURES = ROOT / "tests" / "fixtures" / "examples.jsonl"  # --fixtures troca o conjunto (holdout_a, holdout_b)
 
 
 def to_event(row: dict) -> dict:
@@ -36,10 +36,10 @@ def _synth():
     return mod.render
 
 
-def load_rows() -> list[dict]:
+def load_rows(path: Path | None = None) -> list[dict]:
     """Carrega o JSONL e expande os marcadores de segredos sintéticos (ver tests/fixtures/synth.py)."""
     render = _synth()
-    rows = [json.loads(line) for line in FIXTURES.read_text(encoding="utf-8").splitlines() if line.strip()]
+    rows = [json.loads(line) for line in (path or FIXTURES).read_text(encoding="utf-8").splitlines() if line.strip()]
     for row in rows:
         row["text"] = render(row["text"])
         if row.get("tool_input"):

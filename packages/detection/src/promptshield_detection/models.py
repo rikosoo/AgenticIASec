@@ -33,6 +33,16 @@ class Context:
     project_names: tuple[str, ...] = ()
 
     @property
+    def folded(self) -> str:
+        """Texto em minúsculas e sem acento, do mesmo tamanho do original (ver textnorm.fold)."""
+        cached = self.__dict__.get("_folded")
+        if cached is None:
+            from .textnorm import fold
+
+            cached = self.__dict__["_folded"] = fold(self.text)
+        return cached
+
+    @property
     def command(self) -> str | None:
         """Comando shell, quando o evento é uma chamada de ferramenta de shell."""
         if self.kind != "tool_call":

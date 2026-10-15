@@ -65,3 +65,22 @@ def entropy(value: str) -> float:
         return 0.0
     n = len(value)
     return -sum(c / n * math.log2(c / n) for c in Counter(value).values())
+
+
+def iban_valid(value: str) -> bool:
+    """IBAN: tamanho plausível e dígitos de controle (módulo 97)."""
+    v = re.sub(r"\s+", "", value).upper()
+    if not 15 <= len(v) <= 34 or not re.fullmatch(r"[A-Z]{2}\d{2}[A-Z0-9]+", v):
+        return False
+    moved = v[4:] + v[:4]
+    num = "".join(str(int(c, 36)) for c in moved)
+    return int(num) % 97 == 1
+
+
+def aba_valid(value: str) -> bool:
+    """Routing number dos EUA (ABA): soma ponderada 3-7-1 divisível por 10."""
+    d = digits(value)
+    if len(d) != 9:
+        return False
+    w = (3, 7, 1, 3, 7, 1, 3, 7, 1)
+    return sum(int(c) * k for c, k in zip(d, w, strict=True)) % 10 == 0

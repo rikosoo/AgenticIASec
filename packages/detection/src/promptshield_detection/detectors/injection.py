@@ -16,44 +16,88 @@ class InjectionClassifier(Protocol):
 
 
 I = re.I  # noqa: E741
+# Todas as expressões casam no texto sem acento e em minúsculas (ctx.folded): "esqueça" e "esqueca" valem igual.
+_OBJ = (r"(?:instructions?|instrucoes|rules?|regras|guidelines?|diretrizes|orientacoes|constraints?|restricoes|restrictions?|"
+        r"politicas?|policies|prompts?|system prompt|safeguards?|protecoes|filtros?|filters?|"
+        r"(?:previous|prior|above|earlier|anteriores|acima)\s+(?:messages?|mensagens?)|system messages?)")
+_QUAL = r"(?:(?:all|any|the|your|every|todas?|as|os|suas?|seus?|essas?|those|these|previous|prior|above|earlier|system|anteriores|acima|antes|do sistema|de sistema|originais|original)\s+)*"
 IGNORE = re.compile(
-    r"(?:ignore|disregard|forget|override)\s+(?:all\s+|any\s+|the\s+|your\s+)*(?:previous|prior|above|earlier|system)?\s*"
-    r"(?:instructions?|rules?|guidelines?|prompts?)|"
-    r"(?:ignor[ea]|desconsidere|esque[çc]a|descarte)\s+(?:todas?\s+)?(?:as\s+)?(?:regras|instru[çc][õo]es|orienta[çc][õo]es)"
-    r"(?:\s+anteriores)?|a partir de agora,? (?:voc[êe]|ignore)|you are now (?:in )?(?:a |an )?(?!going)\w+ mode|"
-    r"new instructions?:|novas instru[çc][õo]es:", I)
+    r"(?:ignore|ignora|ignorem|disregard|forget|override|bypass|circumvent|drop|desconsidere|desconsidera|desconsiderar|ignorar|esqueca|esquece|esquecer|descarte|descartar|violar|"
+    r"contorne|burle|nao siga(?: mais)?|pare de seguir|deixe de seguir|stop following|do not follow|don'?t follow|"
+    r"quebre|violate|break)\s+" + _QUAL + _OBJ + r"(?:\s+(?:anteriores|acima|antes|previous|above))?|"
+    r"(?:forget|esqueca|ignore|ignora)\s+(?:everything|all|tudo|todo)(?:\s+(?:that|que|you|voce|above|acima|before|antes|te|they|eles))*|"
+    r"a partir de agora,?\s+(?:voce|vc|ignore|obedeca|siga)|from now on,?\s+you\s+(?:will|must|are to|shall)\s+(?:ignore|obey|follow only|only)|"
+    r"you are now (?:in )?(?:a |an )?(?!going)\w+ mode|new instructions?:|novas instrucoes:|new system message:|nova mensagem de sistema:|"
+    r"(?:previous|prior|earlier|above)\s+(?:policies|rules|instructions|guidelines)\s+(?:are|is)\s+(?:void|revoked|cancel+ed|no longer (?:valid|apply)|overridden)|"
+    r"(?:policies|rules|regras|politicas)\s+(?:anteriores\s+)?(?:foram|estao|are)\s+(?:revogadas|canceladas|anuladas|void|revoked)|"
+    r"(?:esqueca|esquece|forget)\s+(?:o que|what|whatever)[^.\n]{0,40}(?:configurad\w+|disseram|passaram|told|set up|given|dito)|"
+    r"(?:disregard|ignore|esqueca|esquece)\s+(?:whatever|any|all)\s+(?:rules?|instructions?|regras|diretrizes)\s+(?:your|the|que (?:seus|os))\s+(?:developers?|creators?|operators?|company|desenvolvedores)\s+(?:set|gave|wrote|configured|definiram)|"
+    r"comply with (?:all|every|any) (?:requests?|commands?|orders?)|obedeca (?:a )?todas as (?:ordens|solicitacoes)|"
+    r"(?:ignore|ignora|ignorem|disregard|desconsidere)\s+(?:the |o )?(?:user|usuario)\b", I)
 AGENT_ADDRESS = re.compile(
-    r"(?:ai|llm|assistant|agent|claude|copilot|assistente)[ ,:]+(?:you must|must|please|should|voc[êe] deve|execute|run)|"
-    r"(?:you must|voc[êe] deve) (?:now )?(?:run|execute|send|read|executar|enviar|ler)|"
-    r"(?:agora|now) (?:execute|run|envie|send)|"
-    r"do not (?:tell|mention|inform) the user|n[ãa]o (?:avise|diga|informe|mencione) (?:ao )?usu[áa]rio|"
-    r"ai agent,|agente de ia,", I)
+    r"(?:ai|llm|assistant|agent|claude|copilot|assistente|agente)(?: de ia)?[ ,:]+(?:you must|must|please|should|voce deve|execute|run|ignore|read|leia|envie|send)|"
+    r"(?:you must|voce deve) (?:now )?(?:run|execute|send|read|executar|enviar|ler)|"
+    r"(?:agora|now|silently|em silencio|discretamente) (?:execute|run|envie|send|read|leia)|"
+    r"do not (?:tell|mention|inform) the user|nao (?:avise|diga|informe|mencione) (?:ao )?usuario|"
+    r"(?:note|nota|aviso|instrucao|instruction)s? (?:to|para) (?:o |the )?(?:ai|llm|assistant|assistente|agent|agente)|"
+    r"ai agent,|agente de ia[,:]|(?:ai|llm) assistant[,:]", I)
 EXFIL_IN_TEXT = re.compile(
     r"!\[[^\]]*\]\(https?://[^)\s]+\?[^)\s]*(?:=|%3d)[^)\s]*\)|"
-    r"(?:send|post|upload|envie|enviar|exfiltrate)[^\n]{0,60}?(?:to|para)\s+https?://\S+", I)
+    r"(?:send|post|upload|envie|enviar|exfiltrate|forward|encaminhe)[^\n]{0,80}?(?:to|para)\s+https?://\S+", I)
 SYSPROMPT = re.compile(
-    r"(?:repeat|reveal|show|print|output|display|repita|revele|mostre|exiba|imprima|diga)[^.\n]{0,50}"
-    r"(?:system prompt|prompt de sistema|prompt do sistema|instru[çc][õo]es (?:do sistema|iniciais|internas)|"
-    r"your (?:initial |hidden )?instructions|suas instru[çc][õo]es (?:iniciais|internas|ocultas))|"
-    r"what (?:is|are) your (?:system prompt|initial instructions)|qual (?:[ée] )?(?:o )?seu prompt de sistema", I)
+    r"(?:repeat|reveal|show|print|output|display|repita|revele|mostre|mostrar|exiba|exibir|imprima|diga|copy|copie|copiar|paste|share|compartilhe|"
+    r"leak|dump|tell me|list|liste|listar|revelar|poderia me mostrar)[^.\n]{0,60}"
+    r"(?:system prompt|system message|mensagem (?:de|do) sistema|prompt de sistema|prompt do sistema|instrucoes (?:do sistema|iniciais|internas|ocultas)|"
+    r"(?:your|the) (?:initial |hidden |original |secret |system )(?:instructions|prompt)|your (?:instructions|prompt)\b|suas instrucoes (?:iniciais|internas|ocultas|originais)|"
+    r"hidden instructions|initial instructions)|"
+    r"what (?:is|are) your (?:system prompt|initial instructions|instructions)|qual (?:e )?(?:o )?seu prompt de sistema|"
+    r"(?:print|repeat|copy|show|repita|copie|mostre|imprima)\s+(?:everything|all|tudo|the text|o texto)\s+(?:above|before|acima|antes)|"
+    r"(?:o que|what)\s+(?:esta escrito|is written|you were told)\s+(?:acima|above)|text above this line|texto acima desta linha|"
+    r"(?:repeat|repita)\s+(?:the )?(?:words|text|palavras|texto)\s+(?:above|acima)|starting with (?:the phrase )?['\"]you are|"
+    r"(?:o que|what)\s+(?:te\s+)?(?:disseram|passaram|foi dito|were you told|you were told)\s+antes|what were you told before|"
+    r"(?:texto|conteudo|text|content)\s+(?:de\s+)?(?:configuracao|configuration|setup)[^.\n]{0,40}(?:te passaram|you were given|que recebeu)|"
+    r"instrucoes\s+(?:que\s+)?(?:a empresa|a sua empresa|o administrador|your (?:company|admin))\s+(?:configurou|definiu|escreveu)", I)
 JAILBREAK = re.compile(
-    r"\bDAN\b(?: mode|,)|do anything now|developer mode (?:enabled|on)|modo (?:DAN|desenvolvedor)|"
-    r"(?:you (?:have|are (?:with)?)|voc[êe] (?:n[ãa]o tem|est[áa] sem)|respond|answer|act|responda|aja|atue)[^.\n]{0,25}"
-    r"\b(?:no|without|sem)\s+(?:ethical |[ée]ticas? )?(?:restrictions|limitations|restri[çc][õo]es|limites)|"
-    r"pretend (?:you|that you) (?:have no|are not bound)|finja que n[ãa]o tem (?:regras|restri[çc][õo]es)|"
-    r"without (?:any )?(?:filters|censorship)|sem (?:filtros|censura)", I)
+    r"\bdan\b(?: mode|,| uma| a ia)|do anything now|developer mode (?:enabled|on|activated)|modo (?:dan|desenvolvedor)|(?:you are|voce esta|enable|activate|ative|ativar|modo)\s+jailbr\w+|"
+    r"(?:you (?:have|are (?:with)?)|voce (?:nao tem|esta sem)|respond|answer|act|responda|aja|atue|finja|pretend)[^.\n]{0,40}"
+    r"\b(?:no|without|sem|nenhuma?|zero)\s+(?:any\s+)?(?:ethical |eticas? |content |moral )?(?:restrictions?|limitations?|restricoes|limites|limits|filters?|filtros|censorship|censura|policy|politica)|"
+    r"pretend (?:you|that you) (?:have no|are not bound|are an? (?:ai )?(?:without|with no))|finja que nao tem (?:regras|restricoes)|"
+    r"(?:finja|pretend|aja|act|atue)[^.\n]{0,20}(?:ser|as|como|be)\s+(?:uma?\s+|an?\s+)?(?:ia|ai|assistant|assistente|modelo|model)[^.\n]{0,15}(?:sem|without|unrestricted|irrestrit\w+|uncensored|sem censura)|"
+    r"\b(?:unrestricted|uncensored|unfiltered|irrestrit\w+)\s+(?:ai|ia|assistant|mode|modo)|"
+    r"without (?:any )?(?:filters|censorship)|sem (?:filtros|censura)|modo sem (?:filtros|limites|restricoes)|"
+    r"(?:never|nunca)\s+(?:refuses?|recusa|nega|says no|diz nao)|no refusals|sem recusar|\bgod mode\b|modo deus|"
+    r"(?:has|have|with|tem|possui)\s+(?:absolutely\s+)?(?:no|nenhum[ao]?)\s+(?:rules|regras|filters?|filtros?|(?:ethical )?guidelines|diretrizes(?: eticas)?|limits)|"
+    r"broken free|freed from all|liberad[oa] de (?:todas as )?restricoes|no longer bound by|"
+    r"(?:stay|permaneca|continue)\s+(?:in|no)\s+(?:character|personagem)[^.\n]{0,40}(?:no|sem)\s+(?:rules|regras|filter|filtro)", I)
 MCP_POISON = re.compile(
-    r"<IMPORTANT>|<!--\s*(?:ai|assistant|agent)|before (?:using|calling) this tool,? (?:you must )?(?:read|send|include)|"
-    r"antes de usar esta ferramenta,? (?:voc[êe] deve )?(?:ler|leia|envie|inclua)|"
-    r"(?:do not|don't|n[ãa]o) (?:mention|tell|reveal|diga|avise|mencione)[^.\n]{0,30}(?:user|usu[áa]rio)|"
+    r"<important>|<!--\s*(?:ai|assistant|agent|instrucao|instruction)|before (?:using|calling) this tool,? (?:you must )?(?:read|send|include)|"
+    r"antes de usar esta ferramenta,? (?:voce deve )?(?:ler|leia|envie|inclua)|"
+    r"(?:do not|don't|nao) (?:mention|tell|reveal|diga|avise|mencione)[^.\n]{0,30}(?:user|usuario)|"
     r"read\s+~?/?\.?(?:ssh|aws|env)\S*", I)
+TOOL_DESC_POISON = re.compile(r"<important>|before (?:using|calling) this tool|antes de usar esta ferramenta")
 HIDDEN_CHARS = re.compile("[\U000e0000-\U000e007f\u200b-\u200f\u2060-\u2064]{3,}")
 
 
+NARRATIVE = re.compile(r"\b(?:roteiro|filme|historia|story|script|cena|scene|personagem|characters?|robot|robo|livro|book|ficcao|fiction|novela|conto)\b")
+ADDRESSED = re.compile(r"\b(?:voce|vc|you|your|seu|sua|seus|suas)\b")
+PROCESS_VERBS = re.compile(r"^\s*(?:traduza|traduz|translate|corrija|proofread|resuma|summari[sz]e|revise|reescreva|rewrite|explique|explain)\b")
+ASKS_MEANING = re.compile(r"\b(?:o que (?:isso )?significa|what does (?:it|this|that) mean|por que|why|como (?:tratar|funciona|detectar|se defender)|"
+                          r"how (?:do|to|can)|exemplos?|examples?)\b")
+
+
+def _quoted(t: str, pos: int) -> bool:
+    """A posição está dentro de aspas (a pessoa CITA a frase, não a diz ao assistente)."""
+    return sum(t[:pos].count(q) for q in ('"', "\u201c", "\u2018", "'")) % 2 == 1
+
+
 def detect(ctx: Context, classifier: InjectionClassifier | None = None) -> list[Finding]:
-    t, out = ctx.text, []
+    t, out = ctx.folded, []   # sem acento e em minúsculas, mesmas posições do texto original
     indirect = ctx.kind in ("tool_result", "file_upload")
     ign = IGNORE.search(t)
+    if ign and not indirect and (PROCESS_VERBS.match(t) or (ASKS_MEANING.search(t) and _quoted(t, ign.start()))):
+        ign = None   # "traduza: ignore as instruções do manual" e "o que significa 'ignore tudo acima'?" são citações, não ordens
+    if ign and not indirect and NARRATIVE.search(t) and not ADDRESSED.search(t):
+        ign = None   # "uma IA que ignora as regras" numa cena de filme é ficção, não uma ordem ao assistente
     addr = AGENT_ADDRESS.search(t)
     if ign:
         conf = 0.9 if indirect else 0.85
@@ -62,7 +106,7 @@ def detect(ctx: Context, classifier: InjectionClassifier | None = None) -> list[
         cat = "injection_indireta" if indirect else "injection_direta"
         out.append(Finding(cat, conf, "Instrução para ignorar regras" + (" dentro de conteúdo lido" if indirect else ""),
                            "injection", ign.start(), ign.end(), "[trecho suspeito]"))
-    elif indirect and addr and not MCP_POISON.search(t):
+    elif indirect and addr and not TOOL_DESC_POISON.search(t):
         out.append(Finding("injection_indireta", 0.75, "Texto imperativo dirigido ao agente em conteúdo lido",
                            "injection", addr.start(), addr.end(), "[trecho suspeito]"))
     sp = SYSPROMPT.search(t)
@@ -73,10 +117,10 @@ def detect(ctx: Context, classifier: InjectionClassifier | None = None) -> list[
     if jb:
         out.append(Finding("jailbreak", 0.8, "Padrão de jailbreak", "injection", jb.start(), jb.end(), "[trecho suspeito]"))
     poison = MCP_POISON.search(t)
-    if poison and (indirect or ctx.kind == "tool_call" or ctx.tool_name or "<IMPORTANT>" in t):
+    if poison and (indirect or ctx.kind == "tool_call" or ctx.tool_name or "<important>" in t):
         out.append(Finding("envenenamento_mcp", 0.85, "Instrução oculta em descrição/resultado de ferramenta",
                            "injection", poison.start(), poison.end(), "[trecho suspeito]"))
-    hc = HIDDEN_CHARS.search(t)
+    hc = HIDDEN_CHARS.search(ctx.text)
     if hc:
         out.append(Finding("envenenamento_mcp", 0.8, "Sequência de caracteres invisíveis (possível instrução oculta)",
                            "hidden_chars", hc.start(), hc.end(), "[caracteres ocultos]"))

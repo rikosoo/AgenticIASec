@@ -246,7 +246,7 @@ def test_health_text_is_not_stored_by_default_but_is_still_classified(client, wo
     row = world.sql("SELECT masked_text, text_length FROM events").one()
     assert "CID" not in row.masked_text and "paciente" not in row.masked_text and row.text_length == len(HEALTH)
     listed = client.get("/v1/events", headers=world.user("admin")).json()[0]
-    assert "CID" not in json.dumps(listed) and listed["risk_score"] > 0
+    assert "J45" not in json.dumps(listed) and "paciente" not in json.dumps(listed) and listed["risk_score"] > 0
 
 
 def test_health_original_is_kept_encrypted_only_if_the_tenant_enabled_it(client, world):

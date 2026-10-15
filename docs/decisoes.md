@@ -75,3 +75,4 @@ Uma linha por decisão: contexto, escolha, alternativas.
 | 2026-10-15 | Métricas do piloto | Cobertura, falso positivo por amostra aleatória dos sinalizados (Wilson 95%, aviso abaixo de 30 itens), tempo até o primeiro alerta; metas são sugestões | Taxa de falso positivo sem intervalo e sem aviso; apresentar a taxa como acurácia |
 | 2026-10-15 | Documentos jurídicos | Modelos marcados para revisão de advogado, com **A VERIFICAR** onde a norma não foi lida; teste que confere rotas, variáveis, testes e padrões citados | Documento "pronto" sem fonte (afirmaria o que não foi verificado) |
 
+| 2026-10-15 | Avaliação do motor em PT/EN | Conjuntos A, B, C usados para ajustar; D medido uma vez e mantido sem ajuste como estimativa independente (82,2% exato, F1 0,82); comparação sem acento via `textnorm.fold` | Reportar só os conjuntos ajustados (inflaria o resultado); treinar modelo (fora do escopo) |

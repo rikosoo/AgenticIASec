@@ -12,11 +12,11 @@ LANG_SIGNALS: dict[str, re.Pattern[str]] = {
     "typescript": re.compile(r"\b(?:interface \w+ \{|: (?:string|number|boolean)\b|export (?:const|function|type))"),
     "java": re.compile(r"\b(?:public (?:static )?(?:class|void)|System\.out\.println|import java\.)"),
     "go": re.compile(r"^\s*(?:package \w+|func \w+\(|import \()", re.M),
-    "c": re.compile(r"#include\s*<|\bint main\s*\("),
+    "c": re.compile(r"#include\s*<|\bint main\s*\(|\b(?:void|int|float|double|char|bool)\s+\*?\w+\s*\([^)]*\)\s*\{"),
     "shell": re.compile(r"^#!/bin/(?:ba)?sh|^\s*(?:export \w+=|if \[ )", re.M),
 }
 SQL_RE = re.compile(
-    r"(?i)\b(?:select\s+[\w*,.\s]+?\s+from\s+\w+|insert\s+into\s+\w+|update\s+\w+\s+set\s+\w+\s*=|"
+    r"(?i)\b(?:select\s+[\w*,.\s()'\"`]+?\s+from\s+\w+|insert\s+into\s+\w+|update\s+\w+\s+set\s+\w+\s*=|"
     r"delete\s+from\s+\w+|create\s+table\s+\w+|drop\s+table\s+\w+|alter\s+table\s+\w+)")
 IAC_RES = [
     re.compile(r'(?m)^\s*(?:resource|module|provider|variable|data)\s+"[\w-]+"(?:\s+"[\w-]+")?\s*\{'),
@@ -24,7 +24,9 @@ IAC_RES = [
     re.compile(r"(?m)^FROM\s+\S+.*\n(?:.*\n)*?(?:RUN|COPY|CMD|ENTRYPOINT)\s"),
     re.compile(r"(?m)^\s*-\s+(?:name|hosts):\s*.+\n(?:.*\n)*?\s+(?:apt|yum|ansible\.builtin\.\w+|become):"),
     re.compile(r"(?m)^AWSTemplateFormatVersion:"),
+    re.compile(r"(?i)\bterraform\s+(?:apply|plan|destroy|init)\b|\baws_[a-z0-9_]+\.[\w-]+|\bkubectl\s+(?:apply|rollout)\b"),
 ]
+COMMAND_IAC = 5   # índice da expressão acima: comando solto (não é arquivo de configuração); ignorada em chamadas de ferramenta
 TRACE_RES = [
     re.compile(r"Traceback \(most recent call last\):"),
     re.compile(r"(?m)^\s+at [\w$.<>]+\([\w.]+:\d+\)"),
@@ -37,7 +39,7 @@ ARCH_TERMS = re.compile(
     r"(?i)diagrama de arquitetura|arquitetura interna|topologia de rede|internal architecture|"
     r"network topology|\bVPC\b|\bCIDR\b|service mesh interno|bastion|subnet")
 REVIEW_PHRASES = re.compile(
-    r"(?i)\b(?:revis[ea]r?|review|refator\w*|refactor|debug\w*|depur\w*|find the bug|ache o bug|"
+    r"(?i)\b(?:revis[ea]r?|revisa|review|pull request|code review|tem bug|has a bug|me diz se|look at this|check this|what'?s wrong|o que (?:ta|esta) errado|olha (?:esse|este)|refator\w*|refactor|debug\w*|depur\w*|find the bug|ache o bug|"
     r"por que (?:este|esse) c[óo]digo|why (?:does|is) this (?:code|function))\b")
 OPEN_LICENSE = re.compile(r"(?i)SPDX-License-Identifier:\s*(?:MIT|Apache-2\.0|BSD|ISC|GPL|LGPL|MPL)|\b(?:MIT|Apache) License\b")
 PROPRIETARY = re.compile(
@@ -46,7 +48,12 @@ PROPRIETARY = re.compile(
 INTERNAL_PATH = re.compile(r"(?:/|\\)(?:internal|src/internal|corp|intranet)(?:/|\\)|\.corp\.|\.internal\b|\.local\b")
 
 
+DIFF_RE = re.compile(r"diff --git a/\S+ b/\S+|@@ -\d+(?:,\d+)? \+\d+(?:,\d+)? @@|(?m:^--- a/\S+)|(?m:^\+\+\+ b/\S+)")
+
+
 def code_presence(text: str) -> tuple[bool, str | None]:
+    if len(DIFF_RE.findall(text)) >= 2:
+        return True, "diff"
     fenced = len(FENCE.findall(text)) >= 2
     best, best_n = None, 0
     for lang, rx in LANG_SIGNALS.items():
@@ -66,7 +73,8 @@ def detect(ctx: Context) -> list[Finding]:
     is_code, lang = code_presence(t)
     if SQL_RE.search(t) and not re.search(r"(?i)^\s*(?:quero|want to|i want)\b", t):
         out.append(Finding("sql", 0.75, "Instrução SQL"))
-    if any(rx.search(t) for rx in IAC_RES):
+    rules = IAC_RES[:COMMAND_IAC] if ctx.kind == "tool_call" else IAC_RES
+    if any(rx.search(t) for rx in rules):
         out.append(Finding("iac", 0.8, "Infraestrutura como código (Terraform, Kubernetes, Docker ou Ansible)"))
     traces = sum(1 for rx in TRACE_RES if rx.search(t))
     if traces or len(LOG_LINE.findall(t)) >= 2:
@@ -76,7 +84,8 @@ def detect(ctx: Context) -> list[Finding]:
         out.append(Finding("arquitetura", 0.7, "Termos de arquitetura com IPs privados"))
     if is_code and REVIEW_PHRASES.search(t):
         out.append(Finding("revisao_codigo", 0.7, "Código com pedido de revisão ou depuração"))
-    if is_code and not OPEN_LICENSE.search(t):
+    weak_code = lang is not None   # um único sinal de linguagem (ex.: uma classe Java em uma linha) já basta para o cabeçalho proprietário
+    if (is_code or weak_code) and not OPEN_LICENSE.search(t):
         names = [n for n in ctx.project_names if n and n.lower() in t.lower()]
         if PROPRIETARY.search(t) or INTERNAL_PATH.search(t) or names:
             out.append(Finding("codigo_proprietario", 0.75,

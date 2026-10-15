@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 
 from ..models import Context, Finding
-from ..validators import card_plausible, cnpj_valid, cpf_valid, digits
+from ..validators import aba_valid, card_plausible, cnpj_valid, cpf_valid, digits, iban_valid
 
 CPF_RE = re.compile(r"(?<![\d.\-/])(\d{3}\.\d{3}\.\d{3}-\d{2}|\d{11})(?![\d]|[.\-/]\d)")
 CNPJ_RE = re.compile(r"(?<![\d.\-/])(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}|\d{14})(?![\d]|[.\-/]\d)")
@@ -25,6 +25,122 @@ ADDR_EN_RE = re.compile(r"\b\d{1,5}\s+(?:[A-Z][a-z]+\s){1,3}(?:Street|St|Avenue|
 CTX_CPF = re.compile(r"cpf|c\.p\.f|cadastro de pessoa", re.I)
 CTX_CNPJ = re.compile(r"cnpj", re.I)
 CTX_RG = re.compile(r"\brg\b|identidade|registro geral", re.I)
+
+
+# ---- ampliações (Etapa 10): separadores livres, documentos de outros países, contexto de telefone, PIX, IBAN ----
+CPF_LOOSE_RE = re.compile(r"(?<![\d.\-/])(\d{3}[ .\-]\d{3}[ .\-]\d{3}[ .\-/]\d{2})(?![\d]|[.\-/]\d)")
+CNPJ_LOOSE_RE = re.compile(r"(?<![\d.\-/])(\d{2}[ .]\d{3}[ .]\d{3}[ /]\d{4}[ \-]\d{2})(?![\d]|[.\-/]\d)")
+PHONE_CTX_RE = re.compile(
+    r"(?i)\b(?:whats(?:app)?|zap|tel(?:efone)?|cel(?:ular)?|fone|contato|phone|mobile|cell|call|ligar?|liga)\b"
+    r"[^\d\n]{0,18}(\+?\d[\d ()\-]{8,17}\d)")
+PHONE_INTL_RE = re.compile(r"(?<![\d\w])\+\d{1,3}[ \-]?\(?\d{1,4}\)?(?:[ \-]?\d{2,4}){2,4}(?!\d)")
+PHONE_US_RE = re.compile(r"(?<![\d\w])(?:\+1[ \-]?)?\(?[2-9]\d{2}\)?[ .\-]\d{3}[ .\-]\d{4}(?!\d)")
+SSN_RE = re.compile(r"(?<![\d\-])(?!000|666|9\d\d)(\d{3})[- ](?!00)(\d{2})[- ](?!0000)(\d{4})(?![\d\-])")
+CTX_SSN = re.compile(r"(?i)\bssn\b|social security|seguro social")
+EIN_RE = re.compile(r"(?i)\b(?:ein|tax id|tin|federal tax)\b[^\d\n]{0,15}(\d{2}-\d{7})\b")
+NI_RE = re.compile(r"(?i)\b(?:ni|national insurance)\b[^\n]{0,15}?\b([A-CEGHJ-PR-TW-Z]{2}\s?\d{2}\s?\d{2}\s?\d{2}\s?[A-D])\b")
+UK_POST_RE = re.compile(r"\b[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2}\b")
+US_ZIP_RE = re.compile(r"\b[A-Z]{2}\s+\d{5}(?:-\d{4})?\b")
+US_ADDR_RE = re.compile(
+    r"\b\d{1,5}\s+(?:[A-Z][a-z]+\s){1,4}(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr|Terrace|Way|Court|Ct|Place|Pl|Highway|Hwy)\b")
+PASSPORT_RE = re.compile(r"(?i)\b(?:passport|passaporte)\b[^\n\d]{0,18}?([A-Z]{0,2}\d{6,9})\b")
+LICENSE_RE = re.compile(r"(?i)\b(?:driver'?s? licen[sc]e|cnh|carteira (?:nacional de habilita[cç][aã]o|de motorista))\b[^\n\dA-Z]{0,25}([A-Z]?\d{7,12})\b")
+VOTER_RE = re.compile(r"(?i)\bt[ií]tulo de eleitor\b[^\d\n]{0,10}(\d[\d ]{9,16}\d)")
+DOB_RE = re.compile(
+    r"(?i)(?:\bdob\b|date of birth|born (?:on|in)|\bnasc(?:imento|ido|ida|\.)?\b|data de nascimento)[^\d\n]{0,12}(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{2,4})")
+IBAN_RE = re.compile(r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){2,7}(?:[ ]?[A-Z0-9]{1,4})?\b")
+ROUTING_RE = re.compile(r"(?i)\brouting(?: number)?\b[^\d\n]{0,10}(\d{9})\b")
+ACCOUNT_RE = re.compile(r"(?i)\baccount(?: number| no\.?)?\b[^\d\n]{0,10}(\d{8,17})\b")
+PIX_CTX = re.compile(r"(?i)\bpix\b")
+UUID_RE = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.I)
+BANK2_RE = re.compile(r"(?i)\bag(?:[eê]ncia)?\.?\W{0,3}\d{3,5}\W{0,12}(?:c/?c|cc|c\.c\.|conta(?: corrente| poupan[cç]a)?)\W{0,3}\d{4,}-?\d?")
+CONTA_RE = re.compile(r"(?i)\bconta (?:corrente|poupan[cç]a)\W{0,3}\d{4,}-?\d?")
+# 0800, 0300 e afins são números de empresa (SAC), não de pessoa
+NOT_PERSONAL_PREFIXES = ("0800", "0300", "0500", "0900", "4004", "4003", "3003")
+# número só dígitos que parece telefone brasileiro (DDD + 8 ou 9 dígitos)
+BR_MOBILE = re.compile(r"^(?:55)?[1-9]\d9?\d{8}$")
+
+
+FORMAT_CTX = re.compile(r"(?i)\b(?:regex|regexp|format(?:o|ar|ting)?|validar|validate|validation|validacao|mascara|mask(?:ing)?|exemplo|example|placeholder|"
+                        r"like|tipo|such as|e\.g\.|pattern|padrao)\b")
+TOLL_FREE = re.compile(r"^(?:\+?1)?(?:800|833|844|855|866|877|888)")
+
+
+def _format_example(t: str, start: int, end: int) -> bool:
+    """Número dentro de uma pergunta sobre FORMATO ("regex para telefone como (555) 123-4567"): exemplo, não dado de pessoa."""
+    return bool(FORMAT_CTX.search(t[max(0, start - 70):start] + " " + t[end:end + 70]))
+
+
+def _placeholder_digits(value: str) -> bool:
+    d = digits(value)
+    return len(set(d)) <= 2 or d == "1234567890"
+
+
+def _extra(t: str) -> list[Finding]:
+    out: list[Finding] = []
+    for m in CPF_LOOSE_RE.finditer(t):
+        if cpf_valid(m.group(1)):
+            out.append(Finding("pii", 0.92, "CPF com separadores variados e dígito verificador válido", "cpf",
+                               m.start(1), m.end(1), "***.***.***-" + digits(m.group(1))[-2:]))
+    for m in CNPJ_LOOSE_RE.finditer(t):
+        if cnpj_valid(m.group(1)):
+            out.append(Finding("pii", 0.92, "CNPJ com separadores variados", "cnpj", m.start(1), m.end(1),
+                               "**.***.***/****-" + digits(m.group(1))[-2:]))
+    for m in PHONE_CTX_RE.finditer(t):
+        d = digits(m.group(1))
+        if 10 <= len(d) <= 13 and not cpf_valid(d) and not d.startswith(NOT_PERSONAL_PREFIXES):
+            out.append(Finding("pii", 0.8, "Telefone com contexto (whats, tel, call...)", "telefone", m.start(1), m.end(1),
+                               "(**) *****-" + d[-4:]))
+    for m in PHONE_INTL_RE.finditer(t):
+        d = digits(m.group())
+        if 9 <= len(d) <= 15:
+            out.append(Finding("pii", 0.8, "Telefone internacional", "telefone", m.start(), m.end(), "+** ******" + d[-4:]))
+    for m in PHONE_US_RE.finditer(t):
+        if TOLL_FREE.match(digits(m.group())) or _format_example(t, m.start(), m.end()) or _placeholder_digits(m.group()):
+            continue
+        out.append(Finding("pii", 0.75, "Telefone dos EUA", "telefone", m.start(), m.end(), "(***) ***-" + digits(m.group())[-4:]))
+    for m in SSN_RE.finditer(t):
+        ctx = bool(CTX_SSN.search(t[max(0, m.start() - 40):m.start()]))
+        out.append(Finding("pii", 0.92 if ctx or "-" in m.group() else 0.75, "SSN (número de seguro social dos EUA)", "ssn",
+                           m.start(), m.end(), "***-**-" + m.group(3)))
+    for rx, kind, label, masked in ((EIN_RE, "ein", "EIN (identificação fiscal dos EUA)", "[EIN]"),
+                                    (NI_RE, "ni", "National Insurance (Reino Unido)", "[NI]"),
+                                    (PASSPORT_RE, "passaporte", "Passaporte", "[passaporte]"),
+                                    (LICENSE_RE, "cnh", "CNH ou driver's license", "[habilitação]"),
+                                    (VOTER_RE, "titulo", "Título de eleitor", "[título]")):
+        for m in rx.finditer(t):
+            out.append(Finding("pii", 0.85, label, kind, m.start(1), m.end(1), masked))
+    for m in DOB_RE.finditer(t):
+        out.append(Finding("pii", 0.7, "Data de nascimento", "nascimento", m.start(1), m.end(1), "[data de nascimento]"))
+    for m in US_ADDR_RE.finditer(t):
+        out.append(Finding("pii", 0.78, "Street address", "endereco", m.start(), m.end(), "[endereço]"))
+    for m in US_ZIP_RE.finditer(t):
+        if re.search(r"\d{1,5}\s+\w+", t[max(0, m.start() - 60):m.start()]):  # só com um endereço antes (evita siglas soltas)
+            out.append(Finding("pii", 0.72, "ZIP code com estado", "cep", m.start(), m.end(), "[ZIP]"))
+    for m in UK_POST_RE.finditer(t):
+        if re.search(r"(?i)postcode|post code|london|uk\b|reino unido", t):
+            out.append(Finding("pii", 0.7, "Postcode do Reino Unido", "cep", m.start(), m.end(), "[postcode]"))
+    for m in IBAN_RE.finditer(t):
+        if iban_valid(m.group()):
+            out.append(Finding("financeiro", 0.95, "IBAN com dígitos de controle válidos", "iban", m.start(), m.end(),
+                               m.group()[:4] + " **** ****"))
+    for m in ROUTING_RE.finditer(t):
+        if aba_valid(m.group(1)):
+            out.append(Finding("financeiro", 0.85, "Routing number (ABA) válido", "routing", m.start(1), m.end(1), "[routing]"))
+    for m in ACCOUNT_RE.finditer(t):
+        if ROUTING_RE.search(t):
+            out.append(Finding("financeiro", 0.8, "Número de conta com routing number", "conta_bancaria", m.start(1), m.end(1), "[conta]"))
+    for rx in (BANK2_RE, CONTA_RE):
+        for m in rx.finditer(t):
+            out.append(Finding("financeiro", 0.8, "Agência e conta bancária", "conta_bancaria", m.start(), m.end(), "[conta bancária]"))
+    if PIX_CTX.search(t):
+        for m in UUID_RE.finditer(t):
+            out.append(Finding("financeiro", 0.8, "Chave PIX aleatória", "pix", m.start(), m.end(), "[chave pix]"))
+        for m in re.finditer(r"(?<!\d)\d{10,11}(?!\d)", t):
+            if BR_MOBILE.match(m.group()) and not cpf_valid(m.group()):
+                out.append(Finding("financeiro", 0.8, "Chave PIX (telefone)", "pix", m.start(), m.end(), "[chave pix]"))
+                out.append(Finding("pii", 0.75, "Telefone usado como chave PIX", "telefone", m.start(), m.end(), "(**) *****-" + m.group()[-4:]))
+    return out
 
 
 def _near(text: str, start: int, end: int, ctx: re.Pattern[str], window: int = 25) -> bool:
@@ -82,8 +198,16 @@ def detect(ctx: Context) -> list[Finding]:
     for m in ADDR_EN_RE.finditer(t):
         out.append(Finding("pii", 0.75, "Street address", "endereco", m.start(), m.end(), "[endereço]"))
     for m in CEP_RE.finditer(t):
+        if _placeholder_digits(m.group()) or _format_example(t, m.start(), m.end()):
+            continue
         out.append(Finding("pii", 0.7, "CEP", "cep", m.start(), m.end(), "*****-***"))
     for m in BANK_RE.finditer(t):
         out.append(Finding("financeiro", 0.8, "Agência e conta bancária", "conta_bancaria",
                            m.start(), m.end(), "[conta bancária]"))
-    return out
+    out += _extra(t)
+    # números dentro de um IBAN, cartão ou conta não são telefone nem CEP (evita contar o mesmo trecho duas vezes)
+    out = [f for f in out if not (f.span_type in ("cpf", "cnpj", "rg", "cep", "telefone") and f.start is not None
+                                  and _placeholder_digits(t[f.start:f.end]) and len(digits(t[f.start:f.end])) >= 5)]
+    fin = [(f.start, f.end) for f in out if f.span_type in ("iban", "cartao", "routing", "conta_bancaria")]
+    return [f for f in out if not (f.span_type in ("telefone", "cep") and (any(a <= f.start and f.end <= b for a, b in fin)
+                                                                          or _format_example(t, f.start, f.end)))]
