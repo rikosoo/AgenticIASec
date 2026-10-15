@@ -48,6 +48,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    op.execute("DELETE FROM report_schedules WHERE kind = 'piloto'")  # o tipo não existia antes desta revisão
+    op.execute("DELETE FROM reports WHERE kind = 'piloto'")
     op.drop_constraint("ck_schedules_kind", "report_schedules", type_="check")
     op.create_check_constraint("ck_schedules_kind", "report_schedules", "kind in ('executivo','lgpd')")
     op.drop_constraint("ck_reports_kind", "reports", type_="check")

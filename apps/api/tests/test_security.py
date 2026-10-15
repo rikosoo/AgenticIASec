@@ -47,6 +47,9 @@ EXPECTED: dict[tuple[str, str], object] = {
     ("POST", "/v1/privacy/subject/erase"): ADMIN, ("POST", "/v1/privacy/retention/run"): ADMIN,
     ("POST", "/v1/reports/schedules"): ADMIN, ("DELETE", "/v1/reports/schedules/{schedule_id}"): ADMIN,
     ("DELETE", "/v1/reports/{report_id}"): ADMIN,
+    ("GET", "/v1/pilot/summary"): ("admin", "analista", "auditor"), ("PUT", "/v1/pilot/config"): ADMIN,
+    ("POST", "/v1/pilot/samples"): ("admin", "analista"), ("GET", "/v1/pilot/reviews"): ("admin", "analista"),
+    ("PATCH", "/v1/pilot/reviews/{review_id}"): ("admin", "analista"),
     ("POST", "/v1/events"): KEY, ("POST", "/v1/events/{event_id}/justification"): KEY, ("GET", "/v1/hook-config"): KEY,
     ("GET", "/v1/extension-config"): KEY, ("POST", "/v1/inference-hook"): KEY,
 }
@@ -60,7 +63,7 @@ def _routes() -> list[tuple[str, str]]:
 
 def _fill(path: str) -> str:
     out = path
-    for name in ("event_id", "incident_id", "policy_id", "key_id", "channel_id", "report_id", "schedule_id", "user_id"):
+    for name in ("event_id", "incident_id", "policy_id", "key_id", "channel_id", "report_id", "schedule_id", "user_id", "review_id"):
         out = out.replace("{" + name + "}", str(uuid.uuid4()))
     return out
 

@@ -171,7 +171,7 @@ class ChannelPatch(BaseModel):
 
 class ReportRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["executivo", "lgpd"]
+    kind: Literal["executivo", "lgpd", "piloto"]
     format: Literal["pdf", "csv"]
     start: date
     end: date
@@ -179,7 +179,7 @@ class ReportRequest(BaseModel):
 
 class ScheduleIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["executivo", "lgpd"]
+    kind: Literal["executivo", "lgpd", "piloto"]
     format: Literal["pdf", "csv"]
     frequency: Literal["mensal", "semanal"]
     recipients: list[str] = Field(default_factory=list, max_length=20)

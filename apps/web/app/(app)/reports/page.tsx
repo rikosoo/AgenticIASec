@@ -48,7 +48,7 @@ export default function ReportsPage() {
       <Panel title="Gerar agora">
         <form onSubmit={generate} className="flex flex-wrap items-end gap-3 text-sm">
           <div><label htmlFor="rk" className="mb-1 block font-medium">Relatório</label>
-            <select id="rk" className="field" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="executivo">Executivo</option><option value="lgpd">Conformidade LGPD</option></select></div>
+            <select id="rk" className="field" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="executivo">Executivo</option><option value="lgpd">Conformidade LGPD</option><option value="piloto">Final do piloto</option></select></div>
           <div><label htmlFor="rf" className="mb-1 block font-medium">Formato</label>
             <select id="rf" className="field" value={f.format} onChange={(e) => setF({ ...f, format: e.target.value })}><option value="pdf">PDF</option><option value="csv">CSV</option></select></div>
           <div><label htmlFor="rs" className="mb-1 block font-medium">De</label><input id="rs" type="date" required className="field" value={f.start} onChange={(e) => setF({ ...f, start: e.target.value })} /></div>
@@ -85,7 +85,7 @@ export default function ReportsPage() {
         {isAdmin ? (
           <form onSubmit={schedule} className="flex flex-wrap items-end gap-3 text-sm">
             <div><label htmlFor="sk" className="mb-1 block font-medium">Relatório</label>
-              <select id="sk" className="field" value={s.kind} onChange={(e) => setS({ ...s, kind: e.target.value })}><option value="executivo">Executivo</option><option value="lgpd">Conformidade LGPD</option></select></div>
+              <select id="sk" className="field" value={s.kind} onChange={(e) => setS({ ...s, kind: e.target.value })}><option value="executivo">Executivo</option><option value="lgpd">Conformidade LGPD</option><option value="piloto">Final do piloto</option></select></div>
             <div><label htmlFor="sf" className="mb-1 block font-medium">Formato</label>
               <select id="sf" className="field" value={s.format} onChange={(e) => setS({ ...s, format: e.target.value })}><option value="pdf">PDF</option><option value="csv">CSV</option></select></div>
             <div><label htmlFor="sq" className="mb-1 block font-medium">Frequência</label>

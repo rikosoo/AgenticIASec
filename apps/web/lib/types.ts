@@ -7,7 +7,7 @@ export type Action = "allow" | "mask" | "block" | "ask_justification" | "alert";
 export interface Me { kind: string; id: string; tenant_id: string; role: Role | null; email: string | null }
 export interface Tenant {
   id: string; name: string; failure_mode: "open" | "closed"; retention_days: number; store_original: boolean;
-  policy_url: string | null; monitored_domains: string[]; is_demo: boolean; volume_threshold_per_hour: number;
+  policy_url: string | null; monitored_domains: string[]; is_demo: boolean; volume_threshold_per_hour: number; original_retention_days: number;
 }
 export interface Category { id: string; confidence: number }
 export interface TaxonomyItem { id: string; nome: string; grupo: string; risco_padrao: string }
@@ -65,8 +65,8 @@ export interface Channel {
   id: string; kind: ChannelKind; name: string; target: string; enabled: boolean; integration_status: "real" | "parcial" | "experimental";
   min_severity: Severity | null; min_score: number | null; proto: string | null; has_secret: boolean; outbox: Record<string, number>;
 }
-export interface ReportRow { id: string; kind: "executivo" | "lgpd"; format: "pdf" | "csv"; period_start: string; period_end: string; sha256: string; created_by: string; created_at: string; size: number; scheduled: boolean }
-export interface ScheduleRow { id: string; kind: "executivo" | "lgpd"; format: "pdf" | "csv"; frequency: "mensal" | "semanal"; recipients: string[]; enabled: boolean; last_period_end: string | null }
+export interface ReportRow { id: string; kind: "executivo" | "lgpd" | "piloto"; format: "pdf" | "csv"; period_start: string; period_end: string; sha256: string; created_by: string; created_at: string; size: number; scheduled: boolean }
+export interface ScheduleRow { id: string; kind: "executivo" | "lgpd" | "piloto"; format: "pdf" | "csv"; frequency: "mensal" | "semanal"; recipients: string[]; enabled: boolean; last_period_end: string | null }
 
 export interface InferenceHookConfig {
   mode: "shadow" | "enforce"; scope: "full" | "latest"; evaluate_tool_calls: boolean; has_secret: boolean; previous_secret_active: boolean;
@@ -74,3 +74,20 @@ export interface InferenceHookConfig {
   endpoint_path: string; budget_ms: number; integration_status: string; notice: string;
   stats_24h: { requests: number; denied: number; would_deny: number; failures: number; skipped_attachments: number; p95_ms: number; max_ms: number };
 }
+
+export interface PilotSummary {
+  started_at: string | null; pilot_days: number; day: number | null; ends_at: string | null; days_remaining: number | null;
+  coverage: { active_users: number; expected_users: number | null; rate: number | null; by_department: { department: string; users: number }[];
+              by_channel: { channel: string; app: string; users: number; events: number }[] };
+  totals: { events: number; high_risk: number; enforced_decisions: number; would_act: number };
+  false_positive: { reviewed: number; pending: number; false_positive: number; true_positive: number; unsure: number; decided: number; rate: number | null;
+                    ci95: [number, number] | null; small_sample: boolean; min_reviews: number; scope: string };
+  time_to_first_alert_seconds: number | null; first_alert_at: string | null; first_incident_at: string | null; monitor_only: boolean;
+}
+export interface ReviewItem { id: string; sample_id: string; label: string | null; user_id: string; app: string; kind: string; masked_text: string;
+  categories: Category[]; risk_score: number; decision: Action; would_decide: Action }
+export interface DataMap {
+  retention_days: number; original_text_stored: boolean; original_retention_days: number; last_retention_run: string | null; audit_log: string;
+  counts: { events: number; events_with_original: number; distinct_monitored_people: number; alerts: number; reports: number; console_users: number; oldest_event_received_at: string | null };
+}
+export interface ApiKeyRow { id: string; name: string; prefix: string; status: string; revoked: boolean; created_at: string; expires_at: string | null; last_used_at: string | null }

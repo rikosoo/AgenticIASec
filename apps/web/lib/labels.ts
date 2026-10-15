@@ -30,4 +30,4 @@ export const CHANNEL_TARGET_HINT: Record<string, string> = {
   webhook: "URL https pública", slack: "URL do webhook de entrada (https)", teams: "URL do webhook do Workflows (https)", email: "endereço de e-mail",
   syslog_cef: "host:porta do coletor", siem_webhook: "URL https pública",
 };
-export const REPORT_KIND_LABEL = { executivo: "Executivo", lgpd: "Conformidade LGPD" } as const;
+export const REPORT_KIND_LABEL = { executivo: "Executivo", lgpd: "Conformidade LGPD", piloto: "Final do piloto" } as const;

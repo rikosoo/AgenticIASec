@@ -13,6 +13,8 @@ const NAV = [
   { href: "/alerts", label: "Alertas e SIEM" },
   { href: "/reports", label: "Relatórios" },
   { href: "/inference-hooks", label: "Inference hooks" },
+  { href: "/pilot", label: "Piloto" },
+  { href: "/privacy", label: "Privacidade e segurança" },
   { href: "/policies", label: "Políticas" },
 ];
 

@@ -48,6 +48,9 @@ class Tenant(Base):
     volume_threshold_per_hour: Mapped[int] = mapped_column(Integer, default=60)
     original_retention_days: Mapped[int] = mapped_column(Integer, default=30)
     last_retention_run: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    pilot_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    pilot_expected_users: Mapped[int | None] = mapped_column(Integer)
+    pilot_days: Mapped[int] = mapped_column(Integer, default=30)
     monitored_domains: Mapped[list[str]] = mapped_column(ARRAY(String), default=lambda: ["chatgpt.com", "claude.ai"])
 
 
@@ -268,4 +271,16 @@ class InferenceHookRequest(Base):
     reference_id: Mapped[str | None] = mapped_column(String(50))
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = _ts()
+
+
+class PilotReview(Base):
+    __tablename__ = "pilot_reviews"
+    id: Mapped[uuid.UUID] = _pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    event_pk: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("events.id", ondelete="CASCADE"))
+    sample_id: Mapped[uuid.UUID] = mapped_column(Uuid)
+    label: Mapped[str | None] = mapped_column(String(20))
+    reviewer_id: Mapped[str | None] = mapped_column(String(200))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = _ts()
