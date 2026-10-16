@@ -67,6 +67,8 @@ O instalador é só para Linux e macOS. No Windows, faça à mão, **sem mexer n
 python -m pip install -e packages\adapters\claude_code_hook
 ```
 
+> Atalho: `packages\adapters\claude_code_hook\install\install-user.ps1 -DryRun` mostra o que seria feito; sem `-DryRun` ele faz os passos 1 a 4 abaixo (por usuário, sem administrador) e cria `claude-ps.cmd`. **Não foi executado em Windows real**: se falhar, siga o manual e me mande o erro.
+
 2. Crie `C:\ps-teste\hook.json` (troque a chave):
 
 ```json

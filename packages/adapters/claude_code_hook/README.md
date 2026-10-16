@@ -29,7 +29,7 @@ PROMPTSHIELD_HOOK_CONFIG=/etc/promptshield/claude-code-hook.json /usr/local/lib/
 
 Use `--dry-run` para ver o que será feito. O instalador mescla os hooks no `managed-settings.json` (mantém o que já existe e faz cópia `.bak-…`). Para remover: `sudo ./install/uninstall.sh`.
 
-Windows **não tem instalador**. O caminho da política é `C:\Program Files\ClaudeCode\managed-settings.json`; o exemplo está em `examples/managed-settings.json` (ajuste o caminho do comando).
+Windows: há um instalador **por usuário**, `install/install-user.ps1` (sem administrador, NÃO executado em Windows real; use `-DryRun` primeiro). Para política da máquina (`C:\Program Files\ClaudeCode\managed-settings.json`) não há instalador: use o exemplo em `examples/managed-settings.json` e ajuste o caminho do comando.
 
 Avisos:
 - A chave fica legível por todos os usuários da máquina (o hook roda como o usuário). Ela só envia eventos. Rotação de chaves entra na Etapa 9.

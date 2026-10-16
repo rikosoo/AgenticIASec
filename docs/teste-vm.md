@@ -21,19 +21,17 @@ Com o hook ligado, o que você digita no Claude Code e as ações dele passam a 
 
 ## Passos
 
-Na VM (Linux com Docker e Git):
+Na VM (Debian ou Ubuntu, com Git; o script instala o Docker se faltar):
 
 ```bash
 git clone https://github.com/rikosoo/AgenticIASec.git && cd AgenticIASec
 git checkout claude/wonderful-hamilton-9dsk59
-cp .env.example .env     # edite: senhas do banco, OIDC_MODE=mock, AUTH_MODE=mock, OIDC_MOCK_SECRET com 32+ caracteres
-docker compose up --build -d
-docker compose exec api python -m app.cli create-tenant --name "Teste" --slug teste --admin-email voce@exemplo.com
+./infra/vm-setup.sh --admin-email voce@exemplo.com
 ```
 
-Guarde a chave `ps_...` (aparece uma vez). Sem `seed-demo`: você quer ver só os seus eventos.
+O script (`infra/vm-setup.sh`, **não executado em máquina real**) cria o `.env` com segredos aleatórios e login `mock`, sobe tudo com as portas em `127.0.0.1`, espera a API ficar saudável e cria o tenant. **Guarde a chave `ps_...`** (aparece uma vez). Ele recusa subir se o `.env` tiver `BIND_ADDR` diferente de loopback. Sem `seed-demo`: você quer ver só os seus eventos.
 
-O `docker-compose.yml` publica as portas em todas as interfaces. O firewall do passo 1 é o que protege. Se quiser proteção dupla, copie o arquivo e troque `"8000:8000"` por `"127.0.0.1:8000:8000"` (idem 3000 e 5432).
+As portas do `docker-compose.yml` escutam só em `127.0.0.1` por padrão (variável `BIND_ADDR`). O firewall do passo 1 continua sendo a primeira barreira.
 
 No seu Windows (PowerShell), abra o túnel e deixe a janela aberta:
 

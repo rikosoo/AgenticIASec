@@ -5,7 +5,7 @@ import { Dialog } from "@/components/Dialog";
 import { Chip, DecisionCell, Empty, ErrorBox, Loading, MaskedText, Pager, Panel, RiskBar } from "@/components/ui";
 import { api, apiPage, qs, useLoad } from "@/lib/api";
 import { clip, when, whenFull } from "@/lib/format";
-import { appLabel } from "@/lib/labels";
+import { APP_LABEL, appLabel } from "@/lib/labels";
 import type { PromptRow } from "@/lib/types";
 import { useTaxonomy } from "@/lib/useTaxonomy";
 
@@ -19,6 +19,7 @@ export default function PromptsPage() {
   const [agent, setAgent] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [onlyRisk, setOnlyRisk] = useState(true);
+  const [app, setApp] = useState("");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<PromptRow | null>(null);
   const { name, groups } = useTaxonomy();
@@ -26,9 +27,9 @@ export default function PromptsPage() {
   const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(0); };
   const counts = useLoad(() => api<Record<string, number>>(`v1/stats/categories?days=${days}`), [days]);
   const list = useLoad(() => apiPage<PromptRow[]>(`v1/events${qs({
-    sort: "risk", days, limit: PAGE, offset: page * PAGE, category, min_score: onlyRisk ? 1 : 0,
+    sort: "risk", days, limit: PAGE, offset: page * PAGE, category, app: app || undefined, min_score: onlyRisk ? 1 : 0,
     has_code: code || undefined, has_sensitive: sensitive || undefined, agent_action: agent || undefined, only_blocked: blocked || undefined,
-  })}`), [days, category, code, sensitive, agent, blocked, onlyRisk, page]);
+  })}`), [days, category, app, code, sensitive, agent, blocked, onlyRisk, page]);
 
   return (
     <div className="space-y-4">
@@ -37,11 +38,20 @@ export default function PromptsPage() {
           <h1 className="text-xl font-bold">Análise de prompts</h1>
           <p className="text-sm text-muted">Prompts já enviados e capturados, do mais arriscado ao menos. O texto aparece mascarado. O score é um indicador de risco e exige revisão humana.</p>
         </div>
-        <div>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label htmlFor="app" className="mr-2 text-sm text-muted">Ferramenta</label>
+            <select id="app" className="field" value={app} onChange={(e) => reset(setApp)(e.target.value)}>
+              <option value="">Todas</option>
+              {Object.entries(APP_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </div>
+          <div>
           <label htmlFor="days" className="mr-2 text-sm text-muted">Período</label>
           <select id="days" className="field" value={days} onChange={(e) => reset(setDays)(Number(e.target.value))}>
             {[7, 14, 30, 90].map((d) => <option key={d} value={d}>Últimos {d} dias</option>)}
           </select>
+          </div>
         </div>
       </div>
 

@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-promptshield}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env}
       POSTGRES_DB: ${POSTGRES_DB:-promptshield}
-    ports: ["5432:5432"]
+    ports: ["${BIND_ADDR:-127.0.0.1}:5432:5432"]
     volumes: ["pgdata:/var/lib/postgresql/data"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-promptshield}"]
@@ -27,7 +27,7 @@ services:
       ORIGINAL_TEXT_MASTER_KEY: ${ORIGINAL_TEXT_MASTER_KEY:-}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-}
       CONSOLE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
-    ports: ["${API_PORT:-8000}:8000"]
+    ports: ["${BIND_ADDR:-127.0.0.1}:${API_PORT:-8000}:8000"]
     depends_on:
       db:
         condition: service_healthy
@@ -65,7 +65,7 @@ services:
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
-    ports: ["${WEB_PORT:-3000}:3000"]
+    ports: ["${BIND_ADDR:-127.0.0.1}:${WEB_PORT:-3000}:3000"]
     depends_on:
       api:
         condition: service_healthy
