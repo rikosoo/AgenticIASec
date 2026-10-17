@@ -10,6 +10,7 @@ from pathlib import Path
 DEFAULT_PATHS = (
     "/etc/promptshield/claude-code-hook.json",
     "/Library/Application Support/PromptShield/claude-code-hook.json",
+    "C:\\ProgramData\\PromptShield\\hook.json",  # Windows, nível de máquina (instalação em massa)
 )
 
 

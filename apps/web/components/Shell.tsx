@@ -12,6 +12,7 @@ const NAV = [
   { href: "/risk", label: "Risco por usuário" },
   { href: "/alerts", label: "Alertas e SIEM" },
   { href: "/reports", label: "Relatórios" },
+  { href: "/devices", label: "Dispositivos" },
   { href: "/inference-hooks", label: "Inference hooks" },
   { href: "/pilot", label: "Piloto" },
   { href: "/privacy", label: "Privacidade e segurança" },

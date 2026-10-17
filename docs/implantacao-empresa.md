@@ -1,8 +1,13 @@
-# Implantação na empresa inteira (proposta, nada disso foi construído ou testado)
+# Implantação na empresa inteira (parcialmente construído; nada testado em máquina de cliente)
 
 Objetivo comercial: o administrador baixa **um arquivo por sistema operacional** (gerado para o tenant dele), distribui pelo que a empresa já usa (Intune, Jamf, GPO, script) e cada máquina passa a enviar eventos das ferramentas de IA configuradas, sem o funcionário fazer nada. Isto é pacote e distribuição dos coletores que já existem; **não** é agente de desktop nem proxy (ambos fora do escopo, ver `CLAUDE.md`).
 
-Status: **proposta**. O que existe hoje é o assistente por usuário (`python -m promptshield_claude_hook setup`). Nada abaixo foi executado em MDM, GPO ou máquina de cliente.
+Status em 2026-10-17: o dono do produto decidiu **token de matrícula com chave por dispositivo** e **executável único assinado**. Construído e testado só com dados sintéticos e pastas de teste (`--root`): matrícula na API (`/v1/enroll`, tokens e dispositivos, revogação por máquina), página **Dispositivos** no console, comando `deploy`/`--uninstall` em nível de máquina (Claude Code via managed-settings, Copilot CLI via policy.d). **Não construído:** executável sem Python (PyInstaller no CI) e sua assinatura, pacotes `.msi`/`.pkg`, entrega da extensão por política do navegador, teste em Intune/GPO/Jamf reais. Hoje o `deploy` usa o Python da máquina.
+
+```text
+python -m promptshield_claude_hook deploy --api-url https://api.empresa --token pse_... --confirm-employees-notified   # como administrador
+python -m promptshield_claude_hook deploy --uninstall --confirm-employees-notified
+```
 
 ## O que cada ferramenta permite em nível de máquina (fontes)
 
@@ -14,20 +19,20 @@ Status: **proposta**. O que existe hoje é o assistente por usuário (`python -m
 | Codex (OpenAI) | existe `allow_managed_hooks_only` em `requirements.toml`, mas o formato dos hooks não pôde ser lido | `openai/codex` `docs/config.md` | **A VERIFICAR**, não suportado |
 | Copilot no VS Code, apps desktop de chat, celular | sem hooks nas fontes lidas | | **não coberto**; só o inference hook do Claude Enterprise (servidor) enxerga tudo, e nunca foi testado |
 
-## Decisões que precisam do dono do produto (caras de desfazer)
+## Decisões (1 e 2 tomadas em 2026-10-17; 3 em aberto)
 
-1. **Credencial por máquina.** Hoje a chave `ps_...` fica em arquivo legível pela máquina. Um arquivo de instalação com a chave do tenant, copiado por qualquer funcionário, permite falsificar eventos. Proposta: o instalador leva só um **token de matrícula** (revogável, com validade e limite de uso) que a máquina troca por uma **chave própria do dispositivo**. Exige endpoint novo, tabela de dispositivos, revogação por máquina e uma página "Dispositivos" no console (cobertura: quantas máquinas e de qual ferramenta). Alternativa mais simples e mais fraca: uma chave por instalador.
-2. **Executável sem Python.** O hook é Python (biblioteca padrão). Máquinas de empresa muitas vezes não têm Python. Proposta: gerar um executável único por sistema (PyInstaller, compilado no CI em runner de cada SO) e **assinar** (certificado de assinatura de código, custo e prazo reais). Alternativa: exigir Python instalado (frágil para vender).
-3. **Onde roda o servidor.** SaaS multi-tenant gerenciado por nós (o desenho atual) ou uma instalação por cliente. Versão on-premise está fora do escopo agora. A nuvem de produção ainda não foi escolhida.
+1. **Credencial por máquina. DECIDIDO: token de matrícula e chave por dispositivo (construído).** Hoje a chave `ps_...` fica em arquivo legível pela máquina. Um arquivo de instalação com a chave do tenant, copiado por qualquer funcionário, permite falsificar eventos. Proposta: o instalador leva só um **token de matrícula** (revogável, com validade e limite de uso) que a máquina troca por uma **chave própria do dispositivo**. Exige endpoint novo, tabela de dispositivos, revogação por máquina e uma página "Dispositivos" no console (cobertura: quantas máquinas e de qual ferramenta). Alternativa mais simples e mais fraca: uma chave por instalador.
+2. **Executável sem Python. DECIDIDO: executável único assinado (não construído).** O hook é Python (biblioteca padrão). Máquinas de empresa muitas vezes não têm Python. Proposta: gerar um executável único por sistema (PyInstaller, compilado no CI em runner de cada SO) e **assinar** (certificado de assinatura de código, custo e prazo reais). Alternativa: exigir Python instalado (frágil para vender).
+3. **Onde roda o servidor. EM ABERTO.** SaaS multi-tenant gerenciado por nós (o desenho atual) ou uma instalação por cliente. Versão on-premise está fora do escopo agora. A nuvem de produção ainda não foi escolhida.
 
 ## Peças a construir, em ordem
 
 | # | Peça | Observação |
 |---|---|---|
-| 1 | Gerador de instalador por tenant (`.ps1` e `.sh`; depois `.msi`/`.pkg`), silencioso, idempotente, com desinstalação e relatório de saída | sem decisão 1 e 2 resolvidas, usa chave do tenant e exige Python |
+| 1 | **Parcial.** `deploy` existe; falta o gerador por tenant e o executável. Gerador de instalador por tenant (`.ps1` e `.sh`; depois `.msi`/`.pkg`), silencioso, idempotente, com desinstalação e relatório de saída | sem decisão 1 e 2 resolvidas, usa chave do tenant e exige Python |
 | 2 | Entrega por política: Claude Code (managed-settings), Copilot CLI (policy.d / registro), navegador (forcelist), sempre com cópia de segurança e remoção | cada mecanismo precisa de teste em máquina real |
-| 3 | Matrícula e dispositivos (decisão 1) | |
-| 4 | Painel de cobertura no console: dispositivos matriculados, última comunicação, ferramenta por dispositivo, máquinas sem coletor | é o que um comprador pede para provar valor |
+| 3 | **Feito (sintético).** Matrícula e dispositivos (decisão 1) | migração 0010, `routers/enrollment.py`, `tests/test_enrollment.py` |
+| 4 | **Feito (básico).** Painel de cobertura no console (página Dispositivos: máquinas ativas, cobertura por ferramenta, última comunicação, revogar): dispositivos matriculados, última comunicação, ferramenta por dispositivo, máquinas sem coletor | é o que um comprador pede para provar valor |
 | 5 | Piloto com 1 cliente e cerca de 50 máquinas, usando `docs/roteiro-testes-reais.md` e `docs/piloto.md` | |
 
 ## O que o comprador vai pedir (e o estado atual)

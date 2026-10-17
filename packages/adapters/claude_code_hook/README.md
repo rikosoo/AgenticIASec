@@ -31,6 +31,17 @@ Menu interativo, que você pode repetir quantas vezes quiser: 1 vincula o **Clau
 - Vale para o Claude Code no terminal. A aba Code do app Desktop e a extensão do VS Code **leem os mesmos arquivos de configuração** (documentação oficial: "The desktop app reads the same settings files as the CLI"), mas a documentação não confirma que os hooks disparam lá: **A VERIFICAR**. O **chat comum** do app Claude Desktop não tem hooks e **não é coberto** (para isso, só o inference hook do Claude Enterprise, no servidor).
 - Navegador não pode ser instalado nem logado por programa: a opção 3 mostra os passos. O "login no navegador" do assistente é o do console do PromptShield para criar a chave; pareamento automático por código de dispositivo não existe.
 
+## Instalação em massa (EXPERIMENTAL, nível de máquina)
+
+Para o TI da empresa: no console (**Dispositivos**) o administrador cria um **token de matrícula** (revogável, com validade e limite de máquinas); o comando abaixo, rodado como administrador em cada máquina (por MDM, GPO ou script), troca o token por uma **chave própria da máquina**, grava a configuração de máquina e os hooks de política do Claude Code (`managed-settings.json`) e do Copilot CLI (`policy.d`):
+
+```text
+python -m promptshield_claude_hook deploy --api-url https://api.empresa --token pse_... --confirm-employees-notified
+python -m promptshield_claude_hook deploy --uninstall --confirm-employees-notified
+```
+
+`--confirm-employees-notified` é obrigatório: o aviso aos empregados é obrigação do cliente. É idempotente, faz cópia de segurança e preserva hooks de terceiros. A chave da máquina fica legível pelos usuários locais (o hook roda como o usuário), só envia eventos e é revogável por máquina. **Nunca rodou em MDM real**, ainda exige Python na máquina (executável único assinado está decidido, mas não construído) e não instala a extensão do navegador. Ver `docs/implantacao-empresa.md`.
+
 ## Instalar em uma máquina de teste (Linux e macOS)
 
 Pré-requisitos: `python3`, Claude Code, e uma chave de API do tenant (`python -m app.cli create-tenant ...`, ver README da raiz).

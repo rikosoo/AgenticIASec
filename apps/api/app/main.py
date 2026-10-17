@@ -11,7 +11,20 @@ from pydantic import BaseModel
 
 from app import logging_config, metrics, services
 from app.config import settings
-from app.routers import admin, alerts, analytics, events, exports, incidents, inference_hook, pilot, policies, privacy, reports
+from app.routers import (
+    admin,
+    alerts,
+    analytics,
+    enrollment,
+    events,
+    exports,
+    incidents,
+    inference_hook,
+    pilot,
+    policies,
+    privacy,
+    reports,
+)
 
 
 @asynccontextmanager
@@ -85,6 +98,7 @@ app.include_router(reports.router)
 app.include_router(inference_hook.router)
 app.include_router(privacy.router)
 app.include_router(pilot.router)
+app.include_router(enrollment.router)
 
 if settings.oidc_mode == "mock":  # só desenvolvimento: nunca registrado em outro modo
     from app.security import issue_mock_token

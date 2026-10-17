@@ -91,3 +91,7 @@ export interface DataMap {
   counts: { events: number; events_with_original: number; distinct_monitored_people: number; alerts: number; reports: number; console_users: number; oldest_event_received_at: string | null };
 }
 export interface ApiKeyRow { id: string; name: string; prefix: string; status: string; revoked: boolean; created_at: string; expires_at: string | null; last_used_at: string | null }
+
+export interface EnrollTokenRow { id: string; name: string; prefix: string; status: string; uses: number; max_uses: number | null; expires_at: string; created_at: string }
+export interface DeviceRow { id: string; hostname: string; os: string | null; client_version: string | null; tools: string[]; enrolled_at: string; last_seen_at: string | null; revoked: boolean }
+export interface DevicesOut { devices: DeviceRow[]; active: number; coverage: Record<string, number> }

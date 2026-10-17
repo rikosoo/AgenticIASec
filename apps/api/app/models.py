@@ -82,6 +82,34 @@ class ApiKey(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class EnrollmentToken(Base):
+    __tablename__ = "enrollment_tokens"
+    id: Mapped[uuid.UUID] = _pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    name: Mapped[str] = mapped_column(String(120))
+    prefix: Mapped[str] = mapped_column(String(16))
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    max_uses: Mapped[int | None] = mapped_column(Integer)
+    uses: Mapped[int] = mapped_column(Integer, default=0)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = _ts()
+
+
+class Device(Base):
+    __tablename__ = "devices"
+    id: Mapped[uuid.UUID] = _pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    token_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("enrollment_tokens.id", ondelete="SET NULL"))
+    api_key_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("api_keys.id", ondelete="SET NULL"))
+    hostname: Mapped[str] = mapped_column(String(200))
+    os: Mapped[str | None] = mapped_column(String(60))
+    client_version: Mapped[str | None] = mapped_column(String(40))
+    tools: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    enrolled_at: Mapped[datetime] = _ts()
+
+
 class Policy(Base):
     __tablename__ = "policies"
     id: Mapped[uuid.UUID] = _pk()

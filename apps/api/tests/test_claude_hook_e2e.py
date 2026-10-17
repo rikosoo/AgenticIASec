@@ -224,3 +224,25 @@ def test_copilot_cli_hook_end_to_end(client, world, live, tmp_path):
     p = subprocess.run([sys.executable, "-m", "promptshield_claude_hook", "--copilot", "preToolUse"], input=json.dumps(payload), capture_output=True,
                        text=True, env=env, timeout=30)
     assert json.loads(p.stdout)["permissionDecision"] == "deny"
+
+
+# ---------- 9. instalação em massa: token -> chave própria -> hook real envia evento -> revogar a máquina ----------
+def test_deploy_enrolls_machine_and_hook_uses_the_device_key(client, world, live, tmp_path):
+    tok = client.post("/v1/enrollment-tokens", json={"name": "frota"}, headers=world.user("admin")).json()["token"]
+    root = tmp_path / "raiz"
+    cmd = [sys.executable, "-m", "promptshield_claude_hook", "deploy", "--api-url", live, "--token", tok, "--tools", "claude_code,github_copilot_cli",
+           "--confirm-employees-notified", "--root", str(root)]
+    p = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    assert p.returncode == 0, p.stdout + p.stderr
+    cfg_path = next(root.rglob("claude-code-hook.json")) if list(root.rglob("claude-code-hook.json")) else next(root.rglob("hook.json"))
+    key = json.loads(cfg_path.read_text())["api_key"]
+    assert key != world.a["api_key"]
+    out, _ = run_hook(live, key, hook("UserPromptSubmit", prompt="SIMULADO: CPF 529.982.247-25", prompt_id="m-1"), tmp_path)
+    assert out is None
+    assert any(c["id"] == "pii" for c in events(client, world)[0]["categories"])
+    d = client.get("/v1/devices", headers=world.user("leitura")).json()
+    assert d["active"] == 1 and d["coverage"] == {"claude_code": 1, "github_copilot_cli": 1}
+    client.post(f"/v1/devices/{d['devices'][0]['id']}/revoke", headers=world.user("admin"))
+    out2, p2 = run_hook(live, key, hook("UserPromptSubmit", prompt="SIMULADO de novo", prompt_id="m-2"), tmp_path)
+    assert "401" in p2.stderr                                   # a máquina revogada deixa de enviar (fail-open: o Claude Code segue)
+    assert subprocess.run(cmd[:-2] + ["--root", str(root)] + [], capture_output=True, text=True, timeout=60).returncode == 0  # reinstalar não duplica

@@ -21,6 +21,7 @@ KEY = "key"      # só chave de API com escopo ingest
 ANY = "any"      # qualquer credencial válida
 PUBLIC = "public"
 DEV = "dev"      # só existe com OIDC_MODE=mock (nunca em produção); sem credencial por definição
+ENROLL = "enroll"  # sem login por definição: a credencial é o token de matrícula no corpo; coberto por teste próprio (test_enrollment.py)
 
 # Quem pode o quê. É a ÚNICA fonte da verdade do teste: rota nova sem linha aqui reprova (seguro por padrão).
 EXPECTED: dict[tuple[str, str], object] = {
@@ -47,6 +48,9 @@ EXPECTED: dict[tuple[str, str], object] = {
     ("POST", "/v1/privacy/subject/erase"): ADMIN, ("POST", "/v1/privacy/retention/run"): ADMIN,
     ("POST", "/v1/reports/schedules"): ADMIN, ("DELETE", "/v1/reports/schedules/{schedule_id}"): ADMIN,
     ("DELETE", "/v1/reports/{report_id}"): ADMIN,
+    ("POST", "/v1/enroll"): ENROLL,
+    ("GET", "/v1/enrollment-tokens"): ADMIN, ("POST", "/v1/enrollment-tokens"): ADMIN, ("POST", "/v1/enrollment-tokens/{token_id}/revoke"): ADMIN,
+    ("GET", "/v1/devices"): ALL, ("POST", "/v1/devices/{device_id}/revoke"): ADMIN,
     ("GET", "/v1/pilot/summary"): ("admin", "analista", "auditor"), ("PUT", "/v1/pilot/config"): ADMIN,
     ("POST", "/v1/pilot/samples"): ("admin", "analista"), ("GET", "/v1/pilot/reviews"): ("admin", "analista"),
     ("PATCH", "/v1/pilot/reviews/{review_id}"): ("admin", "analista"),
@@ -94,7 +98,7 @@ def test_dev_token_route_does_not_exist_unless_mock_mode_is_on():
 
 def test_no_credentials_means_401_on_every_protected_route(client, world):
     for method, path in _routes():
-        if EXPECTED[(method, path)] == DEV:
+        if EXPECTED[(method, path)] in (DEV, ENROLL):
             continue
         if EXPECTED[(method, path)] == PUBLIC:
             assert _call(client, method, path, {}).status_code == 200, path
@@ -111,7 +115,7 @@ def test_role_matrix_every_route_every_role(client, world):
     failures = []
     for method, path in _routes():
         rule = EXPECTED[(method, path)]
-        if rule in (PUBLIC, DEV):
+        if rule in (PUBLIC, DEV, ENROLL):
             continue
         for role in ALL:
             code = _call(client, method, path, world.user(role)).status_code
