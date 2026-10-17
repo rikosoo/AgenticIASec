@@ -69,9 +69,9 @@ if [ -z "$IAS" ] && [ -z "${PS_TOOLS:-}" ] && [ -r /dev/tty ]; then
   python3 "$PYZ" deploy --list-ias --confirm-employees-notified
   printf "Numeros separados por virgula (ex.: 1,6), ou ENTER para o padrao (Claude Code e GitHub Copilot CLI): "; read -r IAS < /dev/tty || IAS=""
 fi
-if [ -n "$IAS" ]; then SEL="--ias $IAS"; elif [ -n "${PS_TOOLS:-}" ]; then SEL="--tools $PS_TOOLS"; else SEL=""; fi
-# shellcheck disable=SC2086
-python3 "$PYZ" deploy --user --api-url "$PS_API" --token "$PS_TOKEN" --confirm-employees-notified $SEL
+set -- deploy --user --api-url "$PS_API" --token "$PS_TOKEN" --confirm-employees-notified
+if [ -n "$IAS" ]; then set -- "$@" --ias "$IAS"; elif [ -n "${PS_TOOLS:-}" ]; then set -- "$@" --tools "$PS_TOOLS"; fi
+python3 "$PYZ" "$@"     # argumentos entre aspas: "1, 2, 6" (com espaços) chega inteiro ao --ias
 echo "Pronto. Para remover: python3 $PYZ deploy --user --uninstall --confirm-employees-notified"
 """
 
