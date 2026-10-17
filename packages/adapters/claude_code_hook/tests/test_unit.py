@@ -174,3 +174,11 @@ def test_config_file_and_env_precedence(tmp_path, monkeypatch):
     assert (cfg.api_key, cfg.fail_mode) == ("k2", "open")
     monkeypatch.setenv("PROMPTSHIELD_FAIL_MODE", "banana")
     assert config.load().fail_mode == "open"
+
+
+def test_config_accepts_utf8_bom_written_by_windows_powershell(tmp_path):
+    from promptshield_claude_hook import config
+    f = tmp_path / "hook.json"
+    f.write_bytes(b"\xef\xbb\xbf" + b'{"api_url": "http://localhost:8000/", "api_key": "ps_x"}')
+    cfg = config.load(str(f))
+    assert cfg.api_url == "http://localhost:8000" and cfg.api_key == "ps_x" and cfg.usable

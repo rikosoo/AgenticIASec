@@ -48,7 +48,7 @@ def _read_key(data: dict) -> str:
     f = data.get("api_key_file")
     if f:
         try:
-            return Path(f).read_text(encoding="utf-8").strip()
+            return Path(f).read_text(encoding="utf-8-sig").strip()
         except OSError:
             return ""
     return ""
@@ -59,7 +59,7 @@ def load(path: str | None = None) -> Config:
     p = path or config_path()
     if p:
         try:
-            data = json.loads(Path(p).read_text(encoding="utf-8"))
+            data = json.loads(Path(p).read_text(encoding="utf-8-sig"))
         except (OSError, ValueError):
             data = {}
         cfg.source_path = p

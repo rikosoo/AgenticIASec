@@ -57,7 +57,7 @@ def cmd_refresh(cfg: config.Config) -> int:
     try:
         mode = client.get_hook_config(cfg)["failure_mode"]
         p = Path(cfg.source_path)
-        data = json.loads(p.read_text(encoding="utf-8"))
+        data = json.loads(p.read_text(encoding="utf-8-sig"))
         data["fail_mode"] = mode
         p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     except (client.ApiError, OSError, KeyError, ValueError) as exc:
