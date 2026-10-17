@@ -1,6 +1,7 @@
 # Sobe tudo com: make up   (veja o README)
 services:
   db:
+    restart: unless-stopped
     image: postgres:16
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-promptshield}
@@ -15,6 +16,7 @@ services:
       retries: 20
 
   api:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -39,6 +41,7 @@ services:
       retries: 20
 
   worker:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: apps/api/Dockerfile
@@ -58,6 +61,7 @@ services:
         condition: service_healthy
 
   web:
+    restart: unless-stopped
     build: ./apps/web
     environment:
       API_INTERNAL_URL: http://api:8000
