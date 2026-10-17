@@ -24,6 +24,7 @@ from app.routers import (
     policies,
     privacy,
     reports,
+    sensor,
 )
 
 
@@ -99,6 +100,7 @@ app.include_router(inference_hook.router)
 app.include_router(privacy.router)
 app.include_router(pilot.router)
 app.include_router(enrollment.router)
+app.include_router(sensor.router)
 
 if settings.oidc_mode == "mock":  # só desenvolvimento: nunca registrado em outro modo
     from app.security import issue_mock_token

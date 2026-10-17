@@ -246,3 +246,37 @@ def test_deploy_enrolls_machine_and_hook_uses_the_device_key(client, world, live
     out2, p2 = run_hook(live, key, hook("UserPromptSubmit", prompt="SIMULADO de novo", prompt_id="m-2"), tmp_path)
     assert "401" in p2.stderr                                   # a máquina revogada deixa de enviar (fail-open: o Claude Code segue)
     assert subprocess.run(cmd[:-2] + ["--root", str(root)] + [], capture_output=True, text=True, timeout=60).returncode == 0  # reinstalar não duplica
+
+
+# ---------- 10. instalador de uma linha (install.sh servido pela própria API) ----------
+@pytest.mark.skipif(not __import__("shutil").which("curl") or not __import__("shutil").which("python3"), reason="precisa de curl e python3")
+def test_one_line_installer_served_by_the_api_installs_a_working_sensor(client, world, live, tmp_path):
+    import hashlib
+    import urllib.request
+
+    man = json.loads(urllib.request.urlopen(f"{live}/sensor/manifest.json").read())   # noqa: S310
+    pyz = urllib.request.urlopen(f"{live}/sensor/promptshield-sensor.pyz").read()     # noqa: S310
+    assert man["sha256"] == hashlib.sha256(pyz).hexdigest() and pyz.startswith(b"#!/usr/bin/env python3")
+    tok = client.post("/v1/enrollment-tokens", json={"name": "uma linha"}, headers=world.user("admin")).json()["token"]
+    home = tmp_path / "home"
+    home.mkdir()
+    env = {**os.environ, "HOME": str(home), "PS_API": live, "PS_TOKEN": tok, "PS_NOTIFIED": "1"}
+    for k in ("CLAUDE_CONFIG_DIR", "COPILOT_HOME", "PROMPTSHIELD_HOOK_CONFIG", "PROMPTSHIELD_API_URL", "PROMPTSHIELD_API_KEY"):
+        env.pop(k, None)
+    p = subprocess.run(["sh", "-c", 'curl -fsSL "$PS_API/sensor/install.sh" | sh'], capture_output=True, text=True, env=env, timeout=90)
+    assert p.returncode == 0, p.stdout + p.stderr
+    settings = json.loads((home / ".claude" / "settings.json").read_text())
+    entry = settings["hooks"]["PreToolUse"][0]["hooks"][0]
+    assert entry["args"][0].endswith("promptshield-sensor.pyz")                    # o hook chama o sensor baixado
+    cop = json.loads((home / ".copilot" / "hooks" / "promptshield.json").read_text())
+    assert "promptshield-sensor.pyz" in cop["hooks"]["preToolUse"][0]["bash"] and "--copilot preToolUse" in cop["hooks"]["preToolUse"][0]["bash"]
+    # o hook instalado (o MESMO comando que o Claude Code vai rodar) envia o evento com a chave da máquina
+    payload = hook("UserPromptSubmit", prompt="SIMULADO: CPF 529.982.247-25", prompt_id="uma-linha-1")
+    hp = subprocess.run([entry["command"], *entry["args"]], input=json.dumps(payload), capture_output=True, text=True, env=env, timeout=30)
+    assert hp.returncode == 0, hp.stderr
+    assert any(c["id"] == "pii" for c in events(client, world)[0]["categories"])
+    d = client.get("/v1/devices", headers=world.user("leitura")).json()
+    assert d["active"] == 1 and set(d["coverage"]) == {"claude_code", "github_copilot_cli"}
+    rm = subprocess.run(["python3", entry["args"][0], "deploy", "--user", "--uninstall", "--confirm-employees-notified"], capture_output=True, text=True, env=env, timeout=30)
+    assert rm.returncode == 0 and not (home / ".copilot" / "hooks" / "promptshield.json").exists()
+    assert "promptshield" not in json.dumps(json.loads((home / ".claude" / "settings.json").read_text()))

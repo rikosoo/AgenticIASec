@@ -11,6 +11,9 @@ test("dispositivos: criar token, matricular uma máquina, ver cobertura e revoga
   await page.getByRole("button", { name: "Criar token" }).click();
   const token = (await page.getByTestId("new-token").textContent())!.trim();
   expect(token).toMatch(/^pse_[0-9a-f]{8}_/);
+  await expect(page.getByTestId("cmd-windows")).toContainText("install.ps1");
+  await expect(page.getByTestId("cmd-windows")).toContainText(token);
+  await expect(page.getByTestId("cmd-unix")).toContainText("install.sh");
   await expect(page.getByTestId("deploy-command")).toContainText("--confirm-employees-notified");
   await expect(page.getByTestId("deploy-command")).toContainText(token);
   await page.getByRole("button", { name: "Já guardei" }).click();

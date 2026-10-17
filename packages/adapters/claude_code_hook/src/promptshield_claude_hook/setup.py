@@ -43,20 +43,32 @@ def copilot_hooks_path() -> Path:
 
 def copilot_doc() -> dict[str, Any]:
     """Arquivo de hooks do Copilot CLI (versão 1). Eventos em camelCase => payloads camelCase. Usa `bash` e `powershell` (documentados)."""
-    py = sys.executable
+    exe, args = self_command()
     hooks: dict[str, Any] = {}
     for ev in ("userPromptSubmitted", "preToolUse", "postToolUse"):
-        tail = f"-m {MARK} --copilot {ev}"
-        hooks[ev] = [{"type": "command", "bash": f'"{py}" {tail}', "powershell": f'& "{py}" {tail}', "timeoutSec": 10}]
+        parts = " ".join([f'"{exe}"'] + [a if a.startswith("-") else f'"{a}"' for a in args] + ["--copilot", ev])
+        hooks[ev] = [{"type": "command", "bash": parts, "powershell": f"& {parts}", "timeoutSec": 10}]
     return {"version": 1, "hooks": hooks}
 
 
+def self_command() -> tuple[str, list[str]]:
+    """Como o Claude Code e o Copilot devem chamar o hook: do sensor baixado (.pyz), de um executável congelado ou do pacote instalado."""
+    if getattr(sys, "frozen", False):
+        return sys.executable, []
+    main = Path(sys.argv[0]) if sys.argv and sys.argv[0] else None
+    if main is not None and main.suffix == ".pyz" and main.is_file():
+        return sys.executable, [str(main.resolve())]
+    return sys.executable, ["-m", MARK]
+
+
 def our_entry() -> dict[str, Any]:
-    return {"type": "command", "command": sys.executable, "args": ["-m", MARK], "timeout": 10}
+    exe, args = self_command()
+    return {"type": "command", "command": exe, "args": args, "timeout": 10}
 
 
 def _is_ours(h: Any) -> bool:
-    return isinstance(h, dict) and MARK in json.dumps(h.get("args", [])) + str(h.get("command", ""))
+    text = json.dumps(h.get("args", [])) + str(h.get("command", "")) if isinstance(h, dict) else ""
+    return MARK in text or "promptshield-sensor" in text
 
 
 def remove_ours(data: dict[str, Any]) -> dict[str, Any]:

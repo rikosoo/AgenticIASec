@@ -32,7 +32,10 @@ export default function DevicesPage() {
   const revokeDevice = (id: string, host: string) => { if (confirm(`Revogar a máquina ${host}? Ela deixa de enviar eventos.`)) void run(() => send("POST", `v1/devices/${id}/revoke`), "Máquina revogada."); };
 
   const d = devices.data;
-  const command = created ? `python -m promptshield_claude_hook deploy --api-url ${apiUrl} --token ${created.token} --confirm-employees-notified` : "";
+  const base = apiUrl.replace(/\/+$/, "");
+  const winCmd = created ? `$env:PS_API='${base}'; $env:PS_TOKEN='${created.token}'; irm "$env:PS_API/sensor/install.ps1" | iex` : "";
+  const unixCmd = created ? `curl -fsSL ${base}/sensor/install.sh | PS_API=${base} PS_TOKEN=${created.token} sh` : "";
+  const command = created ? `promptshield-sensor.pyz deploy --api-url ${apiUrl} --token ${created.token} --confirm-employees-notified` : "";
   return (
     <div className="space-y-4">
       <div>
@@ -96,7 +99,12 @@ export default function DevicesPage() {
             <label htmlFor="apiurl" className="block font-medium">Endereço público da API (https)</label>
             <input id="apiurl" className="field w-full" value={apiUrl} onChange={(e) => setApiUrl(e.target.value)} />
             <code className="block break-all rounded border border-line bg-panel2 p-2 font-mono text-xs" data-testid="new-token">{created.token}</code>
-            <p>Comando para o TI rodar como administrador em cada máquina (ou distribuir por MDM/GPO):</p>
+            <p className="font-medium">Instalar em uma máquina (uma linha, sem administrador). Windows, no PowerShell:</p>
+            <code className="block break-all rounded border border-line bg-panel2 p-2 font-mono text-xs" data-testid="cmd-windows">{winCmd}</code>
+            <p className="font-medium">Linux e macOS, no terminal:</p>
+            <code className="block break-all rounded border border-line bg-panel2 p-2 font-mono text-xs" data-testid="cmd-unix">{unixCmd}</code>
+            <p className="text-muted">O instalador mostra o que será enviado e pede a confirmação da pessoa (digitar &quot;sim&quot;). Precisa de Python 3.9 ou mais novo (no Windows ele tenta instalar com o winget). Por HTTP o script pode ser alterado por quem estiver no caminho: em produção use HTTPS.</p>
+            <p>Para o TI, em nível de máquina (administrador, por MDM/GPO; exige o sensor já copiado):</p>
             <code className="block break-all rounded border border-line bg-panel2 p-2 font-mono text-xs" data-testid="deploy-command">{command}</code>
             <p className="text-muted">O argumento <code>--confirm-employees-notified</code> é a confirmação de que os empregados foram avisados do monitoramento: o aviso é obrigação da empresa.</p>
             <div className="flex justify-end"><button type="button" className="btn-primary" onClick={() => setCreated(null)}>Já guardei</button></div>

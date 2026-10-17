@@ -23,15 +23,17 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from . import client, setup
+from . import client, config, setup
 from .config import Config
 
 CLIENT_VERSION = "0.1"
 ALL_TOOLS = ("claude_code", "github_copilot_cli")
 
 
-def paths(root: Path | None = None) -> dict[str, Path]:
-    """Caminhos de máquina por sistema operacional. `root` prefixa tudo (testes)."""
+def paths(root: Path | None = None, user: bool = False) -> dict[str, Path]:
+    """Caminhos de máquina por sistema operacional. `root` prefixa tudo (testes). `user`: nível do usuário, sem administrador."""
+    if user:
+        return {"claude": setup.claude_settings_path(), "copilot": setup.copilot_hooks_path(), "config": Path(config.user_config_path())}
     sysname = platform.system()
     if sysname == "Windows":
         p = {"claude": Path("C:/Program Files/ClaudeCode/managed-settings.json"),
@@ -74,8 +76,8 @@ def _write(path: Path, text: str, mode: int = 0o644) -> None:
 
 
 def install(api_url: str, token: str, tools: list[str], department: str | None, fail_mode: str, root: Path | None, force: bool,
-            say=print) -> int:
-    p = paths(root)
+            say=print, user: bool = False) -> int:
+    p = paths(root, user)
     existing = None
     if p["config"].is_file():
         try:
@@ -113,8 +115,8 @@ def install(api_url: str, token: str, tools: list[str], department: str | None, 
     return 0
 
 
-def uninstall(root: Path | None, say=print) -> int:
-    p = paths(root)
+def uninstall(root: Path | None, say=print, user: bool = False) -> int:
+    p = paths(root, user)
     if p["claude"].is_file():
         data = setup.read_settings(p["claude"])
         if setup.is_installed(data):
@@ -136,6 +138,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--department")
     ap.add_argument("--fail-mode", choices=("open", "closed"), default="open")
     ap.add_argument("--uninstall", action="store_true")
+    ap.add_argument("--user", action="store_true", help="instala só para o usuário atual (sem administrador): ~/.claude, ~/.copilot, ~/.promptshield")
     ap.add_argument("--force", action="store_true", help="matricula de novo mesmo que já exista chave nesta máquina")
     ap.add_argument("--root", type=Path, help="prefixo para teste: grava tudo sob esta pasta")
     ap.add_argument("--confirm-employees-notified", action="store_true",
@@ -149,15 +152,15 @@ def main(argv: list[str]) -> int:
     if bad:
         print(f"Ferramenta desconhecida: {', '.join(bad)}. Disponíveis: {', '.join(ALL_TOOLS)}.")
         return 2
-    if os.name != "nt" and a.root is None and hasattr(os, "geteuid") and os.geteuid() != 0:
+    if not a.user and os.name != "nt" and a.root is None and hasattr(os, "geteuid") and os.geteuid() != 0:
         print("Precisa de administrador (root) para gravar em nível de máquina.")
         return 1
     if a.uninstall:
-        return uninstall(a.root)
+        return uninstall(a.root, user=a.user)
     if not a.api_url or not a.token:
         print("Informe --api-url e --token.")
         return 2
-    return install(a.api_url, a.token, tools, a.department, a.fail_mode, a.root, a.force)
+    return install(a.api_url, a.token, tools, a.department, a.fail_mode, a.root, a.force, user=a.user)
 
 
 if __name__ == "__main__":
