@@ -12,6 +12,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Response
 
+from app.config import settings
+
 router = APIRouter(prefix="/sensor", tags=["sensor"])
 PKG = "promptshield_claude_hook"
 
@@ -104,3 +106,36 @@ def sensor_pyz() -> Response:
 def manifest() -> dict:
     data = _need_pyz()
     return {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data), "name": "promptshield-sensor.pyz"}
+
+
+@lru_cache(maxsize=1)
+def _extension_zip(dist: str) -> bytes:
+    root = Path(dist)
+    if not (root / "manifest.json").is_file():
+        raise FileNotFoundError(dist)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in sorted(root.rglob("*")):
+            if f.is_file() and not f.name.endswith(".map"):
+                info = zipfile.ZipInfo(f.relative_to(root).as_posix(), (2026, 1, 1, 0, 0, 0))
+                info.compress_type = zipfile.ZIP_DEFLATED
+                z.writestr(info, f.read_bytes())
+    return buf.getvalue()
+
+
+@router.get("/extension.zip", response_class=Response, summary="Extensão do navegador (build sideload, ID fixo), sem configuração: o sensor grava a dela")
+def extension_zip() -> Response:
+    try:
+        data = _extension_zip(settings.extension_dist)
+    except FileNotFoundError as exc:
+        raise HTTPException(503, "extensão indisponível neste servidor") from exc
+    return Response(data, media_type="application/zip")
+
+
+@router.get("/extension-manifest.json", summary="SHA-256 da extensão, para o sensor conferir o download")
+def extension_manifest() -> dict:
+    try:
+        data = _extension_zip(settings.extension_dist)
+    except FileNotFoundError as exc:
+        raise HTTPException(503, "extensão indisponível neste servidor") from exc
+    return {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data), "extension_origin": settings.sideload_extension_origin}

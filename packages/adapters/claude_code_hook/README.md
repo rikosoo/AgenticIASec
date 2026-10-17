@@ -31,6 +31,10 @@ Menu interativo, que você pode repetir quantas vezes quiser: 1 vincula o **Clau
 - Vale para o Claude Code no terminal. A aba Code do app Desktop e a extensão do VS Code **leem os mesmos arquivos de configuração** (documentação oficial: "The desktop app reads the same settings files as the CLI"), mas a documentação não confirma que os hooks disparam lá: **A VERIFICAR**. O **chat comum** do app Claude Desktop não tem hooks e **não é coberto** (para isso, só o inference hook do Claude Enterprise, no servidor).
 - Navegador não pode ser instalado nem logado por programa: a opção 3 mostra os passos. O "login no navegador" do assistente é o do console do PromptShield para criar a chave; pareamento automático por código de dispositivo não existe.
 
+## Extensão do navegador pelo sensor (EXPERIMENTAL)
+
+O `deploy` (e o instalador de uma linha) inclui a ferramenta `browser_extension`: baixa de `/sensor/extension.zip` a extensão (build `--sideload`, ID fixo, só `chatgpt.com` e `claude.ai`), confere o SHA-256, grava `promptshield-config.json` com a **chave desta máquina** e mostra os 3 passos no navegador. A extensão lê esse arquivo (a política gerenciada, se existir, vence). Testado em Chromium real contra a API real, mas com uma página **simulada** com os seletores do ChatGPT; os sites reais não foram testados.
+
 ## Instalação em massa (EXPERIMENTAL, nível de máquina)
 
 Para o TI da empresa: no console (**Dispositivos**) o administrador cria um **token de matrícula** (revogável, com validade e limite de máquinas); o comando abaixo, rodado como administrador em cada máquina (por MDM, GPO ou script), troca o token por uma **chave própria da máquina**, grava a configuração de máquina e os hooks de política do Claude Code (`managed-settings.json`) e do Copilot CLI (`policy.d`):

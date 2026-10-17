@@ -7,7 +7,7 @@ import { api, send, useLoad } from "@/lib/api";
 import { whenFull } from "@/lib/format";
 import type { DevicesOut, EnrollTokenRow } from "@/lib/types";
 
-const TOOL_LABEL: Record<string, string> = { claude_code: "Claude Code", github_copilot_cli: "GitHub Copilot CLI" };
+const TOOL_LABEL: Record<string, string> = { claude_code: "Claude Code", github_copilot_cli: "GitHub Copilot CLI", browser_extension: "Extensão do navegador (preparada; falta carregar)" };
 
 export default function DevicesPage() {
   const { me } = useSession();

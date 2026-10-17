@@ -204,3 +204,18 @@ def test_cors_only_for_listed_origins():
     finally:
         settings.cors_allowed_origins = old
         importlib.reload(m)
+
+
+def test_sideload_extension_origin_is_allowed_by_default_and_matches_the_extension_id():
+    from pathlib import Path
+
+    from fastapi.testclient import TestClient
+
+    import app.main as m
+    from app.config import settings
+    ext_id = (Path(__file__).resolve().parents[3] / "apps" / "extension" / "sideload-id.txt").read_text().strip()
+    assert settings.sideload_extension_origin == f"chrome-extension://{ext_id}"
+    c = TestClient(m.app)
+    h = {"Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "x-api-key,content-type"}
+    assert c.options("/v1/events", headers={**h, "Origin": settings.sideload_extension_origin}).headers.get("access-control-allow-origin") == settings.sideload_extension_origin
+    assert "access-control-allow-origin" not in c.options("/v1/events", headers={**h, "Origin": "https://site-malicioso.test"}).headers

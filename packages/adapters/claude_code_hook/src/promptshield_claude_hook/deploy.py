@@ -20,14 +20,15 @@ import socket
 import sys
 import urllib.error
 import urllib.request
+import zipfile
 from pathlib import Path
 from typing import Any
 
-from . import client, config, setup
+from . import browser, client, config, setup
 from .config import Config
 
 CLIENT_VERSION = "0.1"
-ALL_TOOLS = ("claude_code", "github_copilot_cli")
+ALL_TOOLS = ("claude_code", "github_copilot_cli", "browser_extension")
 
 
 def paths(root: Path | None = None, user: bool = False) -> dict[str, Path]:
@@ -106,6 +107,11 @@ def install(api_url: str, token: str, tools: list[str], department: str | None, 
     if "github_copilot_cli" in tools:
         _write(p["copilot"], json.dumps(setup.copilot_doc(), indent=2) + "\n")
         say(f"GitHub Copilot CLI: hooks de política em {p['copilot']}")
+    if "browser_extension" in tools:
+        try:
+            browser.install_extension(api_url, key, department, say=say, open_browser=root is None)
+        except (client.ApiError, OSError, ValueError, zipfile.BadZipFile) as exc:
+            say(f"AVISO: a extensão do navegador não foi preparada ({exc}). O resto foi instalado.")
     try:
         cfg_obj = Config(api_url=api_url.rstrip("/"), api_key=key, timeout_seconds=5)
         client.get_hook_config(cfg_obj)
@@ -122,6 +128,11 @@ def uninstall(root: Path | None, say=print, user: bool = False) -> int:
         if setup.is_installed(data):
             setup.write_settings(p["claude"], setup.remove_ours(data))
             say(f"Claude Code: hooks removidos de {p['claude']}")
+    ext = browser.default_dir()
+    if user and ext.is_dir():
+        import shutil
+        shutil.rmtree(ext)
+        say(f"Removida a pasta da extensão: {ext} (remova também a extensão em chrome://extensions)")
     for k in ("copilot", "config"):
         if p[k].is_file():
             p[k].unlink()

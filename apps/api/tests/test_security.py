@@ -51,6 +51,7 @@ EXPECTED: dict[tuple[str, str], object] = {
     ("POST", "/v1/enroll"): ENROLL,
     ("GET", "/sensor/install.ps1"): PUBLIC, ("GET", "/sensor/install.sh"): PUBLIC,      # sem segredo: o token vai na linha de comando da máquina
     ("GET", "/sensor/promptshield-sensor.pyz"): PUBLIC, ("GET", "/sensor/manifest.json"): PUBLIC,
+    ("GET", "/sensor/extension.zip"): PUBLIC, ("GET", "/sensor/extension-manifest.json"): PUBLIC,
     ("GET", "/v1/enrollment-tokens"): ADMIN, ("POST", "/v1/enrollment-tokens"): ADMIN, ("POST", "/v1/enrollment-tokens/{token_id}/revoke"): ADMIN,
     ("GET", "/v1/devices"): ALL, ("POST", "/v1/devices/{device_id}/revoke"): ADMIN,
     ("GET", "/v1/pilot/summary"): ("admin", "analista", "auditor"), ("PUT", "/v1/pilot/config"): ADMIN,
@@ -103,7 +104,8 @@ def test_no_credentials_means_401_on_every_protected_route(client, world):
         if EXPECTED[(method, path)] in (DEV, ENROLL):
             continue
         if EXPECTED[(method, path)] == PUBLIC:
-            assert _call(client, method, path, {}).status_code == 200, path
+            ok = (200, 503) if path.startswith("/sensor/extension") else (200,)   # 503: a extensão só existe onde foi construída (imagem Docker)
+            assert _call(client, method, path, {}).status_code in ok, path
             continue
         r = _call(client, method, path, {})
         assert r.status_code == 401, (method, path, r.status_code)

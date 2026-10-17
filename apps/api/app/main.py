@@ -84,7 +84,9 @@ def version() -> dict[str, str]:
 
 
 _origins = [o.strip() for o in settings.cors_allowed_origins.split(",") if o.strip()]
-if _origins:  # sem lista explícita, nenhum site de outra origem pode chamar a API pelo navegador
+if settings.sideload_extension_origin and settings.sideload_extension_origin not in _origins:
+    _origins.append(settings.sideload_extension_origin)  # a extensão instalada pelo sensor (ID fixo); precisa de chave válida para qualquer coisa
+if _origins:  # nenhum outro site pode chamar a API pelo navegador
     app.add_middleware(CORSMiddleware, allow_origins=_origins, allow_methods=["GET", "POST"],
                        allow_headers=["X-API-Key", "Content-Type", "Authorization"], max_age=600)
 

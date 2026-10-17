@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -29,5 +30,28 @@ describe("build de produção", () => {
   it("o content script não conhece a chave de API", () => {
     expect(prod("content.js")).not.toContain("X-API-Key");
     expect(prod("content.js")).not.toContain("api_key");
+  });
+});
+
+describe("build sideload (instalado pelo sensor)", () => {
+  const sl = (f: string) => readFileSync(resolve(root, "dist/sideload", f), "utf8");
+  beforeAll(() => {
+    execFileSync("node", ["build.mjs", "--sideload"], { cwd: root, stdio: "ignore" });
+  }, 60_000);
+
+  it("ID fixo derivado da chave pública do manifesto, igual ao liberado no CORS da API", () => {
+    const m = JSON.parse(sl("manifest.json"));
+    const der = Buffer.from(m.key, "base64");
+    const id = [...createHash("sha256").update(der).digest("hex").slice(0, 32)].map((c) => String.fromCharCode(97 + parseInt(c, 16))).join("");
+    expect(id).toBe(readFileSync(resolve(root, "sideload-id.txt"), "utf8").trim());
+    expect(id).toMatch(/^[a-p]{32}$/);
+  });
+  it("só chatgpt.com e claude.ai; lê o arquivo do sensor; sem site de teste nem configuração local", () => {
+    const m = JSON.parse(sl("manifest.json"));
+    expect(m.content_scripts[0].matches).toEqual(["https://chatgpt.com/*", "https://claude.ai/*"]);
+    const code = sl("content.js") + sl("background.js");
+    expect(code).toContain("promptshield-config.json");
+    expect(code).not.toContain("127.0.0.1");
+    expect(code).not.toContain("devConfig");
   });
 });

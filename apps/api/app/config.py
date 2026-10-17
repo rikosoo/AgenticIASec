@@ -10,6 +10,10 @@ class Settings(BaseSettings):
 
     # origens com permissão de CORS, separadas por vírgula (ex.: chrome-extension://<id>,https://console.empresa.com). Padrão: nenhuma.
     cors_allowed_origins: str = ""
+    # ID FIXO da extensão distribuída pelo sensor (derivado da chave pública em apps/extension/sideload-public-key.txt; conferido em teste)
+    sideload_extension_origin: str = "chrome-extension://ddbppnhmehihdablhhdmoiedblkelmji"
+    # pasta da extensão construída com `node build.mjs --sideload` (no Docker: /srv/extension); vazio = o servidor não distribui a extensão
+    extension_dist: str = "/srv/extension"
 
     max_text_chars: int = 2_000_000
     enable_ner: bool = False

@@ -174,3 +174,57 @@ def test_tenant_domain_list_can_only_restrict(client, world, stack):
     page.wait_for_function("window.__sent.length === 1", timeout=20000)    # o site funciona normalmente
     assert page.locator("promptshield-ui").count() == 0                       # sem indicador: domínio fora da lista do tenant
     assert client.get("/v1/events", headers=world.user("leitura")).json() == []
+
+
+# ---------- build sideload: o que o sensor entrega (ID fixo, configuração do arquivo, CORS padrão) ----------
+SIDELOAD = ROOT / "apps" / "extension" / "dist" / "sideload"
+
+
+def test_sideload_extension_reads_sensor_config_and_reports_to_real_api(client, world, tmp_path):
+    import json
+    import shutil
+
+    if not CHROMIUM:
+        pytest.skip("defina CHROMIUM_PATH")
+    if not (SIDELOAD / "manifest.json").exists():
+        pytest.skip("rode `node build.mjs --sideload` em apps/extension")
+    from app import main as app_main
+    from app.config import settings
+
+    ext = tmp_path / "ext"
+    shutil.copytree(SIDELOAD, ext)
+    port = _port()
+    api = f"http://127.0.0.1:{port}"
+    # o que o sensor grava ao instalar (chave própria do dispositivo, aqui a chave do tenant de teste)
+    (ext / "promptshield-config.json").write_text(json.dumps({"api_url": api, "api_key": world.a["api_key"], "user_id": "rafael.moreira",
+                                                              "department": "Pessoal", "fail_mode": "open"}))
+    server = uvicorn.Server(uvicorn.Config(app_main.app, host="127.0.0.1", port=port, log_level="error"))
+    t = threading.Thread(target=server.run, daemon=True)
+    t.start()
+    while not server.started:
+        time.sleep(0.05)
+    pw = sync_playwright().start()
+    ctx = pw.chromium.launch_persistent_context(
+        tempfile.mkdtemp(prefix="ps-sl-"), executable_path=CHROMIUM, headless=False,
+        args=["--headless=new", "--no-sandbox", f"--disable-extensions-except={ext}", f"--load-extension={ext}"])
+    try:
+        sw = ctx.service_workers[0] if ctx.service_workers else ctx.wait_for_event("serviceworker")
+        assert f"chrome-extension://{sw.url.split('/')[2]}" == settings.sideload_extension_origin     # ID fixo = o liberado no CORS da API
+        html = (FIXTURES / "chatgpt-like.html").read_text(encoding="utf-8")
+        ctx.route("https://chatgpt.com/**", lambda r: r.fulfill(status=200, body=html, content_type="text/html; charset=utf-8"))
+        page = ctx.new_page()
+        page.goto("https://chatgpt.com/")
+        page.wait_for_selector("promptshield-ui", state="attached", timeout=20000)   # o shadow DOM é fechado no build de produção/sideload
+        time.sleep(1.5)                                                                # a extensão lê o arquivo de configuração ao subir
+        page.locator("#prompt-textarea").click()
+        page.keyboard.insert_text(PROMPT)
+        page.keyboard.press("Enter")
+        page.wait_for_function("window.__sent.length === 1", timeout=20000)
+        [e] = client.get("/v1/events", headers=world.user("leitura")).json()
+        assert e["app"] == "chatgpt_web" and e["channel"] == "browser" and e["user_id"] == "rafael.moreira" and e["department"] == "Pessoal"
+        assert "pii" in {c["id"] for c in e["categories"]} and "529.982.247" not in str(e)
+    finally:
+        ctx.close()
+        pw.stop()
+        server.should_exit = True
+        t.join(timeout=5)

@@ -21,6 +21,13 @@ async function managed(): Promise<Record<string, unknown>> {
     const { devConfig } = (await chrome.storage.local.get("devConfig")) as { devConfig?: Record<string, unknown> };
     out = { ...devConfig, ...out };
   }
+  if (__SIDELOAD__) {
+    // instalação por sensor: o sensor grava promptshield-config.json na pasta da extensão; a política gerenciada, se existir, vence
+    try {
+      const file = (await (await fetch(chrome.runtime.getURL("promptshield-config.json"))).json()) as Record<string, unknown>;
+      out = { ...file, ...out };
+    } catch { /* arquivo ausente: a extensão fica sem configuração e avisa na tela */ }
+  }
   return out;
 }
 
@@ -31,7 +38,7 @@ void readManaged();
 
 async function loadConfig(): Promise<FullConfig> {
   const { remote } = (await chrome.storage.local.get("remote")) as { remote?: RemoteConfig };
-  return mergeConfig(await managed(), remote, __DEV__);
+  return mergeConfig(await managed(), remote, __DEV__ || __SIDELOAD__);
 }
 
 async function installId(): Promise<string> {

@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 import time
+from pathlib import Path
 
 import pytest
 import uvicorn
@@ -257,6 +258,13 @@ def test_one_line_installer_served_by_the_api_installs_a_working_sensor(client, 
     man = json.loads(urllib.request.urlopen(f"{live}/sensor/manifest.json").read())   # noqa: S310
     pyz = urllib.request.urlopen(f"{live}/sensor/promptshield-sensor.pyz").read()     # noqa: S310
     assert man["sha256"] == hashlib.sha256(pyz).hexdigest() and pyz.startswith(b"#!/usr/bin/env python3")
+    from app.config import settings as app_settings
+    from app.routers import sensor as sensor_router
+    ext_dist = Path(__file__).resolve().parents[3] / "apps" / "extension" / "dist" / "sideload"
+    old_dist = app_settings.extension_dist
+    if (ext_dist / "manifest.json").exists():
+        app_settings.extension_dist = str(ext_dist)
+        sensor_router._extension_zip.cache_clear()
     tok = client.post("/v1/enrollment-tokens", json={"name": "uma linha"}, headers=world.user("admin")).json()["token"]
     home = tmp_path / "home"
     home.mkdir()
@@ -276,7 +284,15 @@ def test_one_line_installer_served_by_the_api_installs_a_working_sensor(client, 
     assert hp.returncode == 0, hp.stderr
     assert any(c["id"] == "pii" for c in events(client, world)[0]["categories"])
     d = client.get("/v1/devices", headers=world.user("leitura")).json()
-    assert d["active"] == 1 and set(d["coverage"]) == {"claude_code", "github_copilot_cli"}
+    assert d["active"] == 1 and set(d["coverage"]) == {"claude_code", "github_copilot_cli", "browser_extension"}
+    if (ext_dist / "manifest.json").exists():
+        ext = home / ".promptshield" / "extension"
+        ecfg = json.loads((ext / "promptshield-config.json").read_text())
+        assert ecfg["api_url"] == live and ecfg["api_key"] != world.a["api_key"] and (ext / "manifest.json").exists()
+        assert "Carregar sem compactação" in p.stdout
     rm = subprocess.run(["python3", entry["args"][0], "deploy", "--user", "--uninstall", "--confirm-employees-notified"], capture_output=True, text=True, env=env, timeout=30)
     assert rm.returncode == 0 and not (home / ".copilot" / "hooks" / "promptshield.json").exists()
     assert "promptshield" not in json.dumps(json.loads((home / ".claude" / "settings.json").read_text()))
+    assert not (home / ".promptshield" / "extension").exists()
+    app_settings.extension_dist = old_dist
+    sensor_router._extension_zip.cache_clear()
