@@ -25,7 +25,7 @@ await build({
   logLevel: "warning",
 });
 
-const matches = ["https://chatgpt.com/*", "https://claude.ai/*"];
+const matches = ["https://chatgpt.com/*", "https://claude.ai/*", "https://gemini.google.com/*", "https://copilot.microsoft.com/*"];
 if (dev) matches.push("http://127.0.0.1/*", "http://localhost/*");
 
 const manifest = {

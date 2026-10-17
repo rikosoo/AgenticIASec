@@ -2,6 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { chatgpt } from "../../src/sites/chatgpt";
 import { claude } from "../../src/sites/claude";
+import { copilot } from "../../src/sites/copilot";
+import { gemini } from "../../src/sites/gemini";
 import { enterSubmits } from "../../src/sites/types";
 
 const page = (html: string) => new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
@@ -39,5 +41,27 @@ describe("módulos de site (seletores A VERIFICAR contra as páginas reais)", ()
     expect(enterSubmits(k({ key: "Enter", ctrlKey: true }))).toBe(false);
     expect(enterSubmits(k({ key: "Enter", isComposing: true }))).toBe(false);
     expect(enterSubmits(k({ key: "a" }))).toBe(false);
+  });
+});
+
+describe("gemini e copilot web (seletores A VERIFICAR contra as páginas reais)", () => {
+  it("só casam com o próprio host", () => {
+    expect(gemini.matches("gemini.google.com")).toBe(true);
+    expect(gemini.matches("google.com")).toBe(false);
+    expect(copilot.matches("copilot.microsoft.com")).toBe(true);
+    expect(copilot.matches("github.com")).toBe(false);          // o GitHub Copilot em github.com/copilot não é coberto
+    expect(copilot.matches("copilot.microsoft.com.malicioso.test")).toBe(false);
+  });
+  it("gemini: acha campo e botão", () => {
+    const d = page('<rich-textarea><div class="ql-editor" contenteditable="true"></div></rich-textarea><button class="send-button"></button>');
+    expect(gemini.findInput(d)).not.toBeNull();
+    expect(gemini.findSend(d)).not.toBeNull();
+    expect(gemini.findInput(page("<p>x</p>"))).toBeNull();
+  });
+  it("copilot: acha campo e botão", () => {
+    const d = page('<textarea id="userInput"></textarea><button data-testid="submit-button"></button>');
+    expect(copilot.findInput(d)?.id).toBe("userInput");
+    expect(copilot.findSend(d)).not.toBeNull();
+    expect(copilot.findInput(page("<p>x</p>"))).toBeNull();
   });
 });

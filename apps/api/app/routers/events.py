@@ -33,6 +33,11 @@ def list_events(
     category: str | None = Query(None, description="id da categoria da taxonomia"),
     has_code: bool | None = None, has_sensitive: bool | None = None, agent_action: bool | None = None,
     only_blocked: bool = Query(False, description="decisão block, ou que seria block em modo monitorar"),
+    kind: str | None = Query(None, pattern="^(prompt|response|tool_call|tool_result|file_upload)$"),
+    search: str | None = Query(None, alias="q", min_length=2, max_length=100, description="busca no texto JÁ mascarado (nunca no original)"),
+    span_type: str | None = Query(None, max_length=40, description="tipo de trecho sensível detectado (ex.: aws_access_key, cpf)"),
+    intent: str | None = Query(None, max_length=40, description="o que a pessoa pediu (ex.: resumir, declara_confidencial)"),
+    session_id: str | None = Query(None, max_length=200),
     department: str | None = None, app: str | None = None, personal_account: bool | None = None,
     days: int | None = Query(None, ge=1, le=365), sort: str = Query("recent", pattern="^(recent|risk)$"),
     limit: int = Query(50, ge=1, le=200), offset: int = Query(0, ge=0),
@@ -57,6 +62,17 @@ def list_events(
                 q = q.where(cast(Analysis.flags, JSONB).contains({key: flag}))
         if only_blocked:
             q = q.where((Analysis.decision == "block") | (Analysis.would_decide == "block"))
+        if kind:
+            q = q.where(Event.kind == kind)
+        if session_id:
+            q = q.where(Event.session_id == session_id)
+        if search:
+            like = "%" + search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+            q = q.where(Event.masked_text.ilike(like, escape="\\"))
+        if span_type:
+            q = q.where(cast(Analysis.spans, JSONB).contains([{"type": span_type}]))
+        if intent:
+            q = q.where(cast(Analysis.flags, JSONB).contains({"intents": [intent]}))
         total = s.execute(select(func.count()).select_from(q.subquery())).scalar_one()
         order = (Analysis.risk_score.desc(), Event.occurred_at.desc()) if sort == "risk" else (Event.occurred_at.desc(),)
         rows = s.execute(q.order_by(*order).limit(limit).offset(offset)).all()
@@ -101,7 +117,8 @@ def read_original(event_id: uuid.UUID, body: OriginalRequest,
 def _view(e: Event, a: Analysis, incident_id: uuid.UUID | None = None) -> dict:
     return {"event_id": str(e.event_id), "occurred_at": e.occurred_at.isoformat(), "app": e.app, "channel": e.channel,
             "user_id": e.user_id, "department": e.department, "kind": e.kind, "personal_account": e.personal_account,
-            "masked_text": e.masked_text, "has_original": e.original_ciphertext is not None,
+            "masked_text": e.masked_text, "has_original": e.original_ciphertext is not None, "tool_name": e.tool_name,
+            "session_id": e.session_id, "spans": [{"type": sp.get("type"), "masked": sp.get("masked")} for sp in (a.spans or [])],
             "categories": a.categories, "flags": a.flags, "risk_score": a.risk_score, "reasons": a.reasons,
             "decision": a.decision, "would_decide": a.would_decide, "policy_hits": a.policy_hits,
             "incident_id": str(incident_id) if incident_id else None}

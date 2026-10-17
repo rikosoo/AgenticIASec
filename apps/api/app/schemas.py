@@ -66,7 +66,7 @@ class EventResult(BaseModel):
     enforced: bool
     masked_text: str
     categories: list[dict[str, Any]]
-    flags: dict[str, bool]
+    flags: dict[str, Any]
     risk: dict[str, Any]
     spans: list[SpanOut]
     policy_hits: list[dict[str, str]]

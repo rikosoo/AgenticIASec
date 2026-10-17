@@ -1,7 +1,7 @@
 import type { FailMode, FullConfig, PublicConfig } from "./types";
 
 /** Domínios monitorados por padrão (embutido). O administrador pode restringir pela política gerenciada ou pela API. */
-export const DEFAULT_DOMAINS = ["chatgpt.com", "claude.ai"];
+export const DEFAULT_DOMAINS = ["chatgpt.com", "claude.ai", "gemini.google.com", "copilot.microsoft.com"];
 
 export interface RemoteConfig {
   domains?: string[];

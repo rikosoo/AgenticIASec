@@ -269,11 +269,12 @@ def test_one_line_installer_served_by_the_api_installs_a_working_sensor(client, 
     home = tmp_path / "home"
     home.mkdir()
     env = {**os.environ, "HOME": str(home), "PS_API": live, "PS_TOKEN": tok, "PS_NOTIFIED": "1",
-           "PS_TOOLS": "claude_code,github_copilot_cli,browser_extension"}        # a extensão é opt-in
+           "PS_IAS": "6, 9,1,7"}        # escolha por números: Claude Code, Copilot CLI, extensão (ChatGPT web) e Codex CLI (manual)
     for k in ("CLAUDE_CONFIG_DIR", "COPILOT_HOME", "PROMPTSHIELD_HOOK_CONFIG", "PROMPTSHIELD_API_URL", "PROMPTSHIELD_API_KEY"):
         env.pop(k, None)
     p = subprocess.run(["sh", "-c", 'curl -fsSL "$PS_API/sensor/install.sh" | sh'], capture_output=True, text=True, env=env, timeout=90)
     assert p.returncode == 0, p.stdout + p.stderr
+    assert "[7] Codex (CLI): MANUAL" in p.stdout and "Passo a passo de cada IA escolhida" in p.stdout      # o guia das opções manuais
     settings = json.loads((home / ".claude" / "settings.json").read_text())
     entry = settings["hooks"]["PreToolUse"][0]["hooks"][0]
     assert entry["args"][0].endswith("promptshield-sensor.pyz")                    # o hook chama o sensor baixado

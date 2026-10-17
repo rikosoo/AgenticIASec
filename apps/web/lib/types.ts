@@ -24,7 +24,8 @@ export interface Overview {
 export interface PromptRow {
   event_id: string; occurred_at: string; app: string; channel: string; user_id: string; department: string | null; kind: string;
   personal_account: boolean; masked_text: string; has_original: boolean; categories: Category[];
-  flags: { has_code: boolean; has_sensitive: boolean; is_agent_action: boolean };
+  flags: { has_code: boolean; has_sensitive: boolean; is_agent_action: boolean; intents?: string[] };
+  tool_name?: string | null; session_id?: string | null; spans?: { type: string; masked: string }[];
   risk_score: number; reasons: { rule: string; contribution: number; category?: string }[];
   decision: Action; would_decide: Action; policy_hits: { policy_id: string; name: string; action: string; mode: string }[];
   incident_id: string | null;
@@ -95,3 +96,5 @@ export interface ApiKeyRow { id: string; name: string; prefix: string; status: s
 export interface EnrollTokenRow { id: string; name: string; prefix: string; status: string; uses: number; max_uses: number | null; expires_at: string; created_at: string }
 export interface DeviceRow { id: string; hostname: string; os: string | null; client_version: string | null; tools: string[]; enrolled_at: string; last_seen_at: string | null; revoked: boolean }
 export interface DevicesOut { devices: DeviceRow[]; active: number; coverage: Record<string, number> }
+
+export interface SignalsOut { span_types: Record<string, number>; intents: Record<string, number>; kinds: Record<string, number>; tools: Record<string, number> }

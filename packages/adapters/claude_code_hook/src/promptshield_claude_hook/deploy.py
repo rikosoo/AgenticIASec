@@ -24,7 +24,7 @@ import zipfile
 from pathlib import Path
 from typing import Any
 
-from . import browser, client, config, setup
+from . import browser, client, config, ias, setup
 from .config import Config
 
 CLIENT_VERSION = "0.1"
@@ -147,6 +147,8 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--api-url")
     ap.add_argument("--token", help="token de matrícula (pse_...) criado no console")
     ap.add_argument("--tools", default=",".join(DEFAULT_TOOLS), help=f"lista separada por vírgula entre: {', '.join(ALL_TOOLS)} (padrão: {', '.join(DEFAULT_TOOLS)})")
+    ap.add_argument("--ias", help="números das IAs a monitorar, separados por vírgula (ver --list-ias); substitui --tools")
+    ap.add_argument("--list-ias", action="store_true", help="mostra a lista numerada de IAs e sai")
     ap.add_argument("--department")
     ap.add_argument("--fail-mode", choices=("open", "closed"), default="open")
     ap.add_argument("--uninstall", action="store_true")
@@ -156,10 +158,21 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--confirm-employees-notified", action="store_true",
                     help="confirma que os empregados foram avisados sobre o monitoramento (exigido)")
     a = ap.parse_args(argv)
+    if a.list_ias:
+        print(ias.render_list())
+        return 0
     if not a.confirm_employees_notified:
         print("RECUSADO: confirme com --confirm-employees-notified que os empregados foram avisados (obrigação do cliente).")
         return 2
-    tools = [t.strip() for t in a.tools.split(",") if t.strip()]
+    chosen: list[int] = []
+    if a.ias:
+        chosen, errs = ias.parse_selection(a.ias)
+        if errs:
+            print("; ".join(errs))
+            return 2
+        tools = ias.tools_for(chosen)
+    else:
+        tools = [t.strip() for t in a.tools.split(",") if t.strip()]
     bad = [t for t in tools if t not in ALL_TOOLS]
     if bad:
         print(f"Ferramenta desconhecida: {', '.join(bad)}. Disponíveis: {', '.join(ALL_TOOLS)}.")
@@ -172,7 +185,14 @@ def main(argv: list[str]) -> int:
     if not a.api_url or not a.token:
         print("Informe --api-url e --token.")
         return 2
-    return install(a.api_url, a.token, tools, a.department, a.fail_mode, a.root, a.force, user=a.user)
+    code = install(a.api_url, a.token, tools, a.department, a.fail_mode, a.root, a.force, user=a.user)
+    if code == 0 and chosen:
+        exe, args = setup.self_command()
+        command = " ".join([f'"{exe}"'] + [f'"{x}"' for x in args])
+        print("\n===== Passo a passo de cada IA escolhida =====")
+        for n in chosen:
+            print("\n" + ias.guide(n, command))
+    return code
 
 
 if __name__ == "__main__":

@@ -1,12 +1,12 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog } from "@/components/Dialog";
 import { Chip, DecisionCell, Empty, ErrorBox, Loading, MaskedText, Pager, Panel, RiskBar } from "@/components/ui";
 import { api, apiPage, qs, useLoad } from "@/lib/api";
 import { clip, when, whenFull } from "@/lib/format";
-import { APP_LABEL, appLabel } from "@/lib/labels";
-import type { PromptRow } from "@/lib/types";
+import { APP_LABEL, appLabel, intentLabel, KIND_LABEL, spanLabel } from "@/lib/labels";
+import type { PromptRow, SignalsOut } from "@/lib/types";
 import { useTaxonomy } from "@/lib/useTaxonomy";
 
 const PAGE = 20;
@@ -20,16 +20,33 @@ export default function PromptsPage() {
   const [blocked, setBlocked] = useState(false);
   const [onlyRisk, setOnlyRisk] = useState(true);
   const [app, setApp] = useState("");
+  const [kind, setKind] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchApplied, setSearchApplied] = useState("");
+  const [intent, setIntent] = useState("");
+  const [spanType, setSpanType] = useState("");
+  const [sessionId, setSessionId] = useState("");
+  const [live, setLive] = useState(false);
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<PromptRow | null>(null);
   const { name, groups } = useTaxonomy();
 
   const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(0); };
   const counts = useLoad(() => api<Record<string, number>>(`v1/stats/categories?days=${days}`), [days]);
+  const signals = useLoad(() => api<SignalsOut>(`v1/stats/signals?days=${days}`), [days]);
   const list = useLoad(() => apiPage<PromptRow[]>(`v1/events${qs({
-    sort: "risk", days, limit: PAGE, offset: page * PAGE, category, app: app || undefined, min_score: onlyRisk ? 1 : 0,
+    sort: "risk", days, limit: PAGE, offset: page * PAGE, category, app: app || undefined, kind, q: searchApplied, intent, span_type: spanType, session_id: sessionId, min_score: onlyRisk ? 1 : 0,
     has_code: code || undefined, has_sensitive: sensitive || undefined, agent_action: agent || undefined, only_blocked: blocked || undefined,
-  })}`), [days, category, app, code, sensitive, agent, blocked, onlyRisk, page]);
+  })}`), [days, category, app, kind, searchApplied, intent, spanType, sessionId, code, sensitive, agent, blocked, onlyRisk, page]);
+
+  useEffect(() => {
+    if (!live) return;
+    const t = setInterval(() => { list.reload(); signals.reload(); counts.reload(); }, 10000);   // atualização automática, só enquanto marcada
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live]);
+  const pick = (set: (v: string) => void, cur: string, v: string) => { set(cur === v ? "" : v); setPage(0); };
+  const chipBtn = (on: boolean) => `rounded border px-2 py-1 text-xs ${on ? "border-accent bg-accent text-accent-fg" : "border-line bg-panel hover:bg-panel2"}`;
 
   return (
     <div className="space-y-4">
@@ -80,6 +97,37 @@ export default function PromptsPage() {
         {category && <p className="mt-3 text-sm">Filtrando por <strong>{name(category)}</strong>. <button type="button" className="text-accent underline" onClick={() => reset(setCategory)("")}>Limpar</button></p>}
       </Panel>
 
+      <Panel title="Sinais do período (clique para filtrar)">
+        {signals.error && <ErrorBox message={signals.error} onRetry={signals.reload} />}
+        {signals.data && (
+          <div className="grid gap-4 md:grid-cols-3" data-testid="signals">
+            <div><h3 className="mb-1 text-sm font-semibold">Segredos e dados detectados</h3>
+              <ul className="flex flex-wrap gap-1">{Object.entries(signals.data.span_types).map(([k, n]) => (
+                <li key={k}><button type="button" aria-pressed={spanType === k} className={chipBtn(spanType === k)} onClick={() => pick(setSpanType, spanType, k)}>{spanLabel(k)} <span className="font-mono">{n}</span></button></li>))}
+                {!Object.keys(signals.data.span_types).length && <li className="text-xs text-muted">nenhum trecho sensível no período</li>}</ul></div>
+            <div><h3 className="mb-1 text-sm font-semibold">O que as pessoas pedem</h3>
+              <ul className="flex flex-wrap gap-1">{Object.entries(signals.data.intents).map(([k, n]) => (
+                <li key={k}><button type="button" aria-pressed={intent === k} className={chipBtn(intent === k)} onClick={() => pick(setIntent, intent, k)}>{intentLabel(k)} <span className="font-mono">{n}</span></button></li>))}
+                {!Object.keys(signals.data.intents).length && <li className="text-xs text-muted">sem pedidos reconhecidos</li>}</ul></div>
+            <div><h3 className="mb-1 text-sm font-semibold">Tipos de evento e ferramentas de agente</h3>
+              <ul className="flex flex-wrap gap-1">{Object.entries(signals.data.kinds).map(([k, n]) => (
+                <li key={k}><button type="button" aria-pressed={kind === k} className={chipBtn(kind === k)} onClick={() => pick(setKind, kind, k)}>{KIND_LABEL[k] ?? k} <span className="font-mono">{n}</span></button></li>))}
+                {Object.entries(signals.data.tools).map(([k, n]) => <li key={k}><span className="rounded border border-line px-2 py-1 text-xs text-muted">{k} <span className="font-mono">{n}</span></span></li>)}</ul></div>
+          </div>
+        )}
+      </Panel>
+
+      <form className="flex flex-wrap items-end gap-3 rounded-md border border-line bg-panel px-4 py-3 text-sm" onSubmit={(e) => { e.preventDefault(); setSearchApplied(search.trim()); setPage(0); }}>
+        <div><label htmlFor="q" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Buscar no texto mascarado</label>
+          <input id="q" className="field w-64" value={search} minLength={2} maxLength={100} onChange={(e) => setSearch(e.target.value)} placeholder="ex.: contrato, credentials" /></div>
+        <button className="btn">Buscar</button>
+        {(searchApplied || kind || intent || spanType || sessionId) && (
+          <button type="button" className="btn" onClick={() => { setSearch(""); setSearchApplied(""); setKind(""); setIntent(""); setSpanType(""); setSessionId(""); setPage(0); }}>Limpar filtros de sinais</button>
+        )}
+        <label className="ml-auto flex items-center gap-2"><input type="checkbox" checked={live} onChange={(e) => setLive(e.target.checked)} /> Atualizar sozinho a cada 10 s</label>
+      </form>
+      {sessionId && <p className="text-sm">Mostrando só a sessão <code className="font-mono text-xs">{sessionId}</code>. <button type="button" className="text-accent underline" onClick={() => reset(setSessionId)("")}>Ver todas</button></p>}
+
       <fieldset className="flex flex-wrap gap-x-5 gap-y-2 rounded-md border border-line bg-panel px-4 py-3 text-sm">
         <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">Filtros</legend>
         <label className="flex items-center gap-2"><input type="checkbox" checked={code} onChange={(e) => reset(setCode)(e.target.checked)} /> Contém código</label>
@@ -109,9 +157,11 @@ export default function PromptsPage() {
                       <td className="td">{appLabel(p.app)}<div className="text-xs text-muted">{p.personal_account ? "conta pessoal" : "conta corporativa"}</div></td>
                       <td className="td max-w-xs">
                         <button type="button" onClick={() => setSelected(p)} aria-label={`Ver detalhes do prompt de ${p.user_id}`} className="block w-full text-left hover:underline">
+                          {p.kind === "tool_call" && <span className="mr-1 rounded border border-line px-1 text-xs text-muted">{p.tool_name ?? "ação"}</span>}
                           <MaskedText text={clip(p.masked_text.replace(/\s+/g, " "), 120)} />
                         </button>
-                        <div className="mt-1">{p.categories.map((c) => <Chip key={c.id}>{name(c.id)}</Chip>)}</div>
+                        <div className="mt-1">{p.categories.map((c) => <Chip key={c.id}>{name(c.id)}</Chip>)}
+                          {(p.flags.intents ?? []).map((i) => <span key={i} className={`mr-1 text-xs ${i === "declara_confidencial" ? "font-semibold text-high" : "text-muted"}`}>{intentLabel(i)}</span>)}</div>
                       </td>
                       <td className="td"><RiskBar score={p.risk_score} /></td>
                       <td className="td"><DecisionCell decision={p.decision} would={p.would_decide} /></td>
@@ -134,7 +184,12 @@ export default function PromptsPage() {
                 <dt className="text-muted">Departamento</dt><dd>{selected.department ?? "—"}</dd>
                 <dt className="text-muted">Ferramenta</dt><dd>{appLabel(selected.app)} ({selected.personal_account ? "pessoal" : "corporativa"})</dd>
                 <dt className="text-muted">Quando</dt><dd>{whenFull(selected.occurred_at)}</dd>
+                <dt className="text-muted">Tipo</dt><dd>{KIND_LABEL[selected.kind] ?? selected.kind}{selected.tool_name ? ` (${selected.tool_name})` : ""}</dd>
+                {selected.session_id && <><dt className="text-muted">Sessão</dt><dd><button type="button" className="text-accent underline" onClick={() => { setSessionId(selected.session_id!); setSelected(null); setPage(0); }}>ver todos os eventos desta sessão</button></dd></>}
               </dl>
+              {(selected.flags.intents ?? []).length > 0 && <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">O que foi pedido</h3><p>{(selected.flags.intents ?? []).map(intentLabel).join(", ")}</p></div>}
+              {(selected.spans ?? []).length > 0 && <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">Trechos sensíveis detectados</h3>
+                <ul className="space-y-1 font-mono text-xs">{(selected.spans ?? []).map((sp, i) => <li key={i}>{spanLabel(sp.type)} · {sp.masked}</li>)}</ul></div>}
               <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">Prompt (mascarado)</h3><div className="rounded border border-line bg-panel2 p-2"><MaskedText text={selected.masked_text} block /></div></div>
               <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">Motivos do score</h3>
                 <ul className="space-y-1 font-mono text-xs">{selected.reasons.map((r, i) => <li key={i}>+{r.contribution} · {r.rule}</li>)}{!selected.reasons.length && <li>sem motivos de risco</li>}</ul></div>

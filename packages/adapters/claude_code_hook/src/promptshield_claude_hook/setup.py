@@ -24,7 +24,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from . import client, config
+from . import browser, client, config, ias
 
 EVENTS = ("UserPromptSubmit", "PreToolUse", "PostToolUse")
 MARK = "promptshield_claude_hook"
@@ -320,14 +320,57 @@ class Wizard:
             cop.unlink()
         self.say(f"Removido. Cópia do settings.json anterior: {backup}\nA chave continua em {config.user_config_path()}: apague-a e revogue a chave no console ao terminar.")
 
+    def choose(self) -> None:
+        """Escolha por números: configura o que é automático, prepara a extensão e mostra o passo a passo de cada IA escolhida."""
+        self.say("\n" + ias.render_list())
+        nums: list[int] = []
+        for _ in range(3):
+            nums, errs = ias.parse_selection(self.ask("Números: "))
+            if not errs:
+                break
+            self.say("  " + "; ".join(errs))
+            nums = []
+        if not nums:
+            self.say("Nada selecionado.")
+            return
+        self.say("\nSelecionado: " + ", ".join(f"{n}) {ias.BY_N[n].name}" for n in nums))
+        tools = ias.tools_for(nums)
+        if any(t in tools for t in ("claude_code", "github_copilot_cli", "browser_extension")) and not self.ensure_config():
+            return
+        results: dict[int, str] = {}
+        if "claude_code" in tools:
+            self.claude_code()
+        if "github_copilot_cli" in tools:
+            self.copilot()
+        ext_ready = False
+        if "browser_extension" in tools:
+            cfg = config.load()
+            try:
+                browser.install_extension(cfg.api_url, cfg.api_key, cfg.department, say=self.say, open_browser=False)
+                ext_ready = True
+            except (client.ApiError, OSError, ValueError) as exc:
+                self.say(f"Extensão: não consegui preparar ({exc}). O servidor foi atualizado (docker compose up -d --build)?")
+        exe, args = self_command()
+        command = " ".join([f'"{exe}"'] + [f'"{a}"' for a in args])
+        self.say("\n===== Passo a passo de cada IA escolhida =====")
+        for n in nums:
+            self.say("\n" + ias.guide(n, command))
+            i = ias.BY_N[n]
+            results[n] = ("pronto para o último passo (extensão)" if ext_ready else "extensão NÃO preparada") if i.state == ias.EXT else (
+                "configurado" if i.state == ias.AUTO else "siga o passo a passo" if i.state == ias.MANUAL else "indisponível hoje")
+        self.say("\n===== Resumo =====")
+        for n in nums:
+            self.say(f"  {n}) {ias.BY_N[n].name}: {results[n]}")
+
     def run(self) -> int:
         self.say("PromptShield: vincular ferramentas (pode repetir quantas vezes quiser)")
-        actions = {"1": self.claude_code, "2": self.copilot, "3": self.codex, "4": self.extension, "5": self.open_console, "6": self.test, "7": self.remove}
+        actions = {"1": self.claude_code, "2": self.copilot, "3": self.codex, "4": self.extension, "5": self.open_console, "6": self.test, "7": self.remove, "8": self.choose}
         while True:
             self.status()
             self.say("\n  1) Claude Code (terminal; Desktop aba Code e VS Code: a verificar)\n  2) GitHub Copilot CLI (experimental)\n"
                      "  3) Codex (OpenAI)  [indisponível: a verificar]\n  4) ChatGPT e Claude no navegador (extensão)\n"
-                     "  5) Abrir o console no navegador\n  6) Testar a conexão\n  7) Remover os vínculos (Claude Code e Copilot)\n  0) Sair")
+                     "  5) Abrir o console no navegador\n  6) Testar a conexão\n  7) Remover os vínculos (Claude Code e Copilot)\n"
+                     "  8) ESCOLHER quais IAs monitorar (por números, com passo a passo)\n  0) Sair")
             try:
                 choice = self.ask("Escolha: ").strip()
             except (EOFError, KeyboardInterrupt):

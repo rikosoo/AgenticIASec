@@ -28,7 +28,7 @@ def _stringify(value: Any, limit: int) -> str:
 
 def _tool_content(name: str | None, ti: dict[str, Any], limit: int) -> dict[str, Any]:
     """Ferramentas de shell mandam o comando; de arquivo mandam o caminho e o conteúdo escrito; demais, o JSON."""
-    if name == "Bash":
+    if name in ("Bash", "PowerShell"):  # no Windows sem Git Bash o Claude Code usa a ferramenta PowerShell; o comando é o mesmo campo
         return {"tool_name": name, "tool_input": {"command": _clip(str(ti.get("command", "")), limit)}}
     if name in ("Write", "Edit", "MultiEdit", "NotebookEdit"):
         body = ti.get("content") or ti.get("new_string") or ti.get("new_source") or ""
@@ -91,7 +91,7 @@ def _os_user() -> str:
 # Eventos em camelCase recebem campos camelCase (sessionId, timestamp em ms, cwd, prompt, toolName, toolArgs como STRING JSON).
 # Nomes das ferramentas do Copilot CLI não estão listados na página lida: A VERIFICAR.
 COPILOT_EVENTS = ("userPromptSubmitted", "preToolUse", "postToolUse")
-_SHELL_TOOLS = {"bash", "powershell", "shell", "terminal", "run_command", "execute"}
+_SHELL_TOOLS = {"bash", "powershell", "shell", "terminal", "run_command", "execute"}  # nomes do Copilot CLI: A VERIFICAR
 
 
 def _args(raw: Any) -> dict[str, Any]:

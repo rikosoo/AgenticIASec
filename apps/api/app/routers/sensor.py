@@ -37,7 +37,12 @@ $pyz = Join-Path $dir 'promptshield-sensor.pyz'
 Invoke-WebRequest "$api/sensor/promptshield-sensor.pyz" -OutFile $pyz -UseBasicParsing
 $m = Invoke-RestMethod "$api/sensor/manifest.json"
 if ((Get-FileHash $pyz -Algorithm SHA256).Hash.ToLower() -ne $m.sha256) { throw 'O SHA-256 do sensor nao confere. Nada foi instalado.' }
-$extra = @(); if ($env:PS_TOOLS) { $extra = @('--tools', $env:PS_TOOLS) }
+$ias = $env:PS_IAS
+if (-not $ias -and -not $env:PS_TOOLS) {
+  & $py $pyz deploy --list-ias --confirm-employees-notified
+  $ias = Read-Host 'Numeros separados por virgula (ex.: 1,6), ou ENTER para o padrao (Claude Code e GitHub Copilot CLI)'
+}
+$extra = @(); if ($ias) { $extra = @('--ias', $ias) } elseif ($env:PS_TOOLS) { $extra = @('--tools', $env:PS_TOOLS) }
 & $py $pyz deploy --user --api-url $api --token $tok --confirm-employees-notified @extra
 Write-Host 'Pronto. Abra o Claude Code normalmente. Para remover: python' $pyz 'deploy --user --uninstall --confirm-employees-notified'
 """
@@ -59,7 +64,14 @@ curl -fsSL "$PS_API/sensor/promptshield-sensor.pyz" -o "$PYZ"
 WANT=$(curl -fsSL "$PS_API/sensor/manifest.json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["sha256"])')
 GOT=$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$PYZ")
 [ "$WANT" = "$GOT" ] || { echo "O SHA-256 do sensor nao confere. Nada foi instalado." >&2; rm -f "$PYZ"; exit 1; }
-python3 "$PYZ" deploy --user --api-url "$PS_API" --token "$PS_TOKEN" --confirm-employees-notified ${PS_TOOLS:+--tools "$PS_TOOLS"}
+IAS="${PS_IAS:-}"
+if [ -z "$IAS" ] && [ -z "${PS_TOOLS:-}" ] && [ -r /dev/tty ]; then
+  python3 "$PYZ" deploy --list-ias --confirm-employees-notified
+  printf "Numeros separados por virgula (ex.: 1,6), ou ENTER para o padrao (Claude Code e GitHub Copilot CLI): "; read -r IAS < /dev/tty || IAS=""
+fi
+if [ -n "$IAS" ]; then SEL="--ias $IAS"; elif [ -n "${PS_TOOLS:-}" ]; then SEL="--tools $PS_TOOLS"; else SEL=""; fi
+# shellcheck disable=SC2086
+python3 "$PYZ" deploy --user --api-url "$PS_API" --token "$PS_TOKEN" --confirm-employees-notified $SEL
 echo "Pronto. Para remover: python3 $PYZ deploy --user --uninstall --confirm-employees-notified"
 """
 

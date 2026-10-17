@@ -14,7 +14,7 @@ describe("build de produção", () => {
 
   it("só injeta em chatgpt.com e claude.ai, sem hosts extras", () => {
     const m = JSON.parse(prod("manifest.json"));
-    expect(m.content_scripts[0].matches).toEqual(["https://chatgpt.com/*", "https://claude.ai/*"]);
+    expect(m.content_scripts[0].matches).toEqual(["https://chatgpt.com/*", "https://claude.ai/*", "https://gemini.google.com/*", "https://copilot.microsoft.com/*"]);
     expect(m.host_permissions).toBeUndefined();
     expect(m.permissions.sort()).toEqual(["alarms", "identity", "identity.email", "storage"]);
     expect(m.storage.managed_schema).toBe("managed_schema.json");
@@ -48,7 +48,7 @@ describe("build sideload (instalado pelo sensor)", () => {
   });
   it("só chatgpt.com e claude.ai; lê o arquivo do sensor; sem site de teste nem configuração local", () => {
     const m = JSON.parse(sl("manifest.json"));
-    expect(m.content_scripts[0].matches).toEqual(["https://chatgpt.com/*", "https://claude.ai/*"]);
+    expect(m.content_scripts[0].matches).toEqual(["https://chatgpt.com/*", "https://claude.ai/*", "https://gemini.google.com/*", "https://copilot.microsoft.com/*"]);
     const code = sl("content.js") + sl("background.js");
     expect(code).toContain("promptshield-config.json");
     expect(code).not.toContain("127.0.0.1");

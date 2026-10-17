@@ -52,7 +52,7 @@ class Tenant(Base):
     pilot_expected_users: Mapped[int | None] = mapped_column(Integer)
     pilot_days: Mapped[int] = mapped_column(Integer, default=30)
     omit_text_categories: Mapped[list[str]] = mapped_column(ARRAY(String), default=lambda: ["saude"])
-    monitored_domains: Mapped[list[str]] = mapped_column(ARRAY(String), default=lambda: ["chatgpt.com", "claude.ai"])
+    monitored_domains: Mapped[list[str]] = mapped_column(ARRAY(String), default=lambda: ["chatgpt.com", "claude.ai", "gemini.google.com", "copilot.microsoft.com"])
 
 
 class User(Base):

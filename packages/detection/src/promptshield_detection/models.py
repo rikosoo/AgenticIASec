@@ -70,7 +70,7 @@ class Reason:
 @dataclass
 class Analysis:
     categories: list[dict[str, Any]] = field(default_factory=list)
-    flags: dict[str, bool] = field(default_factory=dict)
+    flags: dict[str, Any] = field(default_factory=dict)
     risk: dict[str, Any] = field(default_factory=dict)
     spans: list[Span] = field(default_factory=list)
     decision: str = "allow"

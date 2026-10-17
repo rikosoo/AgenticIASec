@@ -220,3 +220,9 @@ def test_copilot_cli_entrypoint_never_raises_and_fails_open(monkeypatch, tmp_pat
     assert cli.run_copilot("preToolUse", "isto nao e json", cfg) is None
     cfg.fail_mode = "closed"
     assert cli.run_copilot("preToolUse", "isto nao e json", cfg)["permissionDecision"] == "deny"
+
+
+def test_powershell_tool_sends_the_command_not_raw_json():
+    from promptshield_claude_hook import translate
+    c = translate._tool_content("PowerShell", {"command": "Get-Content $HOME\\.aws\\credentials", "description": "x"}, 1000)
+    assert c == {"tool_name": "PowerShell", "tool_input": {"command": "Get-Content $HOME\\.aws\\credentials"}}

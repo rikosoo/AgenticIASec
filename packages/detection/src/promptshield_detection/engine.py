@@ -6,6 +6,7 @@ from typing import Any
 
 from .detectors import agent, business, code, injection, pii, secrets
 from .detectors.injection import InjectionClassifier
+from .intents import detect_intents
 from .masking import apply_masks
 from .models import KINDS, Analysis, Context, Finding, Span
 from .ner import NerDetector
@@ -88,7 +89,8 @@ def analyze(event: Mapping[str, Any], *, allowed_hosts: tuple[str, ...] = (),
     return Analysis(
         categories=[{"id": c, "confidence": round(f.confidence, 2)}
                     for c, f in sorted(reported.items(), key=lambda kv: (-kv[1].confidence, kv[0]))],
-        flags={"has_code": code.has_code(ctx.text), "has_sensitive": sensitive, "is_agent_action": is_agent},
+        flags={"has_code": code.has_code(ctx.text), "has_sensitive": sensitive, "is_agent_action": is_agent,
+               "intents": detect_intents(ctx)},
         risk={"score": sc, "reasons": [{"rule": r.rule, "contribution": r.contribution,
                                          **({"category": r.category} if r.category else {})} for r in reasons]},
         spans=spans,

@@ -89,6 +89,27 @@ def category_counts(p: Annotated[Principal, Depends(require_roles(*READ_ROLES))]
         return {r.id: r.n for r in rows}
 
 
+@router.get("/stats/signals", summary="Sinais para a análise: trechos sensíveis por tipo, o que as pessoas pedem, tipos de evento e ferramentas de agente")
+def signals(p: Annotated[Principal, Depends(require_roles(*READ_ROLES))], days: int = Query(14, ge=1, le=90)) -> dict:
+    """Só contagens (nunca texto). Um evento conta uma vez por tipo, mesmo com vários trechos do mesmo tipo."""
+    since = {"since": _since(days)}
+    with tenant_session(p.tenant_id) as s:
+        spans = s.execute(text("""
+            SELECT t AS k, count(*) AS n FROM (
+              SELECT DISTINCT e.id, sp->>'type' AS t FROM events e JOIN analyses a ON a.event_pk = e.id,
+                     jsonb_array_elements(a.spans::jsonb) sp WHERE e.occurred_at >= :since) x
+            WHERE t IS NOT NULL AND t <> '' GROUP BY 1 ORDER BY 2 DESC"""), since)
+        intents = s.execute(text("""
+            SELECT i AS k, count(*) AS n FROM events e JOIN analyses a ON a.event_pk = e.id,
+                   jsonb_array_elements_text(a.flags::jsonb->'intents') i
+            WHERE e.occurred_at >= :since GROUP BY 1 ORDER BY 2 DESC"""), since)
+        kinds = s.execute(text("SELECT kind AS k, count(*) AS n FROM events WHERE occurred_at >= :since GROUP BY 1 ORDER BY 2 DESC"), since)
+        tools = s.execute(text("""SELECT tool_name AS k, count(*) AS n FROM events WHERE occurred_at >= :since AND tool_name IS NOT NULL
+                                  GROUP BY 1 ORDER BY 2 DESC LIMIT 15"""), since)
+        return {"span_types": {r.k: r.n for r in spans}, "intents": {r.k: r.n for r in intents},
+                "kinds": {r.k: r.n for r in kinds}, "tools": {r.k: r.n for r in tools}}
+
+
 @router.get("/stats/risk", summary="Indicador de risco por usuário e departamento, com evolução diária")
 def risk_stats(p: Annotated[Principal, Depends(require_roles(*READ_ROLES))], days: int = Query(14, ge=1, le=90)) -> dict:
     from app.reports import user_risk

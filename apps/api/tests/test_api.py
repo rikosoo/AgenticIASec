@@ -166,7 +166,7 @@ def test_failure_mode_is_configurable_audited_and_readable_by_collectors(client,
 
 def test_extension_config_justification_and_domain_validation(client, world):
     cfg = client.get("/v1/extension-config", headers=world.key()).json()
-    assert cfg["domains"] == ["chatgpt.com", "claude.ai"] and cfg["policy_url"] is None and cfg["failure_mode"] == "open"
+    assert cfg["domains"] == ["chatgpt.com", "claude.ai", "gemini.google.com", "copilot.microsoft.com"] and cfg["policy_url"] is None and cfg["failure_mode"] == "open"
     patch = {"policy_url": "https://intranet.exemplo.test/politica-ia", "monitored_domains": ["ChatGPT.com", "gemini.google.com"]}
     assert client.patch("/v1/tenant", json=patch, headers=world.user("admin")).json()["monitored_domains"] == ["chatgpt.com", "gemini.google.com"]
     assert client.get("/v1/extension-config", headers=world.key()).json()["policy_url"] == patch["policy_url"]
