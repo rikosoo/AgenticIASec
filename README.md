@@ -11,6 +11,7 @@ Plataforma que observa o uso de IA por funcionários e agentes, classifica cada 
 | `infra/vm-setup.sh` | sobe o servidor de teste em uma VM Linux com um comando (não executado em máquina real) |
 | `docs/teste-vm.md` | servidor em uma VM e coletor no seu computador, via túnel SSH (não executado ainda) |
 | `docs/teste-windows.md` | passo a passo para rodar os testes reais em uma máquina Windows (não executado ainda) |
+| `docs/implantacao-empresa.md` | proposta de instalação na empresa inteira, com as decisões em aberto (nada construído) |
 | `docs/roteiro-testes-reais.md` | roteiro para validar as integrações em serviços reais (nenhum passo executado ainda) |
 | `packages/detection` | motor de detecção, com taxonomia em `packages/taxonomy` (`docs/deteccao.md`, `docs/relatorio-etapa2.md`) |
 | `apps/extension` | extensão Chrome/Edge para ChatGPT web e Claude.ai (EXPERIMENTAL; ver o README da pasta) |

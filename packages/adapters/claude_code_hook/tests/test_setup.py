@@ -71,8 +71,8 @@ def test_default_user_config_is_found_without_env_var(env):
 
 def test_full_flow_links_claude_code_then_removes(env, monkeypatch):
     monkeypatch.setattr("promptshield_claude_hook.client.get_hook_config", lambda cfg: {"failure_mode": "open"})
-    # 1 = Claude Code; URL padrão; colar chave; sem departamento; confirma; depois 6 = remover e confirma; 0 = sair
-    w, out, _ = wizard(["1", "", "1", "", "sim", "6", "sim", "0"], secrets=["ps_teste123"])
+    # 1 = Claude Code; URL padrão; colar chave; sem departamento; confirma; depois 7 = remover e confirma; 0 = sair
+    w, out, _ = wizard(["1", "", "1", "", "sim", "7", "sim", "0"], secrets=["ps_teste123"])
     assert w.run() == 0
     text = "\n".join(out)
     assert "Claude Code vinculado" in text and "Removido" in text and "OK. Servidor respondeu" in text
@@ -82,7 +82,7 @@ def test_full_flow_links_claude_code_then_removes(env, monkeypatch):
 
 def test_declining_changes_nothing_and_codex_is_honest(env):
     setup.write_hook_config("http://localhost:8000", "ps_x")
-    w, out, _ = wizard(["1", "nao", "2", "0"])
+    w, out, _ = wizard(["1", "nao", "3", "0"])
     w.run()
     assert not setup.claude_settings_path().exists()
     assert "A VERIFICAR" in "\n".join(out) and "Cancelado" in "\n".join(out)
@@ -93,3 +93,15 @@ def test_bad_key_is_not_saved_and_browser_option_opens_console(env):
     w.claude_code()
     assert not Path(config.user_config_path()).exists() and opened == ["http://localhost:3000/privacy"]
     assert "ps_" in "\n".join(out)
+
+
+def test_copilot_hooks_file_is_ours_only_and_removed_cleanly(env, monkeypatch):
+    monkeypatch.setattr("promptshield_claude_hook.client.get_hook_config", lambda cfg: {"failure_mode": "open"})
+    setup.write_hook_config("http://localhost:8000", "ps_x")
+    w, out, _ = wizard(["2", "sim", "7", "sim", "0"])
+    w.run()
+    doc = setup.copilot_doc()
+    assert doc["version"] == 1 and set(doc["hooks"]) == {"userPromptSubmitted", "preToolUse", "postToolUse"}
+    e = doc["hooks"]["preToolUse"][0]
+    assert "--copilot preToolUse" in e["bash"] and e["powershell"].startswith("& ") and e["timeoutSec"] == 10
+    assert "Copilot CLI vinculado" in "\n".join(out) and not setup.copilot_hooks_path().exists()

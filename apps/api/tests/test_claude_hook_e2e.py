@@ -207,3 +207,20 @@ def test_setup_creates_key_with_mock_login_and_it_ingests(client, world, live):
     assert hook_client.get_hook_config(cfg)["failure_mode"] in ("open", "closed")
     with pytest.raises(hook_client.ApiError):
         setup.create_key_with_mock_login(live, "ninguem@fora.example", "x")   # e-mail sem cadastro não cria chave
+
+
+# ---------- 8. GitHub Copilot CLI (entradas SIMULADAS no formato da documentação; sem Copilot real) ----------
+def test_copilot_cli_hook_end_to_end(client, world, live, tmp_path):
+    env = {**os.environ, "PROMPTSHIELD_API_URL": live, "PROMPTSHIELD_API_KEY": world.a["api_key"], "PROMPTSHIELD_USER_ID": "rafael.moreira",
+           "PROMPTSHIELD_SPOOL_PATH": str(tmp_path / "spool.jsonl"), "PROMPTSHIELD_HOOK_CONFIG": str(tmp_path / "nenhum.json"), "PROMPTSHIELD_TIMEOUT": "5"}
+    payload = {"sessionId": "cop-1", "timestamp": 1760000000000, "cwd": "/p", "toolName": "bash", "toolArgs": json.dumps({"command": "rm -rf ~/projetos/*"})}
+    p = subprocess.run([sys.executable, "-m", "promptshield_claude_hook", "--copilot", "preToolUse"], input=json.dumps(payload), capture_output=True,
+                       text=True, env=env, timeout=30)
+    assert p.returncode == 0 and p.stdout.strip() == ""          # monitor: não bloqueia
+    [e] = events(client, world)
+    assert e["app"] == "github_copilot_cli" and "shell_destrutivo" in {c["id"] for c in e["categories"]} and e["would_decide"] == "block"
+    set_mode(client, world, "Bloquear comandos destrutivos de agente", "enforce")
+    payload["timestamp"] += 1
+    p = subprocess.run([sys.executable, "-m", "promptshield_claude_hook", "--copilot", "preToolUse"], input=json.dumps(payload), capture_output=True,
+                       text=True, env=env, timeout=30)
+    assert json.loads(p.stdout)["permissionDecision"] == "deny"

@@ -37,6 +37,22 @@ def run_hook(raw: str, cfg: config.Config) -> dict | None:
         return decide.render_failure(hook_event, cfg.fail_mode, reason)
 
 
+def run_copilot(event_name: str, raw: str, cfg: config.Config) -> dict | None:
+    """Mesmo contrato do run_hook, para o GitHub Copilot CLI (EXPERIMENTAL). Nunca levanta exceção."""
+    event = None
+    try:
+        event = translate.build_copilot_event(event_name, json.loads(raw), cfg)
+        if event is None:
+            return None
+        return decide.render_copilot(event_name, client.post_event(cfg, event))
+    except Exception as exc:  # noqa: BLE001 - qualquer falha cai no modo de falha, nunca derruba o Copilot
+        reason = str(exc) if isinstance(exc, client.ApiError) else f"erro interno ({type(exc).__name__})"
+        if cfg.fail_mode != "closed":
+            spool.record(cfg.spool_path, event_name, event, reason)
+        print(f"promptshield: {reason}; modo de falha: {cfg.fail_mode}", file=sys.stderr)
+        return decide.render_copilot_failure(event_name, cfg.fail_mode, reason)
+
+
 def cmd_check(cfg: config.Config) -> int:
     print(f"configuração: {cfg.source_path or '(nenhum arquivo; só variáveis de ambiente)'}")
     print(f"api_url: {cfg.api_url or '(vazio)'}  chave: {'definida' if cfg.api_key else 'AUSENTE'}  modo de falha: {cfg.fail_mode}")
@@ -81,6 +97,11 @@ def main(argv: list[str] | None = None) -> int:
     if args and args[0] == "import":
         from . import importer
         return importer.main(args[1:], cfg)
+    if len(args) >= 2 and args[0] == "--copilot":
+        out = run_copilot(args[1], sys.stdin.read(MAX_STDIN), cfg)
+        if out is not None:
+            print(json.dumps(out, ensure_ascii=False))
+        return 0
     raw = sys.stdin.read(MAX_STDIN)
     out = run_hook(raw, cfg)
     if out is not None:

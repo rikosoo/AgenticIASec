@@ -50,3 +50,22 @@ def render_failure(hook_event: str, fail_mode: str, reason: str) -> dict[str, An
     if hook_event == "PreToolUse":
         return _pre("deny", msg)
     return {"decision": "block", "reason": msg}
+
+
+def render_copilot(event_name: str, result: dict[str, Any]) -> dict[str, Any] | None:
+    """Copilot CLI (camelCase): preToolUse devolve permissionDecision plano. userPromptSubmitted NÃO bloqueia (a saída de hook de
+    comando é descartada para esse evento), então só monitora."""
+    decision = result.get("decision", "allow")
+    if event_name != "preToolUse" or decision in ("allow", "alert"):
+        return None
+    why = _why(result)
+    if decision == "block":
+        return {"permissionDecision": "deny", "permissionDecisionReason": f"PromptShield bloqueou esta ação: {why}."}
+    return {"permissionDecision": "ask", "permissionDecisionReason": f"PromptShield pede confirmação: {why}."}
+
+
+def render_copilot_failure(event_name: str, fail_mode: str, reason: str) -> dict[str, Any] | None:
+    if fail_mode != "closed" or event_name != "preToolUse":
+        return None
+    return {"permissionDecision": "deny",
+            "permissionDecisionReason": f"PromptShield não conseguiu inspecionar ({reason}). Política da empresa: bloquear quando a inspeção falha."}

@@ -84,3 +84,63 @@ def _os_user() -> str:
         return getpass.getuser()
     except Exception:  # noqa: BLE001 - qualquer falha de leitura do usuário vira "desconhecido"
         return "desconhecido"
+
+
+# ---------- GitHub Copilot CLI (EXPERIMENTAL) ----------
+# Fonte: github/docs, content/copilot/reference/hooks-reference.md, lido em 2026-10-17 (versão do produto desconhecida).
+# Eventos em camelCase recebem campos camelCase (sessionId, timestamp em ms, cwd, prompt, toolName, toolArgs como STRING JSON).
+# Nomes das ferramentas do Copilot CLI não estão listados na página lida: A VERIFICAR.
+COPILOT_EVENTS = ("userPromptSubmitted", "preToolUse", "postToolUse")
+_SHELL_TOOLS = {"bash", "powershell", "shell", "terminal", "run_command", "execute"}
+
+
+def _args(raw: Any) -> dict[str, Any]:
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        try:
+            val = json.loads(raw)
+            return val if isinstance(val, dict) else {"value": val}
+        except ValueError:
+            return {"command": raw}
+    return {}
+
+
+def build_copilot_event(event_name: str, data: dict[str, Any], cfg: Config) -> dict[str, Any] | None:
+    lim = cfg.max_text_chars
+    name = {"UserPromptSubmit": "userPromptSubmitted", "PreToolUse": "preToolUse", "PostToolUse": "postToolUse"}.get(event_name, event_name)
+    if name not in COPILOT_EVENTS:
+        return None
+    session = str(data.get("sessionId") or data.get("session_id") or "")
+    tool = data.get("toolName") or data.get("tool_name")
+    targs = _args(data.get("toolArgs") if "toolArgs" in data else data.get("tool_input"))
+    if name == "userPromptSubmitted":
+        kind, content = "prompt", {"text": _clip(str(data.get("prompt", "")), lim)}
+    elif name == "preToolUse":
+        kind = "tool_call"
+        canon = "Bash" if str(tool or "").lower() in _SHELL_TOOLS else tool
+        content = _tool_content(canon, targs, lim)
+    else:
+        kind = "tool_result"
+        res = data.get("toolResult") or data.get("tool_result") or ""
+        text = res.get("textResultForLlm") or res.get("text_result_for_llm") or "" if isinstance(res, dict) else res
+        content = {"tool_name": tool, "text": _stringify(text, lim)}
+    ts = data.get("timestamp")
+    when = datetime.now(timezone.utc)
+    if isinstance(ts, (int, float)) and ts > 0:
+        when = datetime.fromtimestamp(ts / 1000 if ts > 1e11 else ts, tz=timezone.utc)
+    elif isinstance(ts, str):
+        try:
+            when = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+        except ValueError:
+            pass
+    ref = json.dumps([session, name, ts, tool, targs, data.get("prompt")], sort_keys=True, default=str)
+    return {
+        "event_id": str(uuid.uuid5(_NS, "copilot:" + ref)),  # determinístico: o mesmo hook repetido não duplica
+        "occurred_at": when.isoformat(),
+        "source": {"channel": "agent_hook", "app": "github_copilot_cli", "integration_status": "experimental"},
+        "actor": {"user_id": cfg.user_id or _os_user(), "device_id": cfg.device_id or default_device_id(),
+                  **({"department": cfg.department} if cfg.department else {})},
+        "kind": kind, "content": content,
+        "context": {"session_id": session or None, "personal_account": False},
+    }

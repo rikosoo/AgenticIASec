@@ -4,9 +4,10 @@
 
 O que cada opção faz de verdade (nada é instalado sem você confirmar):
   1  Claude Code: grava ~/.promptshield/hook.json e acrescenta os hooks ao ~/.claude/settings.json (com cópia de segurança).
-  2  Codex (OpenAI): NÃO disponível. Há hooks no Codex, mas o formato não pôde ser lido na documentação oficial: A VERIFICAR.
+  2  GitHub Copilot CLI: grava ~/.copilot/hooks/promptshield.json (arquivo só nosso). EXPERIMENTAL; o Copilot no VS Code não é coberto.
+  3  Codex (OpenAI): NÃO disponível. Há hooks no Codex, mas o formato não pôde ser lido na documentação oficial: A VERIFICAR.
   3  ChatGPT e Claude no navegador: guia da extensão (o navegador não permite instalar sozinho).
-  4  Abre o console no navegador.   5 Testa a conexão.   6 Remove o vínculo do Claude Code.
+  5  Abre o console no navegador.   6 Testa a conexão.   7 Remove os vínculos (Claude Code e Copilot).
 Status honesto: o hook do Claude Code é PARCIAL; Desktop (aba Code) e VS Code: A VERIFICAR; o chat do app Claude Desktop não é coberto.
 """
 from __future__ import annotations
@@ -33,6 +34,21 @@ MARK = "promptshield_claude_hook"
 def claude_settings_path() -> Path:
     base = os.environ.get("CLAUDE_CONFIG_DIR")  # A VERIFICAR: nome e semântica na documentação atual
     return (Path(base) if base else Path.home() / ".claude") / "settings.json"
+
+
+def copilot_hooks_path() -> Path:
+    base = os.environ.get("COPILOT_HOME")  # documentado: $COPILOT_HOME/hooks/
+    return (Path(base) if base else Path.home() / ".copilot") / "hooks" / "promptshield.json"
+
+
+def copilot_doc() -> dict[str, Any]:
+    """Arquivo de hooks do Copilot CLI (versão 1). Eventos em camelCase => payloads camelCase. Usa `bash` e `powershell` (documentados)."""
+    py = sys.executable
+    hooks: dict[str, Any] = {}
+    for ev in ("userPromptSubmitted", "preToolUse", "postToolUse"):
+        tail = f"-m {MARK} --copilot {ev}"
+        hooks[ev] = [{"type": "command", "bash": f'"{py}" {tail}', "powershell": f'& "{py}" {tail}', "timeoutSec": 10}]
+    return {"version": 1, "hooks": hooks}
 
 
 def our_entry() -> dict[str, Any]:
@@ -159,6 +175,7 @@ class Wizard:
         self.say("\nSituação atual")
         self.say(f"  Servidor: {cfg.api_url or '(não configurado)'}   chave: {'definida' if cfg.api_key else 'ausente'}")
         self.say(f"  Claude Code: {'VINCULADO' if installed else 'não vinculado'}   ({claude_settings_path()})")
+        self.say(f"  GitHub Copilot CLI: {'VINCULADO' if copilot_hooks_path().is_file() else 'não vinculado'}   ({copilot_hooks_path()})")
 
     def yes(self, prompt: str) -> bool:
         return self.ask(f"{prompt} [digite 'sim' para continuar] ").strip().lower() in ("sim", "s")
@@ -230,6 +247,24 @@ class Wizard:
         self.say(f"Pronto. Claude Code vinculado.{f' Cópia: {backup}' if backup else ''}\nFeche e abra de novo as sessões do Claude Code já abertas.")
         self.test()
 
+    def copilot(self) -> None:
+        if not self.ensure_config():
+            return
+        path = copilot_hooks_path()
+        self.say("\nGitHub Copilot CLI (EXPERIMENTAL). Será criado um arquivo só nosso, sem mexer em outras configurações:")
+        self.say(f"  {path}")
+        self.say("  - captura os prompts e as ações de ferramenta do Copilot CLI nesta máquina, enviando ao servidor configurado;")
+        self.say("  - o evento de prompt só MONITORA (o Copilot descarta a resposta do hook); bloquear/pedir confirmação vale para ações de ferramenta;")
+        self.say("  - NÃO cobre o Copilot dentro do VS Code nem as sugestões em linha (a documentação lida não os lista como superfície de hooks).")
+        self.say("  - os nomes das ferramentas do Copilot não constam na página lida: A VERIFICAR; só testado com entradas simuladas.")
+        if not self.yes("Vincular o GitHub Copilot CLI?"):
+            self.say("Cancelado.")
+            return
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(copilot_doc(), indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
+        self.say(f"Pronto. Copilot CLI vinculado ({path}). Abra uma nova sessão do Copilot CLI.")
+        self.test()
+
     def codex(self) -> None:
         self.say("\nCodex (OpenAI): ainda NÃO disponível.\n"
                  "O Codex tem hooks, mas o formato (arquivo, eventos e campos) não pôde ser lido na documentação oficial neste ambiente,"
@@ -259,23 +294,28 @@ class Wizard:
         except (OSError, ValueError) as exc:
             self.say(f"Não consegui ler {path}: {exc}")
             return
-        if not is_installed(data) and "hooks" not in data:
-            self.say("O Claude Code não está vinculado.")
+        cop = copilot_hooks_path()
+        if not is_installed(data) and not cop.is_file():
+            self.say("Nada vinculado.")
             return
-        if not self.yes("Remover os hooks do PromptShield do Claude Code?"):
+        if not self.yes("Remover os hooks do PromptShield (Claude Code e Copilot CLI)?"):
             self.say("Cancelado.")
             return
-        backup = write_settings(path, remove_ours(data))
-        self.say(f"Removido. Cópia do arquivo anterior: {backup}\nA chave continua em {config.user_config_path()}: apague-a e revogue a chave no console ao terminar.")
+        backup = None
+        if is_installed(data):
+            backup = write_settings(path, remove_ours(data))
+        if cop.is_file():
+            cop.unlink()
+        self.say(f"Removido. Cópia do settings.json anterior: {backup}\nA chave continua em {config.user_config_path()}: apague-a e revogue a chave no console ao terminar.")
 
     def run(self) -> int:
         self.say("PromptShield: vincular ferramentas (pode repetir quantas vezes quiser)")
-        actions = {"1": self.claude_code, "2": self.codex, "3": self.extension, "4": self.open_console, "5": self.test, "6": self.remove}
+        actions = {"1": self.claude_code, "2": self.copilot, "3": self.codex, "4": self.extension, "5": self.open_console, "6": self.test, "7": self.remove}
         while True:
             self.status()
-            self.say("\n  1) Claude Code (terminal; Desktop aba Code e VS Code: a verificar)\n  2) Codex (OpenAI)  [indisponível: a verificar]\n"
-                     "  3) ChatGPT e Claude no navegador (extensão)\n  4) Abrir o console no navegador\n  5) Testar a conexão\n"
-                     "  6) Remover o vínculo do Claude Code\n  0) Sair")
+            self.say("\n  1) Claude Code (terminal; Desktop aba Code e VS Code: a verificar)\n  2) GitHub Copilot CLI (experimental)\n"
+                     "  3) Codex (OpenAI)  [indisponível: a verificar]\n  4) ChatGPT e Claude no navegador (extensão)\n"
+                     "  5) Abrir o console no navegador\n  6) Testar a conexão\n  7) Remover os vínculos (Claude Code e Copilot)\n  0) Sair")
             try:
                 choice = self.ask("Escolha: ").strip()
             except (EOFError, KeyboardInterrupt):

@@ -182,3 +182,41 @@ def test_config_accepts_utf8_bom_written_by_windows_powershell(tmp_path):
     f.write_bytes(b"\xef\xbb\xbf" + b'{"api_url": "http://localhost:8000/", "api_key": "ps_x"}')
     cfg = config.load(str(f))
     assert cfg.api_url == "http://localhost:8000" and cfg.api_key == "ps_x" and cfg.usable
+
+
+# ---------- GitHub Copilot CLI (formato lido em github/docs, hooks-reference.md; entradas SIMULADAS) ----------
+def _ccfg():
+    from promptshield_claude_hook.config import Config
+    return Config(api_url="http://x", api_key="ps_x", user_id="u1", device_id="d1")
+
+
+def test_copilot_prompt_and_shell_tool_events():
+    from promptshield_claude_hook import translate
+    p = translate.build_copilot_event("userPromptSubmitted", {"sessionId": "s", "timestamp": 1760000000000, "cwd": "/p", "prompt": "SIMULADO oi"}, _ccfg())
+    assert p["kind"] == "prompt" and p["content"]["text"] == "SIMULADO oi" and p["source"]["app"] == "github_copilot_cli"
+    assert p["source"]["integration_status"] == "experimental" and p["occurred_at"].startswith("2025-10-0")
+    t = translate.build_copilot_event("preToolUse", {"sessionId": "s", "timestamp": 1760000000001, "toolName": "bash",
+                                                     "toolArgs": '{"command": "rm -rf ~/x"}'}, _ccfg())
+    assert t["kind"] == "tool_call" and t["content"]["tool_name"] == "Bash" and t["content"]["tool_input"]["command"] == "rm -rf ~/x"
+    again = translate.build_copilot_event("preToolUse", {"sessionId": "s", "timestamp": 1760000000001, "toolName": "bash",
+                                                         "toolArgs": '{"command": "rm -rf ~/x"}'}, _ccfg())
+    assert again["event_id"] == t["event_id"]            # idempotente
+
+
+def test_copilot_output_only_blocks_tools_and_never_prompts():
+    from promptshield_claude_hook import decide
+    block = {"decision": "block", "categories": [{"id": "shell_destrutivo", "confidence": 0.9}]}
+    assert decide.render_copilot("preToolUse", block)["permissionDecision"] == "deny"
+    assert decide.render_copilot("userPromptSubmitted", block) is None
+    assert decide.render_copilot("preToolUse", {"decision": "allow"}) is None
+    assert decide.render_copilot_failure("preToolUse", "closed", "x")["permissionDecision"] == "deny"
+    assert decide.render_copilot_failure("preToolUse", "open", "x") is None
+
+
+def test_copilot_cli_entrypoint_never_raises_and_fails_open(monkeypatch, tmp_path):
+    from promptshield_claude_hook import cli
+    cfg = _ccfg()
+    cfg.spool_path = str(tmp_path / "s.jsonl")
+    assert cli.run_copilot("preToolUse", "isto nao e json", cfg) is None
+    cfg.fail_mode = "closed"
+    assert cli.run_copilot("preToolUse", "isto nao e json", cfg)["permissionDecision"] == "deny"
