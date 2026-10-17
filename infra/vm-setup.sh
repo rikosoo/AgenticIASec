@@ -27,6 +27,12 @@ fi
 DOCKER="docker"; docker info >/dev/null 2>&1 || DOCKER="sudo docker"   # sem grupo docker ainda: usa sudo
 
 if [ ! -f .env ]; then
+  # .env novo + volume do banco antigo = senha do banco não confere (o Postgres só lê a senha na primeira criação do volume)
+  if $DOCKER volume ls -q 2>/dev/null | grep -q 'pgdata$'; then
+    echo "RECUSADO: já existe um volume de banco de uma instalação anterior, e este .env teria senhas novas." >&2
+    echo "Se os dados são de teste e podem ser apagados: $DOCKER compose down -v  e rode este script de novo." >&2
+    exit 1
+  fi
   cp .env.example .env
   rnd() { openssl rand -hex 24; }
   sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(rnd)/; s/^APP_DB_PASSWORD=.*/APP_DB_PASSWORD=$(rnd)/; \
