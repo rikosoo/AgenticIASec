@@ -17,6 +17,19 @@ Documentação do formato e do que foi verificado: [`docs/claude-code-hooks.md`]
 
 O adaptador sempre termina com código 0 e JSON válido: nunca derruba o Claude Code. No fail-closed o instalador também define `onFailure: "block"` no hook (versão 2.1.295 ou mais nova), para cobrir o caso de o próprio processo travar.
 
+## Jeito mais simples: o assistente `setup` (Windows, Linux e macOS)
+
+```powershell
+pip install -e packages/adapters/claude_code_hook      # uma vez, na pasta do repositório
+python -m promptshield_claude_hook setup
+```
+
+Menu interativo, que você pode repetir quantas vezes quiser: 1 vincula o **Claude Code**; 2 **Codex** (indisponível: o formato dos hooks não pôde ser verificado, **A VERIFICAR**); 3 guia da **extensão** para ChatGPT e Claude no navegador; 4 abre o **console no navegador**; 5 testa a conexão; 6 remove o vínculo. Na primeira vez pergunta o endereço da API e a chave: você cola uma que já tem, abre o console no navegador (página Privacidade e segurança) para criar, ou deixa o assistente criar sozinho (só com o login de teste `OIDC_MODE=mock`).
+
+- O vínculo grava `~/.promptshield/hook.json` (lido sem variável de ambiente) e **acrescenta** os hooks ao `~/.claude/settings.json` do usuário, sem tocar nos hooks que já existem, com cópia de segurança e sem BOM. Antes de alterar, mostra o que será capturado e exige digitar `sim`.
+- Vale para o Claude Code no terminal. A aba Code do app Desktop e a extensão do VS Code **leem os mesmos arquivos de configuração** (documentação oficial: "The desktop app reads the same settings files as the CLI"), mas a documentação não confirma que os hooks disparam lá: **A VERIFICAR**. O **chat comum** do app Claude Desktop não tem hooks e **não é coberto** (para isso, só o inference hook do Claude Enterprise, no servidor).
+- Navegador não pode ser instalado nem logado por programa: a opção 3 mostra os passos. O "login no navegador" do assistente é o do console do PromptShield para criar a chave; pareamento automático por código de dispositivo não existe.
+
 ## Instalar em uma máquina de teste (Linux e macOS)
 
 Pré-requisitos: `python3`, Claude Code, e uma chave de API do tenant (`python -m app.cli create-tenant ...`, ver README da raiz).

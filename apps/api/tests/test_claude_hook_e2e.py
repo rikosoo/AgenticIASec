@@ -191,3 +191,19 @@ def test_import_history_is_idempotent_deduplicates_live_and_masks(client, world,
     assert {c["id"] for e in got for c in e["categories"]} >= {"segredo", "shell_destrutivo"}
     assert importer.send(evs, cfg, 100, say=lambda *_: None) == {"duplicados (já existiam)": 2}   # rodar de novo não duplica
     assert len(events(client, world)) == 2
+
+
+# ---------- 7. assistente `setup`: chave criada pelo login de teste, usada de verdade ----------
+def test_setup_creates_key_with_mock_login_and_it_ingests(client, world, live):
+    from promptshield_claude_hook import client as hook_client
+    from promptshield_claude_hook import setup
+    from promptshield_claude_hook.config import Config
+
+    key = setup.create_key_with_mock_login(live, "admin@a.example.com", "setup-teste")
+    assert key.startswith("ps_")
+    cfg = Config(api_url=live, api_key=key, user_id="rafael.moreira", timeout_seconds=5)
+    ev = event("SIMULADO: o CPF de teste é 529.982.247-25")
+    assert hook_client.post_event(cfg, ev)["decision"] == "allow"
+    assert hook_client.get_hook_config(cfg)["failure_mode"] in ("open", "closed")
+    with pytest.raises(hook_client.ApiError):
+        setup.create_key_with_mock_login(live, "ninguem@fora.example", "x")   # e-mail sem cadastro não cria chave

@@ -32,10 +32,17 @@ class Config:
         return bool(self.api_url and self.api_key)
 
 
+def user_config_path() -> str:
+    return str(Path.home() / ".promptshield" / "hook.json")
+
+
 def config_path() -> str | None:
     env = os.environ.get("PROMPTSHIELD_HOOK_CONFIG")
     if env:
         return env
+    user = user_config_path()
+    if Path(user).is_file():  # configuração do usuário (o assistente `setup` grava aqui; funciona no Windows sem variável de ambiente)
+        return user
     for p in DEFAULT_PATHS:
         if Path(p).is_file():
             return p

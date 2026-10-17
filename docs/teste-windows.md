@@ -59,6 +59,8 @@ Precisa de PostgreSQL 16 instalado. Crie o ambiente Python (`python -m venv .ven
 
 ## Passo 1: hook do Claude Code no Windows
 
+> **Mais simples:** `pip install -e packages\adapters\claude_code_hook` e depois `python -m promptshield_claude_hook setup` (menu interativo, ver `packages/adapters/claude_code_hook/README.md`). O texto abaixo é o caminho manual.
+
 O instalador é só para Linux e macOS. No Windows, faça à mão, **sem mexer na política da máquina**, usando `--settings`.
 
 1. Instale o hook:
