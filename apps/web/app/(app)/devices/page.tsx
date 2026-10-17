@@ -103,6 +103,7 @@ export default function DevicesPage() {
             <code className="block break-all rounded border border-line bg-panel2 p-2 font-mono text-xs" data-testid="cmd-windows">{winCmd}</code>
             <p className="font-medium">Linux e macOS, no terminal:</p>
             <code className="block break-all rounded border border-line bg-panel2 p-2 font-mono text-xs" data-testid="cmd-unix">{unixCmd}</code>
+            <p className="text-muted">Instala Claude Code e GitHub Copilot CLI, sem mais nada. Para incluir também a extensão do navegador (ChatGPT e Claude no site; exige um clique da pessoa no Chrome/Edge), acrescente <code>PS_TOOLS=claude_code,github_copilot_cli,browser_extension</code> antes do comando (no PowerShell: <code>$env:PS_TOOLS=&apos;claude_code,github_copilot_cli,browser_extension&apos;;</code>).</p>
             <p className="text-muted">O instalador mostra o que será enviado e pede a confirmação da pessoa (digitar &quot;sim&quot;). Precisa de Python 3.9 ou mais novo (no Windows ele tenta instalar com o winget). Por HTTP o script pode ser alterado por quem estiver no caminho: em produção use HTTPS.</p>
             <p>Para o TI, em nível de máquina (administrador, por MDM/GPO; exige o sensor já copiado):</p>
             <code className="block break-all rounded border border-line bg-panel2 p-2 font-mono text-xs" data-testid="deploy-command">{command}</code>

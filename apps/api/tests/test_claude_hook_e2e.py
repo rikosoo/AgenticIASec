@@ -268,7 +268,8 @@ def test_one_line_installer_served_by_the_api_installs_a_working_sensor(client, 
     tok = client.post("/v1/enrollment-tokens", json={"name": "uma linha"}, headers=world.user("admin")).json()["token"]
     home = tmp_path / "home"
     home.mkdir()
-    env = {**os.environ, "HOME": str(home), "PS_API": live, "PS_TOKEN": tok, "PS_NOTIFIED": "1"}
+    env = {**os.environ, "HOME": str(home), "PS_API": live, "PS_TOKEN": tok, "PS_NOTIFIED": "1",
+           "PS_TOOLS": "claude_code,github_copilot_cli,browser_extension"}        # a extensão é opt-in
     for k in ("CLAUDE_CONFIG_DIR", "COPILOT_HOME", "PROMPTSHIELD_HOOK_CONFIG", "PROMPTSHIELD_API_URL", "PROMPTSHIELD_API_KEY"):
         env.pop(k, None)
     p = subprocess.run(["sh", "-c", 'curl -fsSL "$PS_API/sensor/install.sh" | sh'], capture_output=True, text=True, env=env, timeout=90)

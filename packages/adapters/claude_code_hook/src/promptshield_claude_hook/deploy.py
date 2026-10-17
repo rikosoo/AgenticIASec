@@ -29,6 +29,7 @@ from .config import Config
 
 CLIENT_VERSION = "0.1"
 ALL_TOOLS = ("claude_code", "github_copilot_cli", "browser_extension")
+DEFAULT_TOOLS = ("claude_code", "github_copilot_cli")   # a extensão do navegador exige um clique da pessoa: só entra se pedida (--tools)
 
 
 def paths(root: Path | None = None, user: bool = False) -> dict[str, Path]:
@@ -145,7 +146,7 @@ def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="promptshield-claude-hook deploy", description="Instalação silenciosa em nível de máquina (EXPERIMENTAL).")
     ap.add_argument("--api-url")
     ap.add_argument("--token", help="token de matrícula (pse_...) criado no console")
-    ap.add_argument("--tools", default=",".join(ALL_TOOLS), help=f"lista separada por vírgula entre: {', '.join(ALL_TOOLS)}")
+    ap.add_argument("--tools", default=",".join(DEFAULT_TOOLS), help=f"lista separada por vírgula entre: {', '.join(ALL_TOOLS)} (padrão: {', '.join(DEFAULT_TOOLS)})")
     ap.add_argument("--department")
     ap.add_argument("--fail-mode", choices=("open", "closed"), default="open")
     ap.add_argument("--uninstall", action="store_true")

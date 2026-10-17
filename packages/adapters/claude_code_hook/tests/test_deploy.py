@@ -41,3 +41,7 @@ def test_failed_enrollment_changes_nothing(tmp_path, monkeypatch):
     monkeypatch.setattr(deploy, "enroll", boom)
     assert deploy.install("http://x", "pse_ruim", ["claude_code"], None, "open", tmp_path, False, say=lambda *_: None) == 1
     assert not any(tmp_path.rglob("*.json"))
+
+
+def test_browser_extension_is_opt_in():
+    assert "browser_extension" not in deploy.DEFAULT_TOOLS and "browser_extension" in deploy.ALL_TOOLS
