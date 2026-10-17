@@ -50,7 +50,7 @@ $settings = @"
   }
 }
 "@
-$launcher = "@echo off`r`nset PROMPTSHIELD_HOOK_CONFIG=$Dir\hook.json`r`nclaude --settings `"$Dir\settings.json`" %*`r`n"
+$launcher = "@echo off`r`nset PROMPTSHIELD_HOOK_CONFIG=$Dir\hook.json`r`nset PATH=%PATH%;%USERPROFILE%\.local\bin`r`nclaude --settings `"$Dir\settings.json`" %*`r`n"
 
 if ($DryRun) {
   Write-Host "SIMULACAO. Faria:`n  pip install -e $pkg`n  gravar $Dir\hook.json (chave oculta), settings.json e claude-ps.cmd"
