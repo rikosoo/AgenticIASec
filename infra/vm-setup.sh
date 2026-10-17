@@ -40,8 +40,8 @@ if [ ! -f .env ]; then
   chmod 600 .env
   echo ".env criado com segredos aleatórios (modo de login MOCK: só para teste)."
 fi
-if grep -E '^BIND_ADDR=' .env 2>/dev/null | grep -qvE '^BIND_ADDR=(127\.0\.0\.1|localhost)$'; then
-  echo "RECUSADO: BIND_ADDR no .env expõe as portas. Com OIDC mock isso deixa qualquer um emitir token." >&2; exit 1
+if grep -Eq '^(WEB_BIND|API_BIND)=' .env 2>/dev/null && ! grep -q '^EXPOSE_CONFIRMED=1' .env; then
+  echo "RECUSADO: WEB_BIND/API_BIND no .env expõem as portas sem a confirmação de infra/expose.sh. Com OIDC mock isso deixa qualquer um entrar." >&2; exit 1
 fi
 
 $DOCKER compose up --build -d

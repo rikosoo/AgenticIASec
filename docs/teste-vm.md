@@ -43,6 +43,19 @@ Depois siga `docs/teste-windows.md`, passo 1, com `api_url` = `http://localhost:
 
 Se o túnel cair, o hook segue em `fail_mode: open` (grava só metadados localmente), então o Claude Code não trava.
 
+## Sem túnel (opcional, menos seguro)
+
+Se você preferir acessar por `http://IP_PUBLICO:3000`, limite as portas ao SEU IP no firewall da nuvem e rode na VM:
+
+```bash
+git pull origin claude/wonderful-hamilton-9dsk59
+./infra/expose.sh --public-ip IP_PUBLICO --web            # só o console (porta 3000)
+./infra/expose.sh --public-ip IP_PUBLICO --web --api      # também a API (porta 8000)
+./infra/expose.sh --close                                 # volta ao modo seguro (só túnel)
+```
+
+Riscos que o script repete e exige confirmar: o login é **mock** (quem alcançar a porta entra com um e-mail cadastrado) e o tráfego é **HTTP sem cifra**. O console mostra só texto mascarado, mas o **hook envia o texto original** à API: expor a API em HTTP faz esse texto cruzar a internet sem cifra. O banco nunca é exposto. O IP público muda se a instância for parada e religada (use um Elastic IP) e o seu IP residencial também pode mudar. A solução definitiva é domínio + HTTPS + login real (`docs/roteiro-testes-reais.md`, passo 2).
+
 ## Histórico que já existe na sua máquina
 
 Além do uso ao vivo, dá para importar as transcrições locais (últimos 30 dias, se você não mudou `cleanupPeriodDays`). Primeiro simule, depois envie, ainda com o túnel aberto e em tenant sem canais de alerta:
