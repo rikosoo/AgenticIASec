@@ -15,8 +15,25 @@ CARD_RE = re.compile(r"(?<![\d-])(?:\d[ -]?){12,18}\d(?![\d-])")
 BANK_RE = re.compile(r"ag[eê]ncia\W{0,3}\d{3,5}\W{0,12}conta\W{0,3}\d{4,}-?\d?", re.I)
 # Número declarado como documento ("meu cpf é 3444353432123"): é dado pessoal mesmo com dígito inválido,
 # erro de digitação ou tamanho errado. Só vale quando a palavra vem ANTES do número.
-CPF_DECL_RE = re.compile(r"(?i)\b(?:cpf|c\.p\.f)\b[^\d\n.;]{0,20}?(\d[\d.\-]{6,17}\d)")
-CNPJ_DECL_RE = re.compile(r"(?i)\bcnpj\b[^\d\n.;]{0,20}?(\d[\d.\-/]{9,20}\d)")
+def _edit1(word: str, exclude: tuple[str, ...] = ()) -> str:
+    """Alternância regex com a palavra e todas as variações de UM erro de digitação (troca, falta, sobra, letras trocadas de lugar):
+    "cpfg", "cfp", "cpff" valem como "cpf". `exclude` tira variações que são outras palavras (ex.: "cpu")."""
+    letters = "abcdefghijklmnopqrstuvwxyz"
+    out = {word}
+    for i in range(len(word) + 1):
+        out.update(word[:i] + c + word[i:] for c in letters)
+    for i in range(len(word)):
+        out.add(word[:i] + word[i + 1:])
+        out.update(word[:i] + c + word[i + 1:] for c in letters)
+        if i < len(word) - 1:
+            out.add(word[:i] + word[i + 1] + word[i] + word[i + 2:])
+    return "|".join(re.escape(w) for w in sorted((w for w in out if len(w) >= 3 and w not in exclude), key=lambda w: (-len(w), w)))
+
+
+CPF_DECL_RE = re.compile(r"(?i)\b(?:" + _edit1("cpf", ("cpu", "cpp", "cpa", "cps", "cpt", "cpm", "cpl", "cpc", "cap", "cop")) + r"|c\.p\.f|c p f)\b[^\d\n.;]{0,20}?(\d[\d.\-]{6,17}\d)")
+CNPJ_DECL_RE = re.compile(r"(?i)\b(?:" + _edit1("cnpj") + r")\b[^\d\n.;]{0,20}?(\d[\d.\-/]{9,20}\d)")
+# "documento do cliente: 11122233355": 9 a 14 dígitos seguidos declarados como documento (confiança menor: pode ser número de protocolo)
+DOC_DECL_RE = re.compile(r"(?i)\b(?:documento|identificacao|identificação)\b[^\d\n.;]{0,25}?(\d{9,14})(?!\d)")
 RG_DECL_RE = re.compile(r"(?i)\b(?:rg|identidade|registro geral)\b[^\d\n.;]{0,15}?(\d[\d.\-]{4,13}[\dxX])")
 CEP_RE = re.compile(r"(?<![\d-])\d{5}-\d{3}(?![\d-])")
 ADDR_PT_RE = re.compile(
@@ -176,10 +193,11 @@ def detect(ctx: Context) -> list[Finding]:
         (CPF_DECL_RE, 9, 14, "cpf", "CPF informado (dígito verificador inválido ou formato incomum)", "[CPF]"),
         (CNPJ_DECL_RE, 12, 16, "cnpj", "CNPJ informado (dígito verificador inválido ou formato incomum)", "[CNPJ]"),
         (RG_DECL_RE, 6, 12, "rg", "RG informado", "[RG]"),
+        (DOC_DECL_RE, 9, 14, "documento", "Número declarado como documento", "[DOC]"),
     ):
         for m in rx.finditer(t):
             if lo <= len(digits(m.group(1))) <= hi:
-                out.append(Finding("pii", 0.8, label, kind, m.start(1), m.end(1), masked))
+                out.append(Finding("pii", 0.6 if kind == "documento" else 0.8, label, kind, m.start(1), m.end(1), masked))
     for m in EMAIL_RE.finditer(t):
         out.append(Finding("pii", 0.75, "Endereço de e-mail", "email", m.start(), m.end(),
                            "***@" + m.group().split("@")[1]))
