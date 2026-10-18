@@ -11,6 +11,7 @@ Plataforma que observa o uso de IA por funcionários e agentes, classifica cada 
 | `infra/vm-setup.sh` | sobe o servidor de teste em uma VM Linux com um comando (não executado em máquina real) |
 | `docs/teste-vm.md` | servidor em uma VM e coletor no seu computador, via túnel SSH (não executado ainda) |
 | `docs/teste-windows.md` | passo a passo para rodar os testes reais em uma máquina Windows (não executado ainda) |
+| `docs/o-que-detecta.md` | catálogo do que o motor detecta, com exemplos rodados de verdade (inclui o que NÃO detecta) |
 | `docs/guia-ias.md` | escolher quais IAs monitorar (por números) e o passo a passo de cada uma, com o estado honesto |
 | `docs/guia-simples.md` | servidor (hive) e sensor em cada máquina, em dois passos (experimental) |
 | `docs/implantacao-empresa.md` | proposta de instalação na empresa inteira, com as decisões em aberto (nada construído) |
