@@ -13,11 +13,16 @@ O aviso aos empregados é obrigação do cliente: por isso a confirmação é ex
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import platform
+import random
+import re
 import socket
+import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 import zipfile
@@ -53,19 +58,60 @@ def paths(root: Path | None = None, user: bool = False) -> dict[str, Path]:
     return p
 
 
-def enroll(api_url: str, token: str, tools: list[str]) -> dict[str, Any]:
+def machine_hash() -> str | None:
+    """SHA-256 de um identificador da máquina, só para a licença não contar duas vezes a mesma máquina reinstalada. Sem o valor bruto."""
+    raw = None
+    try:
+        if sys.platform == "win32":
+            import winreg  # type: ignore[import-not-found]
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography", 0, winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as k:
+                raw = winreg.QueryValueEx(k, "MachineGuid")[0]
+        elif sys.platform == "darwin":
+            out = subprocess.run(["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"], capture_output=True, text=True, timeout=5).stdout  # noqa: S603, S607
+            m = re.search(r'"IOPlatformUUID" = "([^"]+)"', out)
+            raw = m.group(1) if m else None
+        else:
+            for f in ("/etc/machine-id", "/var/lib/dbus/machine-id"):
+                if Path(f).is_file():
+                    raw = Path(f).read_text().strip()
+                    break
+    except (OSError, ImportError, subprocess.SubprocessError):
+        raw = None
+    return hashlib.sha256(f"promptshield:{raw}".encode()).hexdigest() if raw else None
+
+
+def enroll(api_url: str, token: str, tools: list[str], sleep=time.sleep) -> dict[str, Any]:
     if not api_url.lower().startswith(("http://", "https://")):
         raise client.ApiError("api_url precisa começar com https:// (http:// só em testes)")
-    body = {"token": token, "hostname": socket.gethostname()[:200], "os": platform.system(), "client_version": CLIENT_VERSION, "tools": tools}
-    req = urllib.request.Request(api_url.rstrip("/") + "/v1/enroll", data=json.dumps(body).encode(), method="POST",  # noqa: S310
-                                 headers={"Content-Type": "application/json", "User-Agent": "promptshield-deploy/0.1"})
-    try:
-        with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310
-            return json.loads(r.read().decode())
-    except urllib.error.HTTPError as exc:
-        raise client.ApiError(f"matrícula recusada pela API ({exc.code}): token inválido, expirado, revogado ou esgotado", status=exc.code) from exc
-    except (urllib.error.URLError, OSError, ValueError) as exc:
-        raise client.ApiError(f"API indisponível ({type(exc).__name__})") from exc
+    body: dict[str, Any] = {"token": token, "hostname": socket.gethostname()[:200], "os": platform.system(), "client_version": CLIENT_VERSION, "tools": tools}
+    mh = machine_hash()
+    if mh:
+        body["machine_id_hash"] = mh
+    for attempt in range(6):   # matrícula em massa sai por um IP só: no 429 espera o Retry-After e tenta de novo
+        req = urllib.request.Request(api_url.rstrip("/") + "/v1/enroll", data=json.dumps(body).encode(), method="POST",  # noqa: S310
+                                     headers={"Content-Type": "application/json", "User-Agent": "promptshield-deploy/0.1"})
+        try:
+            with urllib.request.urlopen(req, timeout=15) as r:  # noqa: S310
+                return json.loads(r.read().decode())
+        except urllib.error.HTTPError as exc:
+            if exc.code == 429 and attempt < 5:
+                try:
+                    wait = float(exc.headers.get("Retry-After") or 5)
+                except (TypeError, ValueError):
+                    wait = 5.0
+                sleep(min(max(wait, 1.0), 65.0) + random.random())  # noqa: S311 - jitter para espalhar as tentativas, não é criptografia
+                continue
+            detail = ""
+            try:
+                detail = json.loads(exc.read().decode()).get("detail", "")
+            except (ValueError, OSError, AttributeError):
+                pass
+            if exc.code == 403 and detail:
+                raise client.ApiError(f"matrícula recusada: {detail}", status=403) from exc
+            raise client.ApiError(f"matrícula recusada pela API ({exc.code}): token inválido, expirado, revogado ou esgotado", status=exc.code) from exc
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            raise client.ApiError(f"API indisponível ({type(exc).__name__})") from exc
+    raise client.ApiError("API ocupada demais (429) depois de várias tentativas")
 
 
 def _write(path: Path, text: str, mode: int = 0o644) -> None:

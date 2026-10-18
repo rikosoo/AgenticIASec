@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     # limites de requisição por credencial por minuto, por processo (0 desliga). Coletores de uma empresa inteira usam UMA chave.
     rate_limit_key_per_minute: int = 6000
     rate_limit_user_per_minute: int = 600
+    rate_limit_enroll_per_minute: int = 120   # por IP de origem; uma empresa inteira costuma sair por um IP só (NAT): o sensor espera e tenta de novo no 429
     # /metrics só existe se houver token (Authorization: Bearer ...); sem token a rota responde 404
     metrics_token: str | None = None
     log_json: bool = True

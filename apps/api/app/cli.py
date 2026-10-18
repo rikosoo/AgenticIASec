@@ -47,6 +47,14 @@ def main() -> None:
     u.add_argument("--slug", required=True)
     u.add_argument("--email", required=True)
     u.add_argument("--role", required=True, choices=["admin", "analista", "auditor", "leitura"])
+    lic = sub.add_parser("set-license", help="define o limite de máquinas ativas (45 dias) e a validade da licença de uma empresa (só o fornecedor)")
+    lic.add_argument("--slug", required=True)
+    g = lic.add_mutually_exclusive_group()
+    g.add_argument("--max-devices", type=int, help="limite de máquinas ativas; 0 bloqueia novas matrículas")
+    g.add_argument("--unlimited", action="store_true", help="remove o limite")
+    e = lic.add_mutually_exclusive_group()
+    e.add_argument("--expires", help="validade AAAA-MM-DD (UTC, fim do dia)")
+    e.add_argument("--no-expiry", action="store_true", help="remove a validade")
     sub.add_parser("rewrap-keys", help="troca a chave mestra: reembrulha as chaves de dados (lê OLD_MASTER_KEY e NEW_MASTER_KEY do ambiente)")
     args = ap.parse_args()
     url = settings.admin_database_url or settings.database_url
@@ -55,6 +63,30 @@ def main() -> None:
 
         with Session(create_engine(url)) as s, s.begin():
             print(seed_demo(s, args.slug, args.days, args.count))
+        return
+    if args.cmd == "set-license":
+        from datetime import datetime, timedelta, timezone
+
+        from app import license as lic_mod
+
+        with Session(create_engine(url)) as s, s.begin():
+            tid = s.execute(text("SELECT id FROM tenants WHERE slug = :s"), {"s": args.slug}).scalar_one_or_none()
+            if tid is None:
+                raise SystemExit(f"empresa não encontrada: {args.slug}")
+            s.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tid)})
+            t = s.get(Tenant, tid)
+            if args.max_devices is not None:
+                if args.max_devices < 0:
+                    raise SystemExit("--max-devices precisa ser 0 ou mais")
+                t.max_devices = args.max_devices
+            if args.unlimited:
+                t.max_devices = None
+            if args.expires:
+                t.license_expires_at = datetime.strptime(args.expires, "%Y-%m-%d").replace(tzinfo=timezone.utc) + timedelta(days=1)
+            if args.no_expiry:
+                t.license_expires_at = None
+            s.flush()
+            print(lic_mod.summary(s, t))
         return
     if args.cmd == "rewrap-keys":
         import os

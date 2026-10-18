@@ -13,9 +13,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select, text
 
-from app import audit, audit_system, ratelimit
+from app import audit, audit_system, license, ratelimit
+from app.config import settings
 from app.db import anonymous_session, tenant_session
-from app.models import ApiKey, Device, EnrollmentToken
+from app.models import ApiKey, Device, EnrollmentToken, Tenant
 from app.security import READ_ROLES, Principal, generate_api_key, require_roles
 
 router = APIRouter(prefix="/v1", tags=["matrícula de dispositivos"])
@@ -40,6 +41,8 @@ class EnrollIn(BaseModel):
     os: str | None = Field(default=None, max_length=60)
     client_version: str | None = Field(default=None, max_length=40)
     tools: list[str] = Field(default_factory=list, max_length=20)
+    # SHA-256 de um identificador da máquina (MachineGuid, machine-id, IOPlatformUUID): reinstalar na mesma máquina reaproveita a vaga
+    machine_id_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
 
 @router.post("/enrollment-tokens", status_code=201, summary="Cria token de matrícula; o valor aparece só nesta resposta")
@@ -82,29 +85,54 @@ def revoke_token(token_id: uuid.UUID, p: Annotated[Principal, Depends(require_ro
 
 @router.post("/enroll", status_code=201, summary="Troca um token de matrícula por uma chave de API própria da máquina (sem login)")
 def enroll(body: EnrollIn, request: Request) -> dict:
-    wait = ratelimit.check(f"enroll:{request.client.host if request.client else '?'}", 20)
+    wait = ratelimit.check(f"enroll:{request.client.host if request.client else '?'}", settings.rate_limit_enroll_per_minute)
     if wait is not None:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "muitas tentativas", headers={"Retry-After": str(wait)})
-    with anonymous_session() as s:
-        row = s.execute(text("SELECT token_id, tenant_id FROM enroll_consume(:h)"), {"h": _hash(body.token)}).first()
-    if row is None:  # token inexistente, expirado, revogado ou esgotado: a mesma resposta para não ajudar quem adivinha
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "token de matrícula inválido")
-    key, prefix, digest = generate_api_key()
-    with tenant_session(row.tenant_id) as s:
-        k = ApiKey(tenant_id=row.tenant_id, name=f"dispositivo:{body.hostname}"[:120], prefix=prefix, key_hash=digest, scopes=["ingest"])
-        s.add(k)
-        s.flush()
-        d = Device(tenant_id=row.tenant_id, token_id=row.token_id, api_key_id=k.id, hostname=body.hostname, os=body.os,
-                   client_version=body.client_version, tools=sorted(set(body.tools)))
-        s.add(d)
-        s.flush()
-        audit_system.write(s, row.tenant_id, "device.enroll", "device", str(d.id), {"hostname": body.hostname, "tools": d.tools})
-        return {"device_id": str(d.id), "api_key": key}
+    refused: license.Refused | None = None
+    out: dict | None = None
+    tenant_id = None
+    try:
+        # UMA transação: consumir o token, travar o tenant, conferir a licença e criar a máquina. Recusa = tudo desfeito (o token não é gasto).
+        with anonymous_session() as s:
+            row = s.execute(text("SELECT token_id, tenant_id FROM enroll_consume(:h)"), {"h": _hash(body.token)}).first()
+            if row is None:  # token inexistente, expirado, revogado ou esgotado: a mesma resposta para não ajudar quem adivinha
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED, "token de matrícula inválido")
+            tenant_id = row.tenant_id
+            s.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tenant_id)})
+            tenant = s.execute(select(Tenant).where(Tenant.id == tenant_id).with_for_update()).scalar_one()   # serializa matrículas em massa
+            now = datetime.now(timezone.utc)
+            if body.machine_id_hash:   # reinstalação na mesma máquina: libera a vaga antiga antes de contar
+                for old in s.scalars(select(Device).where(Device.machine_hash == body.machine_id_hash, Device.revoked_at.is_(None))):
+                    old.revoked_at = now
+                    k_old = s.get(ApiKey, old.api_key_id) if old.api_key_id else None
+                    if k_old is not None:
+                        k_old.revoked_at = k_old.revoked_at or now
+                s.flush()
+            license.check_new_seat(s, tenant, now)
+            key, prefix, digest = generate_api_key()
+            k = ApiKey(tenant_id=tenant_id, name=f"dispositivo:{body.hostname}"[:120], prefix=prefix, key_hash=digest, scopes=["ingest"])
+            s.add(k)
+            s.flush()
+            d = Device(tenant_id=tenant_id, token_id=row.token_id, api_key_id=k.id, hostname=body.hostname, os=body.os,
+                       client_version=body.client_version, tools=sorted(set(body.tools)), machine_hash=body.machine_id_hash)
+            s.add(d)
+            s.flush()
+            audit_system.write(s, tenant_id, "device.enroll", "device", str(d.id), {"hostname": body.hostname, "tools": d.tools})
+            out = {"device_id": str(d.id), "api_key": key}
+    except license.Refused as exc:
+        refused = exc
+    if refused is not None:
+        with tenant_session(tenant_id) as s2:
+            audit_system.write(s2, tenant_id, "device.enroll_refused", "device", None, {"hostname": body.hostname, "reason": refused.reason})
+        raise HTTPException(status.HTTP_403_FORBIDDEN, refused.detail)
+    assert out is not None
+    return out
 
 
 def _device_view(d: Device, k: ApiKey | None) -> dict:
     last = k.last_used_at if k else None
-    return {"id": str(d.id), "hostname": d.hostname, "os": d.os, "client_version": d.client_version, "tools": d.tools,
+    ref = max(x for x in (last, d.enrolled_at) if x is not None)
+    return {"counts_toward_license": d.revoked_at is None and ref >= license.cutoff(), "id": str(d.id), "hostname": d.hostname, "os": d.os, "client_version": d.client_version, "tools": d.tools,
             "enrolled_at": d.enrolled_at.isoformat(), "last_seen_at": last.isoformat() if last else None,
             "revoked": d.revoked_at is not None}
 
@@ -114,12 +142,13 @@ def list_devices(p: Annotated[Principal, Depends(require_roles(*READ_ROLES))]) -
     with tenant_session(p.tenant_id) as s:
         rows = s.execute(select(Device, ApiKey).outerjoin(ApiKey, ApiKey.id == Device.api_key_id).order_by(Device.enrolled_at.desc())).all()
         devices = [_device_view(d, k) for d, k in rows]
+        lic = license.summary(s, s.get(Tenant, p.tenant_id))
     active = [d for d in devices if not d["revoked"]]
     coverage: dict[str, int] = {}
     for d in active:
         for t in d["tools"]:
             coverage[t] = coverage.get(t, 0) + 1
-    return {"devices": devices, "active": len(active), "coverage": coverage}
+    return {"devices": devices, "active": len(active), "coverage": coverage, "license": lic}
 
 
 @router.post("/devices/{device_id}/revoke")

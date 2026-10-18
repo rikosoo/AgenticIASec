@@ -46,6 +46,9 @@ class Tenant(Base):
     policy_url: Mapped[str | None] = mapped_column(String(500))
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     volume_threshold_per_hour: Mapped[int] = mapped_column(Integer, default=60)
+    # licença: definida SÓ pelo fornecedor (python -m app.cli set-license); nenhuma rota do administrador da empresa altera
+    max_devices: Mapped[int | None] = mapped_column(Integer)
+    license_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     original_retention_days: Mapped[int] = mapped_column(Integer, default=30)
     last_retention_run: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     pilot_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -100,6 +103,7 @@ class Device(Base):
     __tablename__ = "devices"
     id: Mapped[uuid.UUID] = _pk()
     tenant_id: Mapped[uuid.UUID] = _tenant()
+    machine_hash: Mapped[str | None] = mapped_column(String(64))
     token_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("enrollment_tokens.id", ondelete="SET NULL"))
     api_key_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, ForeignKey("api_keys.id", ondelete="SET NULL"))
     hostname: Mapped[str] = mapped_column(String(200))

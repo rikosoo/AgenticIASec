@@ -6,6 +6,7 @@ test("dispositivos: criar token, matricular uma máquina, ver cobertura e revoga
   await page.goto("/devices");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Dispositivos");
   await expect(page.getByText("Nenhuma máquina matriculada.")).toBeVisible();
+  await expect(page.getByTestId("license")).toContainText("Sem limite de máquinas");
 
   await page.getByLabel("Nome (ex.: piloto TI)").fill("piloto e2e");
   await page.getByRole("button", { name: "Criar token" }).click();
@@ -29,6 +30,8 @@ test("dispositivos: criar token, matricular uma máquina, ver cobertura e revoga
   await expect(page.getByTestId("kpi").filter({ hasText: "Máquinas ativas" })).toContainText("1");
   await expect(page.getByTestId("kpi").filter({ hasText: "GitHub Copilot CLI" })).toBeVisible();
   await expect(page.getByTestId("tokens-table")).toContainText("1 / 1000");
+  await expect(page.getByTestId("license")).toContainText("1 ativas");
+  await expect(page.getByTestId("device-row").first()).toContainText("sim");
   await expectAccessible(page);
 
   page.once("dialog", (d) => void d.accept());

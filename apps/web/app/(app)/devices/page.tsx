@@ -46,6 +46,22 @@ export default function DevicesPage() {
       {!d && !devices.error && <Loading />}
       {d && (
         <>
+          <section aria-label="Licença" data-testid="license" className="rounded-md border border-line bg-panel p-4 text-sm">
+            <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Licença</h2>
+            {d.license.max_devices === null
+              ? <p><strong>Sem limite de máquinas.</strong> {d.license.active_seats} ativas nos últimos {d.license.window_days} dias.</p>
+              : (
+                <>
+                  <p><strong>{d.license.active_seats} de {d.license.max_devices}</strong> máquinas ativas nos últimos {d.license.window_days} dias.</p>
+                  <progress className="mt-2 h-2 w-full" max={Math.max(d.license.max_devices, 1)} value={Math.min(d.license.active_seats, Math.max(d.license.max_devices, 1))} aria-label="Máquinas usadas da licença" />
+                  {d.license.level === "alerta" && <p role="status" className="mt-2 text-med">Acima de 80% do limite: novas máquinas só entram enquanto houver vaga.</p>}
+                  {d.license.level === "esgotada" && <p role="alert" className="mt-2 text-high">Limite atingido: novas máquinas não serão matriculadas. As já instaladas continuam enviando eventos. Revogue as que não são mais usadas ou fale com o fornecedor.</p>}
+                </>
+              )}
+            {d.license.expired && <p role="alert" className="mt-2 text-high">Licença expirada: novas máquinas não podem ser matriculadas.</p>}
+            {d.license.expires_at && !d.license.expired && <p className="mt-1 text-xs text-muted">Válida até {whenFull(d.license.expires_at)}.</p>}
+            <p className="mt-2 text-xs text-muted">Uma máquina ocupa vaga se não foi revogada e enviou algo, ou foi matriculada, nos últimos {d.license.window_days} dias. Reinstalar na mesma máquina não gasta outra vaga. O limite é definido pelo fornecedor.</p>
+          </section>
           <div className="grid gap-3 sm:grid-cols-3">
             <Kpi label="Máquinas ativas" value={d.active} />
             {Object.entries(d.coverage).map(([k, v]) => <Kpi key={k} label={TOOL_LABEL[k] ?? k} value={v} />)}
@@ -54,13 +70,13 @@ export default function DevicesPage() {
             {d.devices.length === 0 ? <Empty>Nenhuma máquina matriculada.</Empty> : (
               <div className="overflow-x-auto"><table className="w-full min-w-[40rem] border-collapse" data-testid="devices-table">
                 <caption className="sr-only">Máquinas matriculadas</caption>
-                <thead><tr><th scope="col" className="th">Máquina</th><th scope="col" className="th">Sistema</th><th scope="col" className="th">Ferramentas</th><th scope="col" className="th">Matriculada</th><th scope="col" className="th">Último envio</th><th scope="col" className="th">Situação</th><th scope="col" className="th"><span className="sr-only">Ações</span></th></tr></thead>
+                <thead><tr><th scope="col" className="th">Máquina</th><th scope="col" className="th">Sistema</th><th scope="col" className="th">Ferramentas</th><th scope="col" className="th">Matriculada</th><th scope="col" className="th">Último envio</th><th scope="col" className="th">Situação</th><th scope="col" className="th">Ocupa vaga</th><th scope="col" className="th"><span className="sr-only">Ações</span></th></tr></thead>
                 <tbody>{d.devices.map((x) => (
                   <tr key={x.id} data-testid="device-row">
                     <th scope="row" className="td text-left font-medium">{x.hostname}</th><td className="td">{x.os ?? "—"}</td>
                     <td className="td text-xs">{x.tools.map((t) => TOOL_LABEL[t] ?? t).join(", ") || "—"}</td>
                     <td className="td text-xs">{whenFull(x.enrolled_at)}</td><td className="td text-xs">{x.last_seen_at ? whenFull(x.last_seen_at) : "nunca"}</td>
-                    <td className="td">{x.revoked ? "revogada" : "ativa"}</td>
+                    <td className="td">{x.revoked ? "revogada" : "ativa"}</td><td className="td text-xs">{x.counts_toward_license ? "sim" : "não"}</td>
                     <td className="td">{isAdmin && !x.revoked && <button type="button" className="btn" disabled={busy} onClick={() => revokeDevice(x.id, x.hostname)}>Revogar</button>}</td>
                   </tr>))}</tbody>
               </table></div>

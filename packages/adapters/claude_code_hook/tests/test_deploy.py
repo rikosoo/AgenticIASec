@@ -1,6 +1,8 @@
 """Instalação em nível de máquina, em pasta de teste (--root). Nada toca /etc nem C:\\ProgramData reais."""
 import json
 
+import pytest
+
 from promptshield_claude_hook import deploy, setup
 
 
@@ -45,3 +47,43 @@ def test_failed_enrollment_changes_nothing(tmp_path, monkeypatch):
 
 def test_browser_extension_is_opt_in():
     assert "browser_extension" not in deploy.DEFAULT_TOOLS and "browser_extension" in deploy.ALL_TOOLS
+
+
+def test_enroll_sends_a_hashed_machine_id_and_retries_on_429(monkeypatch):
+    import io
+    import urllib.error
+
+    seen = []
+
+    class Resp(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    calls = {"n": 0}
+
+    def fake_urlopen(req, timeout=0):
+        calls["n"] += 1
+        seen.append(json.loads(req.data))
+        if calls["n"] < 3:
+            raise urllib.error.HTTPError(req.full_url, 429, "x", {"Retry-After": "1"}, io.BytesIO(b"{}"))
+        return Resp(json.dumps({"api_key": "ps_ok"}).encode())
+
+    monkeypatch.setattr(deploy.urllib.request, "urlopen", fake_urlopen)
+    waits = []
+    out = deploy.enroll("http://x", "pse_t", ["claude_code"], sleep=waits.append)
+    assert out["api_key"] == "ps_ok" and len(waits) == 2 and all(1 <= w <= 3 for w in waits)
+    h = seen[0].get("machine_id_hash")
+    assert h is None or (len(h) == 64 and set(h) <= set("0123456789abcdef"))
+
+
+def test_enroll_shows_the_license_message_on_403(monkeypatch):
+    import io
+    import urllib.error
+
+    def fake_urlopen(req, timeout=0):
+        raise urllib.error.HTTPError(req.full_url, 403, "x", {}, io.BytesIO(json.dumps({"detail": "limite de máquinas da licença atingido (50 de 50)"}).encode()))
+
+    monkeypatch.setattr(deploy.urllib.request, "urlopen", fake_urlopen)
+    with pytest.raises(deploy.client.ApiError) as e:
+        deploy.enroll("http://x", "pse_t", [])
+    assert "50 de 50" in str(e.value) and e.value.status == 403

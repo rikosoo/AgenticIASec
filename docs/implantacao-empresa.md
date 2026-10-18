@@ -51,3 +51,14 @@ python -m promptshield_claude_hook deploy --uninstall --confirm-employees-notifi
 - Instalar em massa um coletor de prompts é decisão de privacidade do cliente: o instalador deve **exigir** que o administrador confirme que os empregados foram avisados, e o aviso é obrigação do cliente.
 - Política de nível de máquina que o usuário não consegue remover aumenta o impacto de um erro nosso (bug, API fora do ar). Padrão: sombra, modo de falha aberto, desinstalação testada.
 - Um executável assinado e instalado em milhares de máquinas vira alvo de ataque à cadeia de suprimentos: assinatura, hash publicado e processo de release são requisitos, não detalhes.
+
+## Licença: limite de máquinas e validade (construído, testado só com dados sintéticos)
+
+- **Quem define:** só o fornecedor, na linha de comando do servidor: `python -m app.cli set-license --slug empresa --max-devices 50 --expires 2027-12-31` (`--unlimited` e `--no-expiry` removem). Nenhuma rota do administrador da empresa altera (teste garante que `PATCH /v1/tenant` recusa o campo).
+- **O que conta como vaga:** máquina não revogada que enviou algo, ou foi matriculada, nos últimos **45 dias**. Máquina aposentada libera a vaga sozinha; revogar libera na hora.
+- **O que o limite barra:** só **novas matrículas** (`403` com mensagem clara). Máquinas já instaladas continuam enviando eventos, mesmo no limite ou com a licença expirada, para a empresa não ficar sem visibilidade por causa de contrato. Cortar o envio é decisão contratual que não foi tomada.
+- **Recusa não gasta token:** consumir o token, conferir a licença e criar a máquina são uma transação só; a recusa desfaz tudo. A linha da empresa no banco é travada durante a matrícula, então 500 máquinas matriculando ao mesmo tempo nunca passam do limite (teste com 8 matrículas paralelas e limite 3).
+- **Reinstalar não gasta vaga:** o sensor manda o SHA-256 de um identificador da máquina (MachineGuid, machine-id, IOPlatformUUID), nunca o valor bruto; a mesma máquina reaproveita a vaga e a chave antiga é revogada.
+- **Matrícula em massa:** o limite de taxa do `/v1/enroll` é por IP (padrão 120 por minuto, `RATE_LIMIT_ENROLL_PER_MINUTE`), e o sensor espera o `Retry-After` e tenta de novo, porque uma empresa inteira sai por um IP só.
+- **Visibilidade:** a página **Dispositivos** mostra "X de Y", barra de uso, aviso acima de 80% e ao atingir o limite, e a validade. Cada recusa fica no registro de auditoria (`device.enroll_refused`). **Não construído:** e-mail ao administrador em 80% e 100%.
+- **O que o limite técnico não impede:** imagens de máquina clonadas compartilham o identificador (contam uma vaga só), e quem copia um instalador com token válido instala em outras máquinas enquanto houver vaga. O que fecha isso é o contrato (cláusula de uso e direito de auditoria), com a contagem do console como evidência.
