@@ -61,3 +61,56 @@ def test_signals_are_counts_only(client, world):
     assert SECRET not in str(sg)
     other = client.get("/v1/stats/signals", headers=world.tok("admin@b.example.com")).json()
     assert other == {"span_types": {}, "intents": {}, "kinds": {}, "tools": {}}      # isolamento por tenant
+
+
+def _at(day: str):
+    return {"occurred_at": f"{day}T12:00:00Z"}
+
+
+def test_person_date_and_decision_filters(client, world):
+    post(client, world, "SIMULADO: texto da ana", actor={"user_id": "ana@x.example", "department": "Vendas"}, **_at("2026-10-10"))
+    post(client, world, "SIMULADO: texto do bruno", actor={"user_id": "bruno@x.example", "department": "Engenharia"}, **_at("2026-10-12"))
+    post(client, world, f"SIMULADO: chave {SECRET}", actor={"user_id": "bruno@x.example", "department": "Engenharia"}, **_at("2026-10-14"))
+    assert len(listing(client, world, user_q="ANA")) == 1
+    assert len(listing(client, world, user_q="x.example")) == 3
+    assert len(listing(client, world, user_q="%")) == 0
+    assert len(listing(client, world, user_id="bruno@x.example")) == 2
+    assert len(listing(client, world, date_from="2026-10-11", date_to="2026-10-12")) == 1
+    assert len(listing(client, world, date_from="2026-10-12")) == 2
+    assert len(listing(client, world, date_to="2026-10-10")) == 1
+    r = client.get("/v1/events", params={"days": 365, "user_q": "bruno", "limit": 1}, headers=world.user("leitura"))
+    assert r.headers["X-Total-Count"] == "2" and len(r.json()) == 1
+    assert client.get("/v1/events", params={"decision": "explode"}, headers=world.user("leitura")).status_code == 422
+
+
+def test_people_directory_and_isolation(client, world):
+    post(client, world, "SIMULADO: oi", actor={"user_id": "ana@x.example", "department": "Vendas"}, occurred_at=_now())
+    post(client, world, f"SIMULADO: chave {SECRET}", actor={"user_id": "bruno@x.example", "department": "Engenharia"}, occurred_at=_now())
+    other = event("SIMULADO: outro tenant", actor={"user_id": "zed@b.example"}, occurred_at=_now())
+    assert client.post("/v1/events", json=other, headers=world.key("b")).status_code == 200
+    rows = client.get("/v1/people", headers=world.user("leitura")).json()
+    assert [r["user_id"] for r in rows][0] == "bruno@x.example"                 # maior risco primeiro
+    assert {r["user_id"] for r in rows} == {"ana@x.example", "bruno@x.example"}  # zed é de outro tenant
+    assert rows[0]["high_risk"] >= 1 and rows[0]["events"] == 1
+    assert [r["user_id"] for r in client.get("/v1/people", params={"q": "ana"}, headers=world.user("leitura")).json()] == ["ana@x.example"]
+    assert client.get("/v1/people", params={"q": "%"}, headers=world.user("leitura")).json() == []
+
+
+def _now() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def test_csv_export_roles_audit_and_formula_guard(client, world):
+    post(client, world, "=HYPERLINK(\"http://evil\") SIMULADO", actor={"user_id": "+cmd@x.example", "department": "Eng"}, occurred_at=_now())
+    post(client, world, "SIMULADO: normal", occurred_at=_now())
+    for role in ("leitura", "analista"):
+        assert client.get("/v1/events/export.csv", headers=world.user(role)).status_code == 403
+    assert client.get("/v1/events/export.csv", headers=world.key()).status_code in (401, 403)
+    r = client.get("/v1/events/export.csv", params={"days": 1, "user_q": "x"}, headers=world.user("auditor"))
+    assert r.status_code == 200 and r.text.startswith("﻿quando_utc,pessoa")
+    assert "'=HYPERLINK" in r.text and "'+cmd@x.example" in r.text
+    assert SECRET not in r.text
+    assert "attachment" in r.headers["content-disposition"]
+    assert world.sql("SELECT count(*) FROM audit_log WHERE action = 'export.prompts_csv'").scalar() == 1
+    assert client.get("/v1/events/export.csv", params={"days": 1}, headers=world.user("admin")).status_code == 200

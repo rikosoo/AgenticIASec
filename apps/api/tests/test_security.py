@@ -28,7 +28,7 @@ EXPECTED: dict[tuple[str, str], object] = {
     ("GET", "/health"): PUBLIC, ("GET", "/version"): PUBLIC,
     ("GET", "/v1/me"): ANY, ("POST", "/dev/token"): DEV,
     ("GET", "/v1/alerts"): ALL, ("GET", "/v1/taxonomy"): ALL, ("GET", "/v1/stats/overview"): ALL, ("GET", "/v1/stats/categories"): ALL,
-    ("GET", "/v1/stats/risk"): ALL, ("GET", "/v1/stats/signals"): ALL, ("GET", "/v1/tenant"): ALL, ("GET", "/v1/events"): ALL, ("GET", "/v1/events/{event_id}"): ALL,
+    ("GET", "/v1/stats/risk"): ALL, ("GET", "/v1/stats/signals"): ALL, ("GET", "/v1/tenant"): ALL, ("GET", "/v1/events"): ALL, ("GET", "/v1/people"): ALL, ("GET", "/v1/events/export.csv"): ("admin", "auditor"), ("GET", "/v1/events/{event_id}"): ALL,
     ("GET", "/v1/incidents"): ALL, ("GET", "/v1/incidents/{incident_id}"): ALL, ("GET", "/v1/policies"): ALL,
     ("PATCH", "/v1/incidents/{incident_id}"): ("admin", "analista"),
     ("POST", "/v1/events/{event_id}/original"): ("admin", "analista"),          # texto original: só admin e analista, com justificativa

@@ -5,9 +5,10 @@ describe("safeApiPath", () => {
   it("aceita só caminhos /v1/...", () => {
     expect(safeApiPath(["v1", "events"])).toBe("v1/events");
     expect(safeApiPath(["v1", "incidents", "3f2a-1"])).toBe("v1/incidents/3f2a-1");
+    expect(safeApiPath(["v1", "events", "export.csv"])).toBe("v1/events/export.csv");
   });
   it("recusa tudo o mais, inclusive tentativas de sair do /v1", () => {
-    for (const bad of [["dev", "token"], ["v1", "..", "dev", "token"], ["openapi.json"], ["v1", ""], ["v1", "events?x=1"], ["v1", "a b"], [], ["v1", "%2e%2e"]]) {
+    for (const bad of [["dev", "token"], ["v1", "..", "dev", "token"], ["openapi.json"], ["v1", ""], ["v1", "events?x=1"], ["v1", "a b"], [], ["v1", "%2e%2e"], ["v1", "a.b.c"], ["v1", "x.", "y"], ["v1", "..csv"]]) {
       expect(safeApiPath(bad), JSON.stringify(bad)).toBeNull();
     }
   });

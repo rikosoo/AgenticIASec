@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Dialog } from "@/components/Dialog";
+import { PromptDetailDialog } from "@/components/PromptDetail";
 import { Chip, DecisionCell, Empty, ErrorBox, Loading, MaskedText, Pager, Panel, RiskBar } from "@/components/ui";
 import { api, apiPage, qs, useLoad } from "@/lib/api";
-import { clip, when, whenFull } from "@/lib/format";
+import { clip, when } from "@/lib/format";
 import { APP_LABEL, appLabel, intentLabel, KIND_LABEL, spanLabel } from "@/lib/labels";
 import type { PromptRow, SignalsOut } from "@/lib/types";
 import { useTaxonomy } from "@/lib/useTaxonomy";
@@ -176,31 +176,8 @@ export default function PromptsPage() {
 
       </div>
 
-      <Dialog open={!!selected} onClose={() => setSelected(null)} title="Detalhe do prompt" wide>
-        {selected && (
-          <div className="space-y-3 text-sm" data-testid="prompt-detail">
-              <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                <dt className="text-muted">Usuário</dt><dd>{selected.user_id}</dd>
-                <dt className="text-muted">Departamento</dt><dd>{selected.department ?? "—"}</dd>
-                <dt className="text-muted">Ferramenta</dt><dd>{appLabel(selected.app)} ({selected.personal_account ? "pessoal" : "corporativa"})</dd>
-                <dt className="text-muted">Quando</dt><dd>{whenFull(selected.occurred_at)}</dd>
-                <dt className="text-muted">Tipo</dt><dd>{KIND_LABEL[selected.kind] ?? selected.kind}{selected.tool_name ? ` (${selected.tool_name})` : ""}</dd>
-                {selected.session_id && <><dt className="text-muted">Sessão</dt><dd><button type="button" className="text-accent underline" onClick={() => { setSessionId(selected.session_id!); setSelected(null); setPage(0); }}>ver todos os eventos desta sessão</button></dd></>}
-              </dl>
-              {(selected.flags.intents ?? []).length > 0 && <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">O que foi pedido</h3><p>{(selected.flags.intents ?? []).map(intentLabel).join(", ")}</p></div>}
-              {(selected.spans ?? []).length > 0 && <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">Trechos sensíveis detectados</h3>
-                <ul className="space-y-1 font-mono text-xs">{(selected.spans ?? []).map((sp, i) => <li key={i}>{spanLabel(sp.type)} · {sp.masked}</li>)}</ul></div>}
-              <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">Prompt (mascarado)</h3><div className="rounded border border-line bg-panel2 p-2"><MaskedText text={selected.masked_text} block /></div></div>
-              <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">Motivos do score</h3>
-                <ul className="space-y-1 font-mono text-xs">{selected.reasons.map((r, i) => <li key={i}>+{r.contribution} · {r.rule}</li>)}{!selected.reasons.length && <li>sem motivos de risco</li>}</ul></div>
-              {selected.policy_hits.length > 0 && <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">Políticas que casaram</h3>
-                <ul className="space-y-1 text-xs">{selected.policy_hits.map((h) => <li key={h.policy_id}>{h.name} <span className="text-muted">({h.mode === "monitor" ? "monitorar" : "aplicar"})</span></li>)}</ul></div>}
-              <p className="text-xs text-muted">Indicador de risco, requer revisão humana.</p>
-              {selected.incident_id && <Link href={`/incidents/${selected.incident_id}`} className="btn-primary inline-block">Abrir incidente</Link>}
-            </div>
-        )}
-        <div className="mt-4 flex justify-end"><button type="button" className="btn" onClick={() => setSelected(null)}>Fechar</button></div>
-      </Dialog>
+      <PromptDetailDialog row={selected} onClose={() => setSelected(null)}
+        onSession={(id) => { setSessionId(id); setSelected(null); setPage(0); }} />
     </div>
   );
 }

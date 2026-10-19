@@ -1,6 +1,6 @@
 /** Regras do proxy para a API (puras, testadas). O navegador nunca fala direto com a API nem vê o token. */
 
-const ALLOWED = /^v1\/[A-Za-z0-9_\-/]+$/;
+const ALLOWED = /^v1\/[A-Za-z0-9_\-/]+(\.[A-Za-z0-9]+)?$/;   // uma extensão final permitida (ex.: events/export.csv)
 
 /** Só caminhos /v1/... sem `..`; devolve o caminho seguro ou null. */
 export function safeApiPath(segments: string[]): string | null {

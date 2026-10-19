@@ -7,6 +7,7 @@ import { SessionProvider, useSession } from "./session";
 
 const NAV = [
   { href: "/", label: "Visão geral" },
+  { href: "/history", label: "Todos os prompts" },
   { href: "/prompts", label: "Análise de prompts" },
   { href: "/incidents", label: "Incidentes" },
   { href: "/risk", label: "Risco por usuário" },

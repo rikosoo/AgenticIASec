@@ -54,3 +54,7 @@ logs JSON e /metrics sem conteúdo   |   infra/backup.sh + restore.sh   |   pilo
 ```
 
 Modelo de ameaças (STRIDE): `docs/ameacas.md`. Mapa de dados, bases legais sugeridas (LGPD, GDPR, EUA) e modelos de aviso e política: `docs/lgpd.md`. Operação: `docs/operacao.md`. Piloto: `docs/piloto.md`.
+
+## Todos os prompts (histórico pesquisável)
+
+Página `/history` do console. Usa `GET /v1/events` (filtros: `user_q`, `q`, `app`, `kind`, `category`, `decision`, `department`, `date_from`/`date_to`/`days`, `personal_account`, `session_id`; total no cabeçalho `X-Total-Count`), `GET /v1/people` (volume, risco e última atividade por pessoa) e `GET /v1/events/export.csv` (admin e auditor; auditado). A busca atua só no texto já mascarado, nunca no original.

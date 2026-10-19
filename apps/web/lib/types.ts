@@ -99,3 +99,4 @@ export interface DeviceRow { counts_toward_license?: boolean; id: string; hostna
 export interface DevicesOut { devices: DeviceRow[]; active: number; coverage: Record<string, number>; license: License }
 
 export interface SignalsOut { span_types: Record<string, number>; intents: Record<string, number>; kinds: Record<string, number>; tools: Record<string, number> }
+export interface PersonRow { user_id: string; department: string | null; events: number; high_risk: number; max_risk: number; avg_risk: number; last_seen: string }
