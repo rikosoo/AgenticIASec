@@ -2,6 +2,7 @@
 import time
 
 import pytest
+
 from promptshield_detection.engine import analyze
 
 N = 60_000
