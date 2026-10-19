@@ -58,7 +58,8 @@ def stored_text(tenant: Tenant, an: Any) -> str:
 
 def _engine_event(ev: EventIn) -> dict[str, Any]:
     return {"kind": ev.kind,
-            "content": {"text": ev.content.text, "tool_name": ev.content.tool_name, "tool_input": ev.content.tool_input},
+            "content": {"text": ev.content.text, "tool_name": ev.content.tool_name, "tool_input": ev.content.tool_input,
+                        "attachments": [a.model_dump() for a in ev.content.attachments]},
             "context": {"personal_account": ev.context.personal_account}}
 
 
@@ -121,7 +122,7 @@ def ingest(session: Session, p: Principal, ev: EventIn, force_monitor: bool = Fa
         user_id=ev.actor.user_id, department=ev.actor.department, device_id=ev.actor.device_id,
         agent_id=ev.actor.agent_id, kind=ev.kind, session_id=ev.context.session_id,
         personal_account=ev.context.personal_account, tool_name=ev.content.tool_name,
-        masked_text=stored_text(tenant, an), text_length=len(text), original_ciphertext=original,
+        masked_text=stored_text(tenant, an), text_length=len(text), original_ciphertext=original, attachments=an.attachments,
     ).on_conflict_do_nothing(index_elements=["tenant_id", "event_id"]).returning(Event.id)
     pk = session.execute(stmt).scalar()
     if pk is None:  # corrida: outro pedido gravou o mesmo event_id

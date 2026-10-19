@@ -22,3 +22,9 @@ export function splitMasks(text: string): { text: string; mask: boolean }[] {
 }
 
 export const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+
+export function fileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}

@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Attachments } from "@/components/Attachments";
 import { PromptDetailDialog } from "@/components/PromptDetail";
 import { Chip, DecisionCell, Empty, ErrorBox, Loading, MaskedText, Pager, Panel, RiskBar } from "@/components/ui";
 import { api, apiPage, qs, useLoad } from "@/lib/api";
@@ -160,6 +161,7 @@ export default function PromptsPage() {
                           {p.kind === "tool_call" && <span className="mr-1 rounded border border-line px-1 text-xs text-muted">{p.tool_name ?? "ação"}</span>}
                           <MaskedText text={clip(p.masked_text.replace(/\s+/g, " "), 120)} />
                         </button>
+                        <Attachments row={p} compact />
                         <div className="mt-1">{p.categories.map((c) => <Chip key={c.id}>{name(c.id)}</Chip>)}
                           {(p.flags.intents ?? []).map((i) => <span key={i} className={`mr-1 text-xs ${i === "declara_confidencial" ? "font-semibold text-high" : "text-muted"}`}>{intentLabel(i)}</span>)}</div>
                       </td>

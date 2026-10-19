@@ -4,6 +4,7 @@ export interface PromptInput {
   app: string;
   text: string;
   sessionPath: string;
+  files?: { name: string; size: number; type: string }[];
 }
 
 export function buildEvent(input: PromptInput, cfg: FullConfig, installId: string, profileEmail: string, now = new Date()) {
@@ -15,8 +16,9 @@ export function buildEvent(input: PromptInput, cfg: FullConfig, installId: strin
     // integração por extensão: EXPERIMENTAL (seletores dos sites não verificados contra as páginas reais)
     source: { channel: "browser", app: input.app, integration_status: "experimental" },
     actor,
-    kind: "prompt",
-    content: { text: input.text },
+    kind: input.text.trim() || !input.files?.length ? "prompt" : "file_upload",
+    // arquivos: só nome, tamanho e tipo. O conteúdo do arquivo nunca é lido pela extensão.
+    content: { text: input.text, ...(input.files?.length ? { attachments: input.files.map((f) => ({ name: f.name, size: f.size, mime: f.type || null })) } : {}) },
     // a extensão não sabe se a conta do site é pessoal ou corporativa
     context: { session_id: input.sessionPath.slice(0, 200) || null, personal_account: false },
   };

@@ -31,6 +31,7 @@ class Context:
     personal_account: bool = False
     allowed_hosts: tuple[str, ...] = ()
     project_names: tuple[str, ...] = ()
+    attachments: tuple[dict[str, Any], ...] = ()
 
     @property
     def folded(self) -> str:
@@ -75,6 +76,7 @@ class Analysis:
     spans: list[Span] = field(default_factory=list)
     decision: str = "allow"
     masked_text: str = ""
+    attachments: list[dict[str, Any]] = field(default_factory=list)   # só nomes (já mascarados), tamanho e tipo
     score_version: str = ""
 
     def category_ids(self, min_confidence: float = 0.5) -> set[str]:

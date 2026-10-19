@@ -1,5 +1,6 @@
 "use client";
 import { Fragment, useState } from "react";
+import { Attachments } from "@/components/Attachments";
 import { PromptDetailDialog } from "@/components/PromptDetail";
 import { useSession } from "@/components/session";
 import { Chip, DecisionCell, Empty, ErrorBox, Loading, Pager, Panel, RiskBar } from "@/components/ui";
@@ -49,6 +50,7 @@ export default function HistoryPage() {
   const [days, setDays] = useState(30);
   const [onlyRisk, setOnlyRisk] = useState(false);
   const [personalOnly, setPersonalOnly] = useState(false);
+  const [withFile, setWithFile] = useState(false);
   const [sessionId, setSessionId] = useState("");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<PromptRow | null>(null);
@@ -58,13 +60,13 @@ export default function HistoryPage() {
   const people = useLoad(() => api<PersonRow[]>(`v1/people${qs({ days, limit: 100 })}`), [days]);
   const filters = {
     days, user_q: personApplied, q: wordApplied, app: app || undefined, kind, category, decision, department,
-    session_id: sessionId, min_score: onlyRisk ? 1 : 0, personal_account: personalOnly ? true : undefined,
+    session_id: sessionId, has_attachment: withFile ? true : undefined, min_score: onlyRisk ? 1 : 0, personal_account: personalOnly ? true : undefined,
   };
   const list = useLoad(() => apiPage<PromptRow[]>(`v1/events${qs({ ...filters, sort: "recent", limit: PAGE, offset: page * PAGE })}`),
-    [days, personApplied, wordApplied, app, kind, category, decision, department, onlyRisk, personalOnly, sessionId, page]);
+    [days, personApplied, wordApplied, app, kind, category, decision, department, onlyRisk, personalOnly, withFile, sessionId, page]);
   const departments = Array.from(new Set((people.data ?? []).map((p) => p.department).filter((d): d is string => !!d))).sort();
-  const anyFilter = sessionId || personApplied || wordApplied || app || kind || category || decision || department || onlyRisk || personalOnly;
-  const clear = () => { setPerson(""); setPersonApplied(""); setWord(""); setWordApplied(""); setApp(""); setKind(""); setCategory(""); setDecision(""); setDepartment(""); setOnlyRisk(false); setPersonalOnly(false); setSessionId(""); setPage(0); };
+  const anyFilter = sessionId || personApplied || wordApplied || app || kind || category || decision || department || onlyRisk || personalOnly || withFile;
+  const clear = () => { setPerson(""); setPersonApplied(""); setWord(""); setWordApplied(""); setApp(""); setKind(""); setCategory(""); setDecision(""); setDepartment(""); setOnlyRisk(false); setPersonalOnly(false); setWithFile(false); setSessionId(""); setPage(0); };
   const choosePerson = (id: string) => { setPerson(id); setPersonApplied(id); setSelected(null); setPage(0); };
 
   return (
@@ -79,8 +81,8 @@ export default function HistoryPage() {
         <div><label htmlFor="person" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Pessoa (nome ou e-mail)</label>
           <input id="person" className="field w-full" list="people-list" value={person} maxLength={100} onChange={(e) => setPerson(e.target.value)} placeholder="ex.: ana@empresa.com" />
           <datalist id="people-list">{(people.data ?? []).map((p) => <option key={p.user_id} value={p.user_id} />)}</datalist></div>
-        <div><label htmlFor="word" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Palavra-chave no prompt</label>
-          <input id="word" className="field w-full" value={word} minLength={2} maxLength={100} onChange={(e) => setWord(e.target.value)} placeholder="ex.: contrato, senha, cliente" /></div>
+        <div><label htmlFor="word" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Palavra-chave (prompt ou arquivo)</label>
+          <input id="word" className="field w-full" value={word} minLength={2} maxLength={100} onChange={(e) => setWord(e.target.value)} placeholder="ex.: contrato, senha, nome de arquivo" /></div>
         <div><label htmlFor="app" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Ferramenta</label>
           <select id="app" className="field w-full" value={app} onChange={(e) => reset(setApp)(e.target.value)}>
             <option value="">Todas</option>{Object.entries(APP_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
@@ -102,6 +104,7 @@ export default function HistoryPage() {
             <option value="">Todos</option>{departments.map((d) => <option key={d} value={d}>{d}</option>)}</select></div>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 md:col-span-2 xl:col-span-4">
           <label className="flex items-center gap-2"><input type="checkbox" checked={onlyRisk} onChange={(e) => reset(setOnlyRisk)(e.target.checked)} /> Só com risco</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={withFile} onChange={(e) => reset(setWithFile)(e.target.checked)} /> Só com arquivo anexado</label>
           <label className="flex items-center gap-2"><input type="checkbox" checked={personalOnly} onChange={(e) => reset(setPersonalOnly)(e.target.checked)} /> Só conta pessoal</label>
           <button className="btn-primary">Buscar</button>
           {anyFilter && <button type="button" className="btn" onClick={clear}>Limpar filtros</button>}
@@ -154,6 +157,7 @@ export default function HistoryPage() {
                           {p.kind === "tool_call" && <span className="mr-1 rounded border border-line px-1 text-xs text-muted">{p.tool_name ?? "ação"}</span>}
                           <Highlighted text={clip(p.masked_text.replace(/\s+/g, " "), 160)} term={wordApplied} />
                         </button>
+                        <Attachments row={p} compact />
                         <div className="mt-1">{p.categories.map((c) => <Chip key={c.id}>{name(c.id)}</Chip>)}</div>
                       </td>
                       <td className="td"><RiskBar score={p.risk_score} /></td>

@@ -21,7 +21,7 @@ test("todos os prompts: filtrar por pessoa e palavra-chave, abrir detalhe, expor
   await expect.poll(async () => (await rows.locator("td:nth-child(2) button").allInnerTexts()).every((t) => t.trim() === who)).toBe(true);
 
   // palavra sem resultado
-  await page.getByLabel("Palavra-chave no prompt").fill("zzzz-nao-existe");
+  await page.getByLabel("Palavra-chave (prompt ou arquivo)").fill("zzzz-nao-existe");
   await page.getByRole("button", { name: "Buscar", exact: true }).click();
   await expect(page.getByText("Nenhum prompt com esses filtros.")).toBeVisible();
   await page.getByRole("button", { name: "Limpar filtros" }).click();
@@ -44,4 +44,16 @@ test("todos os prompts: leitura vê a lista mas não o botão de exportar", asyn
   await page.goto("/history");
   await expect(page.getByTestId("history-row").first()).toBeVisible();
   await expect(page.getByTestId("export-csv")).toHaveCount(0);
+});
+
+test("todos os prompts: filtrar só os que têm arquivo anexado e ver o nome do arquivo", async ({ page }) => {
+  await login(page, USERS.admin);
+  await page.goto("/history");
+  await page.getByLabel("Só com arquivo anexado").check();
+  const rows = page.getByTestId("history-row");
+  await expect.poll(async () => (await rows.count()) > 0 && (await rows.getByTestId("attachments").count()) === (await rows.count())).toBe(true);
+  await expect(rows.first().getByTestId("attachments")).toContainText("📎");
+  await rows.first().getByRole("button", { name: /Ver detalhes/ }).click();
+  await expect(page.getByTestId("prompt-detail").getByText("Arquivos anexados")).toBeVisible();
+  await expectAccessible(page);
 });

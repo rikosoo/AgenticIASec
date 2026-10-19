@@ -38,7 +38,7 @@ export interface PublicConfig {
 
 export type Request =
   | { type: "getPublicConfig" }
-  | { type: "analyze"; app: string; text: string; sessionPath: string }
+  | { type: "analyze"; app: string; text: string; sessionPath: string; files?: { name: string; size: number; type: string }[] }
   | { type: "justify"; eventId: string; justification: string };
 
 export type Response<T = unknown> = { ok: true; data: T } | { ok: false; error: string };

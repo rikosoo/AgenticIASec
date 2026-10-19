@@ -84,7 +84,7 @@ async function handle(msg: Request, sender: chrome.runtime.MessageSender): Promi
     if (!senderAllowed(sender, cfg)) return { ok: false, error: "origem não permitida" };
     if (msg.type === "getPublicConfig") return { ok: true, data: toPublic(cfg) };
     if (msg.type === "analyze") {
-      const event = buildEvent({ app: msg.app, text: msg.text, sessionPath: msg.sessionPath }, cfg, await installId(), await profileEmail());
+      const event = buildEvent({ app: msg.app, text: msg.text, sessionPath: msg.sessionPath, files: msg.files }, cfg, await installId(), await profileEmail());
       return { ok: true, data: await postEvent(cfg, event) };
     }
     if (msg.type === "justify") {

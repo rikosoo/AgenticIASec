@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from .detectors import agent, business, code, injection, pii, secrets
+from .detectors import agent, business, code, files, injection, pii, secrets
 from .detectors.injection import InjectionClassifier
 from .intents import detect_intents
 from .masking import apply_masks
@@ -33,6 +33,7 @@ def context_from_event(event: Mapping[str, Any], allowed_hosts: tuple[str, ...] 
         tool_input=tool_input if isinstance(tool_input, dict) else None,
         personal_account=bool((event.get("context") or {}).get("personal_account", False)),
         allowed_hosts=allowed_hosts, project_names=project_names,
+        attachments=tuple(a for a in (content.get("attachments") or ()) if isinstance(a, Mapping)),
     )
 
 
@@ -61,6 +62,8 @@ def analyze(event: Mapping[str, Any], *, allowed_hosts: tuple[str, ...] = (),
     findings += business.detect(ctx)
     if ner is not None:
         findings += ner.detect(ctx)
+    file_findings, attachments = files.detect(ctx.attachments)
+    findings += file_findings    # sem posição no texto: contam como categoria e risco, não como trecho a mascarar
 
     conn = [(f.start, f.end) for f in findings if f.span_type == "conn_string"]
     findings = [f for f in findings if not (
@@ -90,11 +93,12 @@ def analyze(event: Mapping[str, Any], *, allowed_hosts: tuple[str, ...] = (),
         categories=[{"id": c, "confidence": round(f.confidence, 2)}
                     for c, f in sorted(reported.items(), key=lambda kv: (-kv[1].confidence, kv[0]))],
         flags={"has_code": code.has_code(ctx.text), "has_sensitive": sensitive, "is_agent_action": is_agent,
-               "intents": detect_intents(ctx)},
+               "intents": detect_intents(ctx), "has_attachments": bool(attachments)},
         risk={"score": sc, "reasons": [{"rule": r.rule, "contribution": r.contribution,
                                          **({"category": r.category} if r.category else {})} for r in reasons]},
         spans=spans,
         decision=_default_decision(ids),
         masked_text=apply_masks(ctx.text, spans),
+        attachments=attachments,
         score_version=SCORE_VERSION,
     )

@@ -128,3 +128,27 @@ def test_labels_with_control_characters_become_one_line_and_alert_text_is_escape
                     "console_link": None, "note": "n"})
     assert "<" not in t.replace("<br>", "") and "&lt;!channel&gt;&amp;b" in t and t.count("\n") == 3
     assert plain("a\x00b\x85c") == "a b c"
+
+
+def test_attachments_names_are_masked_scored_searchable_and_exported(client, world):
+    ev = event("SIMULADO: resuma o arquivo", kind="prompt")
+    ev["content"]["attachments"] = [{"name": "C:\\Users\\ana\\folha_pagamento.xlsx", "size": 2048, "mime": "application/vnd.ms-excel"},
+                                    {"name": "cliente_529.982.247-25.pdf"}, {"name": "foto.png"}]
+    r = client.post("/v1/events", json=ev, headers=world.key())
+    assert r.status_code == 200, r.text
+    assert {"rh", "pii"} <= {c["id"] for c in r.json()["categories"]} and r.json()["flags"]["has_attachments"] is True
+    post(client, world, "SIMULADO: sem arquivo")
+    rows = listing(client, world, has_attachment="true")
+    assert len(rows) == 1 and len(listing(client, world, has_attachment="false")) == 1
+    names = [a["name"] for a in rows[0]["attachments"]]
+    assert names == ["folha_pagamento.xlsx", "cliente_***.***.***-25.pdf", "foto.png"]      # sem pasta; CPF no nome mascarado
+    assert "529.982" not in str(rows[0]) and rows[0]["attachments"][0]["size"] == 2048
+    assert len(listing(client, world, q="folha_pag")) == 1                                    # busca pelo nome do arquivo
+    csv = client.get("/v1/events/export.csv", params={"days": 365, "has_attachment": "true"}, headers=world.user("auditor")).text
+    assert "folha_pagamento.xlsx" in csv and "529.982" not in csv
+    bad = event("x")
+    bad["content"]["attachments"] = [{"name": "\n"}]
+    assert client.post("/v1/events", json=bad, headers=world.key()).status_code == 422
+    only = event("", kind="file_upload")
+    only["content"]["attachments"] = [{"name": ".env"}]
+    assert client.post("/v1/events", json=only, headers=world.key()).json()["flags"]["has_sensitive"] is True

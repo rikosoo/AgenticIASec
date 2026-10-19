@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { Dialog } from "@/components/Dialog";
+import { Attachments } from "@/components/Attachments";
 import { MaskedText } from "@/components/ui";
 import { whenFull } from "@/lib/format";
 import { appLabel, intentLabel, KIND_LABEL, spanLabel } from "@/lib/labels";
@@ -25,6 +26,8 @@ export function PromptDetailDialog({ row, onClose, onSession, onPerson }: {
               {(row.flags.intents ?? []).length > 0 && <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">O que foi pedido</h3><p>{(row.flags.intents ?? []).map(intentLabel).join(", ")}</p></div>}
               {(row.spans ?? []).length > 0 && <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">Trechos sensíveis detectados</h3>
                 <ul className="space-y-1 font-mono text-xs">{(row.spans ?? []).map((sp, i) => <li key={i}>{spanLabel(sp.type)} · {sp.masked}</li>)}</ul></div>}
+              {(row.attachments ?? []).length > 0 && <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">Arquivos anexados</h3><Attachments row={row} />
+                <p className="mt-1 text-xs text-muted">Só o nome, o tamanho e o tipo são coletados; o conteúdo do arquivo não. O nome sugere o risco, não prova o que há dentro.</p></div>}
               <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">Prompt (mascarado)</h3><div className="rounded border border-line bg-panel2 p-2"><MaskedText text={row.masked_text} block /></div></div>
               <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">Motivos do score</h3>
                 <ul className="space-y-1 font-mono text-xs">{row.reasons.map((r, i) => <li key={i}>+{r.contribution} · {r.rule}</li>)}{!row.reasons.length && <li>sem motivos de risco</li>}</ul></div>

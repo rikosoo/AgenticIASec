@@ -77,6 +77,10 @@ O ID da extensão precisa ser estável: na Chrome Web Store ele é fixado pela l
 
 Avisos de segurança: a `api_key` fica legível dentro do perfil do navegador (apenas envia eventos). Rotação de chaves entra na Etapa 9. Avise os colaboradores antes de ativar (LGPD): a extensão envia o texto dos prompts à API da empresa.
 
+## Arquivos anexados
+
+Ao anexar (seletor de arquivo, arrastar ou colar) num site monitorado, a extensão guarda **nome, tamanho e tipo** e os envia junto do próximo prompt (`content.attachments`). O conteúdo do arquivo nunca é lido. Um envio só com arquivo, sem texto, também é inspecionado (`kind: file_upload`). Limites: se o usuário remover o anexo na página antes de enviar, a extensão não percebe; vale como "anexado", não "enviado". Validado em Chromium com página simulada; **não** nos sites reais (A VERIFICAR).
+
 ## O que a extensão NÃO consegue ver
 
 - **Respostas do modelo** (streaming ou não): a extensão nunca as lê.

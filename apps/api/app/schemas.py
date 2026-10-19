@@ -46,10 +46,20 @@ class Actor(BaseModel):
     _clean_id = field_validator("user_id")(_required_one_line)
 
 
+class Attachment(BaseModel):
+    """Arquivo anexado pelo usuário: só nome, tamanho e tipo. O conteúdo do arquivo nunca é enviado."""
+    name: str = Field(min_length=1, max_length=255)
+    size: int | None = Field(default=None, ge=0)
+    mime: str | None = Field(default=None, max_length=100)
+    _clean = field_validator("name")(lambda v: _required_one_line(v))
+    _clean_mime = field_validator("mime")(_one_line)
+
+
 class Content(BaseModel):
     text: str | None = None
     tool_name: str | None = Field(default=None, max_length=120)
     tool_input: dict[str, Any] | None = None
+    attachments: list[Attachment] = Field(default_factory=list, max_length=20)
 
 
 class Context(BaseModel):

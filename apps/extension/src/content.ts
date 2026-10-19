@@ -2,6 +2,7 @@
  * Content script. Só age em domínios configurados. Lê o texto APENAS no momento do envio
  * (Enter ou clique em enviar); nunca tecla por tecla, nunca em outros sites.
  */
+import { createTracker, infoOf } from "./attachments";
 import { failurePlan, planFor, type Plan } from "./decision";
 import { readText, writeText } from "./editor";
 import { siteFor } from "./sites";
@@ -45,6 +46,7 @@ async function start(): Promise<void> {
 
   let bypass = false;
   let busy = false;
+  const files = createTracker();
 
   async function submit(): Promise<void> {
     bypass = true;
@@ -73,7 +75,7 @@ async function start(): Promise<void> {
         return;
       }
       setIndicator("inspecting");
-      const res = await send<ApiResult>({ type: "analyze", app: site!.app, text, sessionPath: location.pathname });
+      const res = await send<ApiResult>({ type: "analyze", app: site!.app, text, sessionPath: location.pathname, files: files.list() });
       let plan: Plan;
       let result: ApiResult | null = null;
       if (res.ok) {
@@ -95,6 +97,7 @@ async function start(): Promise<void> {
         }
       }
       await submit();
+      files.clear();
     } finally {
       busy = false;
     }
@@ -102,12 +105,21 @@ async function start(): Promise<void> {
 
   function intercept(e: Event, input: HTMLElement | null): void {
     if (bypass || !input || active === false) return;
-    if (!readText(input).trim()) return;
+    if (!readText(input).trim() && !files.list().length) return;   // só arquivo, sem texto, também é inspecionado
     e.preventDefault();
     e.stopImmediatePropagation();
     if (busy) return;
     void guard(input);
   }
+
+  // anexos: só registra nome/tamanho/tipo; não impede nem altera o anexo. Sem exigir isTrusted: o seletor de arquivos do
+  // navegador e os sites (React) disparam eventos que nem sempre são "confiáveis", e uma página falsa só poderia acrescentar nomes ao próprio relatório.
+  const remember = (list: FileList | null | undefined) => { if (active !== false) files.add(infoOf(list)); };
+  window.addEventListener("change", (e) => {
+    if (e.target instanceof HTMLInputElement && e.target.type === "file") remember(e.target.files);
+  }, true);
+  window.addEventListener("drop", (e) => remember(e.dataTransfer?.files), true);
+  window.addEventListener("paste", (e) => remember(e.clipboardData?.files), true);
 
   window.addEventListener("keydown", (e) => {
     if (e.target === uiHost() || !e.isTrusted) return;

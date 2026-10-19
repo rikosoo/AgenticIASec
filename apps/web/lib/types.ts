@@ -23,8 +23,8 @@ export interface Overview {
 
 export interface PromptRow {
   event_id: string; occurred_at: string; app: string; channel: string; user_id: string; department: string | null; kind: string;
-  personal_account: boolean; masked_text: string; has_original: boolean; categories: Category[];
-  flags: { has_code: boolean; has_sensitive: boolean; is_agent_action: boolean; intents?: string[] };
+  personal_account: boolean; masked_text: string; attachments?: { name: string; size: number | null; mime: string | null }[]; has_original: boolean; categories: Category[];
+  flags: { has_code: boolean; has_sensitive: boolean; is_agent_action: boolean; intents?: string[]; has_attachments?: boolean };
   tool_name?: string | null; session_id?: string | null; spans?: { type: string; masked: string }[];
   risk_score: number; reasons: { rule: string; contribution: number; category?: string }[];
   decision: Action; would_decide: Action; policy_hits: { policy_id: string; name: string; action: string; mode: string }[];

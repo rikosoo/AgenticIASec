@@ -8,7 +8,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import PlainTextResponse
-from sqlalchemy import func, select
+from sqlalchemy import Text, func, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql.expression import cast
 
@@ -39,6 +39,7 @@ def event_filters(
     decision: str | None = Query(None, pattern="^(allow|mask|block|ask_justification|alert)$", description="decisão tomada ou que seria tomada"),
     kind: str | None = Query(None, pattern="^(prompt|response|tool_call|tool_result|file_upload)$"),
     search: str | None = Query(None, alias="q", min_length=2, max_length=100, description="busca no texto JÁ mascarado (nunca no original)"),
+    has_attachment: bool | None = Query(None, description="o prompt veio com arquivo anexado"),
     span_type: str | None = Query(None, max_length=40, description="tipo de trecho sensível detectado (ex.: aws_access_key, cpf)"),
     intent: str | None = Query(None, max_length=40, description="o que a pessoa pediu (ex.: resumir, declara_confidencial)"),
     session_id: str | None = Query(None, max_length=200),
@@ -86,7 +87,11 @@ def apply_filters(q, f: dict):
     if f["session_id"]:
         q = q.where(Event.session_id == f["session_id"])
     if f["search"]:
-        q = q.where(Event.masked_text.ilike(_like(f["search"]), escape="\\"))
+        q = q.where(Event.masked_text.ilike(_like(f["search"]), escape="\\")
+                    | cast(Event.attachments, JSONB).cast(Text).ilike(_like(f["search"]), escape="\\"))   # também acha pelo nome do arquivo
+    if f["has_attachment"] is not None:
+        has = cast(Event.attachments, JSONB).contains([{}])   # algum elemento-objeto: vale para NULL, null e [] (sem arquivos)
+        q = q.where(has if f["has_attachment"] else ~has)
     if f["span_type"]:
         q = q.where(cast(Analysis.spans, JSONB).contains([{"type": f["span_type"]}]))
     if f["intent"]:
@@ -131,10 +136,11 @@ def export_csv(
         audit.write(s, p, "export.prompts_csv", "events", None, {"filters": used, "rows": len(rows)})
         buf = io.StringIO()
         w = csv.writer(buf)
-        w.writerow(["quando_utc", "pessoa", "departamento", "ferramenta", "tipo", "categorias", "pedido", "score", "decisao", "teria_decidido", "texto_mascarado"])
+        w.writerow(["quando_utc", "pessoa", "departamento", "ferramenta", "tipo", "categorias", "pedido", "arquivos", "score", "decisao", "teria_decidido", "texto_mascarado"])
         for e, a in rows:
             w.writerow([e.occurred_at.isoformat(), _csv_safe(e.user_id), _csv_safe(e.department), e.app, e.kind,
-                        ";".join(c["id"] for c in a.categories), ";".join((a.flags or {}).get("intents", [])), a.risk_score,
+                        ";".join(c["id"] for c in a.categories), ";".join((a.flags or {}).get("intents", [])),
+                        _csv_safe("; ".join(x.get("name", "") for x in (e.attachments or []))), a.risk_score,
                         a.decision, a.would_decide, _csv_safe(e.masked_text)])
     return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": 'attachment; filename="prompts.csv"'})
@@ -177,7 +183,7 @@ def read_original(event_id: uuid.UUID, body: OriginalRequest,
 def _view(e: Event, a: Analysis, incident_id: uuid.UUID | None = None) -> dict:
     return {"event_id": str(e.event_id), "occurred_at": e.occurred_at.isoformat(), "app": e.app, "channel": e.channel,
             "user_id": e.user_id, "department": e.department, "kind": e.kind, "personal_account": e.personal_account,
-            "masked_text": e.masked_text, "has_original": e.original_ciphertext is not None, "tool_name": e.tool_name,
+            "masked_text": e.masked_text, "attachments": e.attachments or [], "has_original": e.original_ciphertext is not None, "tool_name": e.tool_name,
             "session_id": e.session_id, "spans": [{"type": sp.get("type"), "masked": sp.get("masked")} for sp in (a.spans or [])],
             "categories": a.categories, "flags": a.flags, "risk_score": a.risk_score, "reasons": a.reasons,
             "decision": a.decision, "would_decide": a.would_decide, "policy_hits": a.policy_hits,

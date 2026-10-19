@@ -151,6 +151,7 @@ class Event(Base):
     masked_text: Mapped[str] = mapped_column(Text)
     text_length: Mapped[int] = mapped_column(Integer)
     original_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
+    attachments: Mapped[list[Any] | None] = mapped_column(JSON)   # nomes já mascarados, tamanho e tipo; nunca o conteúdo
 
 
 class Analysis(Base):

@@ -59,12 +59,20 @@ SAFE: list[tuple[str, str, str, str]] = [
 ENFORCED = ("Bloquear segredos e chaves", "Bloquear comandos destrutivos de agente")
 
 
-def _event(kind: str, content: str, app: str, channel: str, user: str, dept: str, personal: bool, at: datetime) -> EventIn:
+# nomes de arquivo SIMULADOS (nenhum arquivo existe)
+DEMO_FILES = ["relatorio_vendas_demo.pdf", "apresentacao_demo.pptx", "folha_pagamento_demo.xlsx", "contrato_fornecedor_demo.pdf",
+              "base_clientes_demo.csv", "diagrama_demo.png", ".env.demo", "backup_demo.sql"]
+
+
+def _event(kind: str, content: str, app: str, channel: str, user: str, dept: str, personal: bool, at: datetime,
+           files: list[str] | None = None) -> EventIn:
     body: dict[str, Any] = {"text": content}
     if kind == "tool_call":
         body = {"tool_name": "Bash", "tool_input": {"command": content}}
     elif kind == "tool_result":
         body = {"tool_name": "Read", "text": content}
+    if files:
+        body["attachments"] = [{"name": n, "size": 1000 + zlib.crc32(n.encode()) % 900_000} for n in files]
     return EventIn.model_validate({
         "event_id": str(uuid.uuid4()), "occurred_at": at.isoformat(),
         "source": {"channel": channel, "app": app, "integration_status": "partial" if channel == "agent_hook" else "experimental"},
@@ -97,6 +105,10 @@ def seed_demo(session: Session, slug: str, days: int = 14, count: int = 400, see
         if dept != "Engenharia" and channel == "agent_hook":      # só engenharia usa agentes de código
             kind, content, app, channel = rnd.choice([x for x in pool if x[3] == "browser"] or SAFE[:1])
         at = start + timedelta(seconds=rnd.randint(0, max(1, int((now - start).total_seconds()) - 60)))
-        ingest(session, principal, _event(kind, content, app, channel, user, dept, rnd.random() < 0.3, at))
+        personal = rnd.random() < 0.3
+        files = None
+        if channel == "browser" and made % 6 == 0:     # sem usar o gerador aleatório principal: o resto dos dados de exemplo não muda
+            files = [DEMO_FILES[(made // 6 + k) % len(DEMO_FILES)] for k in range(1 + made % 2)]
+        ingest(session, principal, _event(kind, content, app, channel, user, dept, personal, at, files))
         made += 1
     return {"events": made, "days": days}

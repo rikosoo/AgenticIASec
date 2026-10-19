@@ -163,3 +163,17 @@ test("site que mudou o HTML: o indicador avisa que o monitoramento pode estar in
   const page = await open({}, "/no-input.html");
   await expect(ui(page).locator(".pill")).toContainText("campo de prompt não encontrado");
 });
+
+test("arquivo anexado: o nome vai junto do prompt, o conteúdo nunca", async () => {
+  const page = await open();
+  await page.locator("#file").setInputFiles({ name: "folha_pagamento.xlsx", mimeType: "application/vnd.ms-excel", buffer: Buffer.from("CONTEUDO-SECRETO-DO-ARQUIVO") });
+  await typeAndSubmit(page, "resuma o arquivo");
+  await expect.poll(() => api.events.length).toBe(1);
+  const content = api.events[0].body.content;
+  expect(content.attachments).toEqual([{ name: "folha_pagamento.xlsx", size: 27, mime: "application/vnd.ms-excel" }]);
+  expect(JSON.stringify(api.events[0].body)).not.toContain("CONTEUDO-SECRETO");
+  // no envio seguinte a lista começa vazia
+  await typeAndSubmit(page, "outro prompt sem arquivo");
+  await expect.poll(() => api.events.length).toBe(2);
+  expect(api.events[1].body.content.attachments).toBeUndefined();
+});
