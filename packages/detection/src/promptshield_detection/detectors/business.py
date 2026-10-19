@@ -51,7 +51,7 @@ HR_STRONG = _terms(r"pip(?!\s+(?:install|uninstall|freeze|list|show|download|con
 HARASS = _terms(r"assedio", r"harassment", r"discriminacao", r"discrimination")
 COMPLAINT = _terms(r"denuncia", r"complaint", r"investigat\w+", r"investigacao", r"apuracao", r"parecer", r"report(?:ed)?")
 PER_PERSON = re.compile(r"\b(?:por (?:pessoa|funcionario|colaborador)|per (?:person|employee)|for each (?:engineer|employee|person|rep)|de cada (?:funcionario|colaborador))\b")
-MONEY = re.compile(r"r\$\s?\d|\$\s?\d|\b\d+\s?(?:mil|k)\b|\b\d[\d.,]*\s?(?:reais|dollars|usd|brl)\b")
+MONEY = re.compile(r"r\$\s?\d|\$\s?\d|\b(?<![\d.,])\d+\s?(?:mil|k)\b|\b(?<![\d.,])\d[\d.,]*+\s?(?:reais|dollars|usd|brl)\b")
 # ---------------- clientes ----------------
 CLIENT_TERMS = _terms(r"lista de clientes", r"base de clientes", r"customer list", r"export(?:a[cç]ao)? do crm", r"customer database",
                       r"carteira de clientes", r"carteira por vendedor", r"full customer", r"clientes (?:ativos|inadimplentes|vip)", r"clientes?\b[^.\n]{0,40}\binadimplentes?", r"quais clientes",

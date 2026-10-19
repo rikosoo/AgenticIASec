@@ -13,10 +13,27 @@ Kind = Literal["prompt", "response", "tool_call", "tool_result", "file_upload"]
 Action = Literal["allow", "mask", "block", "ask_justification", "alert"]
 
 
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def _one_line(v: str | None) -> str | None:
+    """Rótulos (pessoa, departamento, app, sessão...) viram linha única: quebra de linha ali forja linha de log, de CEF/syslog e de e-mail."""
+    t = None if v is None else _CONTROL.sub(" ", v).strip()
+    return t or None
+
+
+def _required_one_line(v: str) -> str:
+    t = _one_line(v)
+    if not t:
+        raise ValueError("não pode ficar vazio nem ter só caracteres de controle")
+    return t
+
+
 class Source(BaseModel):
     channel: Channel
     app: str = Field(min_length=1, max_length=80)
     integration_status: Integration
+    _clean = field_validator("app")(_required_one_line)
 
 
 class Actor(BaseModel):
@@ -25,6 +42,8 @@ class Actor(BaseModel):
     device_id: str | None = Field(default=None, max_length=200)
     agent_id: str | None = Field(default=None, max_length=200)
     groups: list[str] = Field(default_factory=list, max_length=50)  # extensão ao evento universal: escopo de política por grupo
+    _clean = field_validator("department", "device_id", "agent_id")(_one_line)
+    _clean_id = field_validator("user_id")(_required_one_line)
 
 
 class Content(BaseModel):
@@ -36,6 +55,7 @@ class Content(BaseModel):
 class Context(BaseModel):
     session_id: str | None = Field(default=None, max_length=200)
     personal_account: bool = False
+    _clean = field_validator("session_id")(_one_line)
 
 
 class EventIn(BaseModel):

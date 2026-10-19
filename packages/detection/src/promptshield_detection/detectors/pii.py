@@ -8,7 +8,8 @@ from ..validators import aba_valid, card_plausible, cnpj_valid, cpf_valid, digit
 
 CPF_RE = re.compile(r"(?<![\d.\-/])(\d{3}\.\d{3}\.\d{3}-\d{2}|\d{11})(?![\d]|[.\-/]\d)")
 CNPJ_RE = re.compile(r"(?<![\d.\-/])(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}|\d{14})(?![\d]|[.\-/]\d)")
-EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b")
+# (?<![\w.+-]) e ++: só começa no início de uma sequência e não volta atrás (senão texto longo sem @ é quadrático)
+EMAIL_RE = re.compile(r"(?<![\w.+-])[\w.+-]++@[\w-]+(?:\.[\w-]+)+\b")
 PHONE_RE = re.compile(r"(?<![\d])(?:\+55[ -]?)?\(?\d{2}\)?[ -]?9?\d{4}[ -]\d{4}(?!\d)|\+55\d{10,11}")
 RG_RE = re.compile(r"(?<![\d.])\d{1,2}\.\d{3}\.\d{3}-?[\dxX](?![\d])")
 CARD_RE = re.compile(r"(?<![\d-])(?:\d[ -]?){12,18}\d(?![\d-])")

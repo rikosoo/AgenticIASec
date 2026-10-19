@@ -189,9 +189,16 @@ def alert_dict(a: Alert, tenant_name: str) -> dict[str, Any]:
             "note": "Indicador de risco, requer revisão humana."}
 
 
+def plain(value: object, limit: int = 200) -> str:
+    """Campos que o CLIENTE controla (user_id, departamento, título) entram em Slack/Teams/e-mail: sem quebra de linha ou controle e sem
+    <, > e & (no Slack, `<!channel>` e `<https://...|texto>` viram menção e link; escapar é o que a documentação do Slack pede)."""
+    t = "".join(" " if ch in "\r\n\t" or ord(ch) < 32 or 0x7F <= ord(ch) < 0xA0 else ch for ch in str(value))
+    return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")[:limit]
+
+
 def alert_text(d: dict[str, Any]) -> str:
-    lines = [f"[PromptShield] {d['severity'].upper()}: {d['title']}", f"Usuário: {d['user_id']}"
-             + (f" ({d['department']})" if d["department"] else ""), f"Risco: {d['score']}  Categorias: {', '.join(d['categories']) or '-'}"]
+    lines = [f"[PromptShield] {d['severity'].upper()}: {plain(d['title'])}", f"Usuário: {plain(d['user_id'])}"
+             + (f" ({plain(d['department'], 120)})" if d["department"] else ""), f"Risco: {d['score']}  Categorias: {', '.join(d['categories']) or '-'}"]
     if d["console_link"]:
         lines.append(f"Console: {d['console_link']}")
     lines.append(d["note"] + " Esta mensagem não traz o texto do prompt.")
@@ -201,7 +208,7 @@ def alert_text(d: dict[str, Any]) -> str:
 def send_alert(ch: NotificationChannel, d: dict[str, Any], secret: str | None) -> None:
     text_msg = alert_text(d)
     if ch.kind == "email":
-        send_email(channel_target(ch), f"[PromptShield] {d['severity']}: {d['title']}", text_msg)
+        send_email(channel_target(ch), f"[PromptShield] {d['severity']}: {plain(d['title'])}", text_msg)
     elif ch.kind == "slack":
         post_json(channel_target(ch), json.dumps({"text": text_msg}).encode(), {})
     elif ch.kind == "teams":  # EXPERIMENTAL / A VERIFICAR (ver docs/siem.md)

@@ -31,7 +31,7 @@ READERS = {"get-content", "gc", "select-string", "cat", "less", "more", "head", 
            "awk", "sed", "type", "tar", "zip", "source", ".", "openssl", "nl", "bat"}
 NETWORK = {"curl", "wget", "nc", "ncat", "netcat", "scp", "sftp", "ftp", "rsync", "http", "httpie"}
 PKG = {"pip", "pip3", "npm", "pnpm", "yarn", "gem", "cargo", "apt", "apt-get", "yum", "brew", "uv", "poetry"}
-SEP = re.compile(r"\s*(?:&&|\|\||;|\|)\s*")
+SEP = re.compile(r"&&|\|\||;|\|")   # sem \s* nas pontas: o strip() abaixo basta, e \s* nas pontas era quadrático
 URL_RE = re.compile(r"(?:https?|ftp)://[^\s'\"]+|git\+(?:https?|ssh)://[^\s'\"]+")
 HOST_ARG = re.compile(r"^[\w.-]+\.[a-z]{2,}(?::\d+)?(?:/|$)", re.I)
 

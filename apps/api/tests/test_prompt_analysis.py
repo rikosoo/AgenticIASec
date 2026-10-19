@@ -114,3 +114,17 @@ def test_csv_export_roles_audit_and_formula_guard(client, world):
     assert "attachment" in r.headers["content-disposition"]
     assert world.sql("SELECT count(*) FROM audit_log WHERE action = 'export.prompts_csv'").scalar() == 1
     assert client.get("/v1/events/export.csv", params={"days": 1}, headers=world.user("admin")).status_code == 200
+
+
+def test_labels_with_control_characters_become_one_line_and_alert_text_is_escaped(client, world):
+    r = client.post("/v1/events", json=event("SIMULADO: oi", actor={"user_id": "x\nINJETADO <!channel> <https://evil.example|clique>", "department": "A\r\nB"}),
+                    headers=world.key())
+    assert r.status_code == 200
+    row = client.get("/v1/events", params={"days": 365}, headers=world.user("leitura")).json()[0]
+    assert "\n" not in row["user_id"] and "\r" not in row["department"]
+    assert client.post("/v1/events", json=event("x", actor={"user_id": "\n\t"}), headers=world.key()).status_code == 422
+    from app.notifier import alert_text, plain
+    t = alert_text({"severity": "alto", "title": "t\n<!here>", "user_id": "a<!channel>&b", "department": "d>", "score": 1, "categories": [],
+                    "console_link": None, "note": "n"})
+    assert "<" not in t.replace("<br>", "") and "&lt;!channel&gt;&amp;b" in t and t.count("\n") == 3
+    assert plain("a\x00b\x85c") == "a b c"
