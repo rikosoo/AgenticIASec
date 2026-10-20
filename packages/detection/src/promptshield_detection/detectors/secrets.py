@@ -11,8 +11,8 @@ DOC_EXAMPLES = {
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
 }
 PLACEHOLDER = re.compile(
-    r"(?i)^(?:x{4,}|\*{3,}|\.{3,}|<.*>|\$\{.*\}|\{\{.*\}\}|your[-_ ]|change[-_]?me|example|exemplo|"
-    r"placeholder|senha|password|secret|token|dummy|test(?:e)?$|todo)")
+    r"(?i)^(?:x{4,}|\*{3,}|\.{3,}|<.*>|\$\{.*\}|\{\{.*\}\}|your[-_ ]|change[-_]?me|example|exemplo|todo|"
+    r"(?:placeholder|senha|password|secret|token|dummy)\w{0,4}$|test(?:e)?$)")   # "senha123" é exemplo; "SenhaDoBanco9" é senha de verdade
 
 RULES: list[tuple[re.Pattern[str], str, str, float, str]] = [
     (re.compile(r"\b(?:AKIA|ASIA|AGPA|AIDA|AROA)[A-Z0-9]{16}\b"), "aws_access_key", "Chave de acesso AWS", 0.97, "AKIA****"),

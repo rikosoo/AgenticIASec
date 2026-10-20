@@ -36,6 +36,7 @@ CNPJ_DECL_RE = re.compile(r"(?i)\b(?:" + _edit1("cnpj") + r")\b[^\d\n.;]{0,20}?(
 # "documento do cliente: 11122233355": 9 a 14 dígitos seguidos declarados como documento (confiança menor: pode ser número de protocolo)
 DOC_DECL_RE = re.compile(r"(?i)\b(?:documento|identificacao|identificação)\b[^\d\n.;]{0,25}?(\d{9,14})(?!\d)")
 RG_DECL_RE = re.compile(r"(?i)\b(?:rg|identidade|registro geral)\b[^\d\n.;]{0,15}?(\d[\d.\-]{4,13}[\dxX])")
+EMAIL_EXAMPLE_CTX = re.compile(r"\b(?:placeholder|exemplos?|example|sample|ficticio|ficticia|fictitious|fake|dummy|documentacao|documentation|docs|nos testes|in the tests)\b")
 PIX_RE = re.compile(r"(?i)\bpix\b[^\n]{0,40}?(?:chave\W{0,3})?(?P<key>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[\w.+-]+@[\w-]+\.[\w.]+|\+55\d{10,11}|\d{8,14})(?!\d)")
 BANK_REV_RE = re.compile(r"conta\W{0,3}\d{4,}-?\d?\W{0,12}ag[eê]ncia\W{0,3}\d{3,5}", re.I)
 CEP_RE = re.compile(r"(?<![\d-])\d{5}-\d{3}(?![\d-])")
@@ -201,7 +202,12 @@ def detect(ctx: Context) -> list[Finding]:
         for m in rx.finditer(t):
             if lo <= len(digits(m.group(1))) <= hi:
                 out.append(Finding("pii", 0.6 if kind == "documento" else 0.8, label, kind, m.start(1), m.end(1), masked))
+    from ..textnorm import fold
+    folded = fold(t)
     for m in EMAIL_RE.finditer(t):
+        near = folded[max(0, m.start() - 50):m.start()] + " " + folded[m.end():m.end() + 50]   # sem o próprio endereço ("exemplo.com.br" não vale)
+        if EMAIL_EXAMPLE_CTX.search(near):   # "o placeholder do e-mail é joao@exemplo.com": exemplo de documentação, não pessoa
+            continue
         out.append(Finding("pii", 0.75, "Endereço de e-mail", "email", m.start(), m.end(),
                            "***@" + m.group().split("@")[1]))
     for m in PHONE_RE.finditer(t):

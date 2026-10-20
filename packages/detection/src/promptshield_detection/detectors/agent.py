@@ -247,9 +247,9 @@ def detect_file_tool(ctx: Context) -> list[Finding]:
 
 STRONG_SRC = re.compile(r"(?:~|\$home)?/?\.(?:aws|ssh|kube|azure|gnupg)\b|\.env\b|\bcredentials?\b|\bcredenciais\b|\bid_(?:rsa|ed25519)\b|chave privada|private key|\.pgpass|\.npmrc|\.netrc")
 WEAK_SRC = re.compile(r"arquivo de (?:configuracao|config|senhas?)|config(?:uration)? file|\bsenhas\b|\bsecrets\b|\btokens\b")
-SEND_VERB = re.compile(r"\b(?:post|curl|wget|upload|send|envi\w+|mand\w+|encaminh\w+|exfiltr\w+|copi\w+|cole)\b")
+SEND_VERB = re.compile(r"\b(?:post|put|curl|wget|upload|send|envi\w+|mand\w+|encaminh\w+|exfiltr\w+|copi\w+|cole)\b")
 TEXT_URL = re.compile(r"https?://[^\s'\"<>)]+")
-READ_VERB = re.compile(r"\b(?:read|le|leia|ler|abra|open|cat|pegue|pega|get|copy|copie|copia)\b")
+READ_VERB = re.compile(r"\b(?:read|le|leia|ler|abra|open|cat|pegue|pega|pegar|get|grab|pull|fetch|take|collect|dump|extract|colete|capture|copy|copie|copia)\b")
 
 
 def detect_text(ctx: Context) -> list[Finding]:

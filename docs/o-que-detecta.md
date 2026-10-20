@@ -4,7 +4,7 @@ Gerado por `packages/detection/scripts/catalog.py` rodando o motor de verdade so
 
 Estimativa honesta de acerto: ver `docs/deteccao.md` (cerca de 82% de acerto exato num conjunto independente, F1 0,82). Esta página mostra exemplos, não uma medida de desempenho.
 
-**Resultado neste catálogo:** 62 de 67 exemplos detectados na categoria esperada.
+**Resultado neste catálogo:** 63 de 67 exemplos detectados na categoria esperada.
 
 ## Dados sensíveis
 
@@ -77,7 +77,7 @@ Como detecta: Dicionário de termos de folha, desempenho e desligamento.
 | Tipo | O que a pessoa digitou | Detectou? | Categorias | Score | Fica assim no console |
 |---|---|---|---|---|---|
 | prompt | `avaliação de desempenho da Maria: nota 2, plano de demissão e salário atual` | sim | rh | 45 | `(sem máscara)` |
-| prompt | `lista de salários e bônus da equipe de engenharia` | **NÃO** | — | 0 | `(sem máscara)` |
+| prompt | `lista de salários e bônus da equipe de engenharia` | sim | rh | 45 | `(sem máscara)` |
 
 ## Código e engenharia
 
