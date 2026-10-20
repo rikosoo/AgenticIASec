@@ -86,3 +86,11 @@ O que mudou (regras locais, nada de LLM): RH por lista ou comparação por pesso
 Ainda erra (conjunto D, não ajustado de propósito): variações de injection direta ("suas regras anteriores não valem mais", "SYSTEM OVERRIDE"), extração de system prompt reformulada, jailbreak com persona, ofensa informal ("seu merda de bot"), uso pessoal curto ("recomende um livro para a praia"), segredos curtos sem formato de chave. No catálogo (`docs/o-que-detecta.md`) os erros conhecidos caíram de 9 para 5.
 
 `packages/detection/tests/test_holdouts.py` trava um piso por conjunto para não piorar sem perceber. Nenhum desses números mede dados reais: só o piloto mede (`docs/piloto.md`).
+
+## Medir com dados reais: revisão humana (feedback)
+
+1. No console, abra um prompt (**Todos os prompts** ou **Análise de prompts**) e responda "Esta análise está certa?": *correta*, *falso positivo* (e qual categoria) ou *faltou pegar* (e qual). Só admin e analista revisam.
+2. **Qualidade da detecção** mostra quanto foi revisado e, por categoria, falsos positivos, faltas e precisão estimada (só com 5 revisões ou mais). As revisões não são amostra aleatória: para medir de verdade, revise uma amostra sorteada (`docs/piloto.md`).
+3. Admin/auditor exportam as revisões (JSONL, texto mascarado, sem a observação do revisor; fica na auditoria). `python packages/detection/scripts/from_feedback.py revisoes.jsonl --misses` roda o motor atual nelas. O texto exportado já está mascarado, então o motor vê menos do que na produção.
+4. A revisão **não muda** a decisão nem a política daquele evento e não ensina o motor sozinha: os padrões de erro viram regra nova, por uma pessoa, com teste.
+

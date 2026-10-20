@@ -189,6 +189,15 @@ class TenantPatch(BaseModel):
         return out
 
 
+class FeedbackIn(BaseModel):
+    """Revisão humana da análise de um evento. As categorias são ids da taxonomia (validadas na rota)."""
+    model_config = ConfigDict(extra="forbid")
+    verdict: Literal["correta", "falso_positivo", "faltou"]
+    wrong_categories: list[str] = Field(default_factory=list, max_length=30)
+    missing_categories: list[str] = Field(default_factory=list, max_length=30)
+    note: str | None = Field(default=None, max_length=500)
+
+
 class JustificationIn(BaseModel):
     justification: str = Field(min_length=10, max_length=1000)
 

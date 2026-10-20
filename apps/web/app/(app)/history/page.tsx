@@ -1,6 +1,7 @@
 "use client";
 import { Fragment, useState } from "react";
 import { Attachments } from "@/components/Attachments";
+import { VERDICT_LABEL } from "@/components/FeedbackForm";
 import { PromptDetailDialog } from "@/components/PromptDetail";
 import { useSession } from "@/components/session";
 import { Chip, DecisionCell, Empty, ErrorBox, Loading, Pager, Panel, RiskBar } from "@/components/ui";
@@ -51,6 +52,7 @@ export default function HistoryPage() {
   const [onlyRisk, setOnlyRisk] = useState(false);
   const [personalOnly, setPersonalOnly] = useState(false);
   const [withFile, setWithFile] = useState(false);
+  const [review, setReview] = useState("");
   const [sessionId, setSessionId] = useState("");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<PromptRow | null>(null);
@@ -60,13 +62,13 @@ export default function HistoryPage() {
   const people = useLoad(() => api<PersonRow[]>(`v1/people${qs({ days, limit: 100 })}`), [days]);
   const filters = {
     days, user_q: personApplied, q: wordApplied, app: app || undefined, kind, category, decision, department,
-    session_id: sessionId, has_attachment: withFile ? true : undefined, min_score: onlyRisk ? 1 : 0, personal_account: personalOnly ? true : undefined,
+    session_id: sessionId, has_attachment: withFile ? true : undefined, review, min_score: onlyRisk ? 1 : 0, personal_account: personalOnly ? true : undefined,
   };
   const list = useLoad(() => apiPage<PromptRow[]>(`v1/events${qs({ ...filters, sort: "recent", limit: PAGE, offset: page * PAGE })}`),
-    [days, personApplied, wordApplied, app, kind, category, decision, department, onlyRisk, personalOnly, withFile, sessionId, page]);
+    [days, personApplied, wordApplied, app, kind, category, decision, department, onlyRisk, personalOnly, withFile, review, sessionId, page]);
   const departments = Array.from(new Set((people.data ?? []).map((p) => p.department).filter((d): d is string => !!d))).sort();
-  const anyFilter = sessionId || personApplied || wordApplied || app || kind || category || decision || department || onlyRisk || personalOnly || withFile;
-  const clear = () => { setPerson(""); setPersonApplied(""); setWord(""); setWordApplied(""); setApp(""); setKind(""); setCategory(""); setDecision(""); setDepartment(""); setOnlyRisk(false); setPersonalOnly(false); setWithFile(false); setSessionId(""); setPage(0); };
+  const anyFilter = sessionId || personApplied || wordApplied || app || kind || category || decision || department || onlyRisk || personalOnly || withFile || review;
+  const clear = () => { setPerson(""); setPersonApplied(""); setWord(""); setWordApplied(""); setApp(""); setKind(""); setCategory(""); setDecision(""); setDepartment(""); setOnlyRisk(false); setPersonalOnly(false); setWithFile(false); setReview(""); setSessionId(""); setPage(0); };
   const choosePerson = (id: string) => { setPerson(id); setPersonApplied(id); setSelected(null); setPage(0); };
 
   return (
@@ -99,6 +101,10 @@ export default function HistoryPage() {
         <div><label htmlFor="decision" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Decisão (tomada ou hipotética)</label>
           <select id="decision" className="field w-full" value={decision} onChange={(e) => reset(setDecision)(e.target.value)}>
             <option value="">Todas</option>{Object.entries(DECISIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
+        <div><label htmlFor="review" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Revisão humana</label>
+          <select id="review" className="field w-full" value={review} onChange={(e) => reset(setReview)(e.target.value)}>
+            <option value="">Todas</option><option value="pending">Ainda sem revisão</option><option value="reviewed">Já revisadas</option>
+            <option value="falso_positivo">Falso positivo</option><option value="faltou">Faltou pegar</option><option value="correta">Análise correta</option></select></div>
         <div><label htmlFor="dept" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Departamento</label>
           <select id="dept" className="field w-full" value={department} onChange={(e) => reset(setDepartment)(e.target.value)}>
             <option value="">Todos</option>{departments.map((d) => <option key={d} value={d}>{d}</option>)}</select></div>
@@ -158,6 +164,7 @@ export default function HistoryPage() {
                           <Highlighted text={clip(p.masked_text.replace(/\s+/g, " "), 160)} term={wordApplied} />
                         </button>
                         <Attachments row={p} compact />
+                        {p.feedback && <span className="mr-1 text-xs text-muted" data-testid="reviewed-badge">revisado: {VERDICT_LABEL[p.feedback.verdict]}</span>}
                         <div className="mt-1">{p.categories.map((c) => <Chip key={c.id}>{name(c.id)}</Chip>)}</div>
                       </td>
                       <td className="td"><RiskBar score={p.risk_score} /></td>
@@ -172,7 +179,7 @@ export default function HistoryPage() {
         {list.data && <Pager page={page} pageSize={PAGE} total={list.data.total} onPage={setPage} />}
       </Panel>
 
-      <PromptDetailDialog row={selected} onClose={() => setSelected(null)} onPerson={choosePerson}
+      <PromptDetailDialog row={selected} onClose={() => setSelected(null)} onPerson={choosePerson} onReviewed={list.reload}
         onSession={(id) => { setSessionId(id); setSelected(null); setPage(0); }} />
     </div>
   );

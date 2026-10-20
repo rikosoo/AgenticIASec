@@ -18,6 +18,7 @@ from app.routers import (
     enrollment,
     events,
     exports,
+    feedback,
     incidents,
     inference_hook,
     pilot,
@@ -91,6 +92,7 @@ if _origins:  # nenhum outro site pode chamar a API pelo navegador
                        allow_headers=["X-API-Key", "Content-Type", "Authorization"], max_age=600)
 
 app.include_router(events.router)
+app.include_router(feedback.router)
 app.include_router(incidents.router)
 app.include_router(policies.router)
 app.include_router(admin.router)

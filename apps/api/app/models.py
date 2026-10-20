@@ -183,6 +183,21 @@ class Incident(Base):
     updated_at: Mapped[datetime] = _ts()
 
 
+class EventFeedback(Base):
+    """Revisão humana de UMA análise. Vale a última revisão (o histórico fica na auditoria)."""
+    __tablename__ = "event_feedback"
+    id: Mapped[uuid.UUID] = _pk()
+    tenant_id: Mapped[uuid.UUID] = _tenant()
+    event_pk: Mapped[uuid.UUID] = mapped_column(Uuid, ForeignKey("events.id", ondelete="CASCADE"), unique=True)
+    verdict: Mapped[str] = mapped_column(String(20))
+    wrong_categories: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    missing_categories: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    note: Mapped[str | None] = mapped_column(Text)
+    reviewer_id: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[datetime] = _ts()
+    updated_at: Mapped[datetime] = _ts()
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)

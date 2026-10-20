@@ -1,16 +1,21 @@
 "use client";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Dialog } from "@/components/Dialog";
 import { Attachments } from "@/components/Attachments";
+import { FeedbackForm } from "@/components/FeedbackForm";
 import { MaskedText } from "@/components/ui";
 import { whenFull } from "@/lib/format";
 import { appLabel, intentLabel, KIND_LABEL, spanLabel } from "@/lib/labels";
-import type { PromptRow } from "@/lib/types";
+import type { Feedback, PromptRow } from "@/lib/types";
 
 /** Detalhe de um prompt (texto sempre mascarado). Usado em "Análise de prompts" e "Todos os prompts". */
-export function PromptDetailDialog({ row, onClose, onSession, onPerson }: {
-  row: PromptRow | null; onClose: () => void; onSession: (sessionId: string) => void; onPerson?: (userId: string) => void;
+export function PromptDetailDialog({ row: incoming, onClose, onSession, onPerson, onReviewed }: {
+  row: PromptRow | null; onClose: () => void; onSession: (sessionId: string) => void; onPerson?: (userId: string) => void; onReviewed?: () => void;
 }) {
+  const [saved, setSaved] = useState<{ id: string; fb: Feedback } | null>(null);
+  useEffect(() => setSaved(null), [incoming?.event_id]);
+  const row = incoming && saved?.id === incoming.event_id ? { ...incoming, feedback: saved.fb } : incoming;
   return (
     <Dialog open={!!row} onClose={onClose} title="Detalhe do prompt" wide>
       {row && (
@@ -33,6 +38,7 @@ export function PromptDetailDialog({ row, onClose, onSession, onPerson }: {
                 <ul className="space-y-1 font-mono text-xs">{row.reasons.map((r, i) => <li key={i}>+{r.contribution} · {r.rule}</li>)}{!row.reasons.length && <li>sem motivos de risco</li>}</ul></div>
               {row.policy_hits.length > 0 && <div><h3 className="mb-1 text-xs font-semibold uppercase text-muted">Políticas que casaram</h3>
                 <ul className="space-y-1 text-xs">{row.policy_hits.map((h) => <li key={h.policy_id}>{h.name} <span className="text-muted">({h.mode === "monitor" ? "monitorar" : "aplicar"})</span></li>)}</ul></div>}
+              <FeedbackForm key={`${row.event_id}:${row.feedback?.updated_at ?? ""}`} row={row} onSaved={(fb) => { setSaved({ id: row.event_id, fb }); onReviewed?.(); }} />
               <p className="text-xs text-muted">Indicador de risco, requer revisão humana.</p>
               {row.incident_id && <Link href={`/incidents/${row.incident_id}`} className="btn-primary inline-block">Abrir incidente</Link>}
             </div>

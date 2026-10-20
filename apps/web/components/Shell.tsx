@@ -10,6 +10,7 @@ const NAV = [
   { href: "/history", label: "Todos os prompts" },
   { href: "/prompts", label: "Análise de prompts" },
   { href: "/incidents", label: "Incidentes" },
+  { href: "/quality", label: "Qualidade da detecção" },
   { href: "/risk", label: "Risco por usuário" },
   { href: "/alerts", label: "Alertas e SIEM" },
   { href: "/reports", label: "Relatórios" },

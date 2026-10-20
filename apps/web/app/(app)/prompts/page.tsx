@@ -178,7 +178,7 @@ export default function PromptsPage() {
 
       </div>
 
-      <PromptDetailDialog row={selected} onClose={() => setSelected(null)}
+      <PromptDetailDialog row={selected} onClose={() => setSelected(null)} onReviewed={list.reload}
         onSession={(id) => { setSessionId(id); setSelected(null); setPage(0); }} />
     </div>
   );

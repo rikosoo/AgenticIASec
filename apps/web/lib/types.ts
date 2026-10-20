@@ -29,6 +29,14 @@ export interface PromptRow {
   risk_score: number; reasons: { rule: string; contribution: number; category?: string }[];
   decision: Action; would_decide: Action; policy_hits: { policy_id: string; name: string; action: string; mode: string }[];
   incident_id: string | null;
+  feedback?: Feedback | null;
+}
+
+export type Verdict = "correta" | "falso_positivo" | "faltou";
+export interface Feedback { verdict: Verdict; wrong_categories: string[]; missing_categories: string[]; note: string | null; updated_at: string }
+export interface QualitySummary {
+  days: number; events: number; reviewed: number; coverage: number; verdicts: Record<Verdict, number>; min_for_estimate: number; note: string;
+  categories: { id: string; nome: string; reviewed: number; wrong: number; missed: number; precision_estimate: number | null }[];
 }
 
 export interface Incident {

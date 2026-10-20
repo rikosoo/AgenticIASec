@@ -14,8 +14,9 @@ from sqlalchemy.sql.expression import cast
 
 from app import audit, crypto
 from app.db import tenant_session
-from app.models import Analysis, Event, Incident
+from app.models import Analysis, Event, EventFeedback, Incident
 from app.routers.analytics import window_start
+from app.routers.feedback import feedback_for, view
 from app.schemas import EventIn, EventResult, JustificationIn, OriginalRequest
 from app.security import READ_ROLES, Principal, require_ingest, require_roles
 from app.services import ingest
@@ -40,6 +41,7 @@ def event_filters(
     kind: str | None = Query(None, pattern="^(prompt|response|tool_call|tool_result|file_upload)$"),
     search: str | None = Query(None, alias="q", min_length=2, max_length=100, description="busca no texto JÁ mascarado (nunca no original)"),
     has_attachment: bool | None = Query(None, description="o prompt veio com arquivo anexado"),
+    review: str | None = Query(None, pattern="^(pending|reviewed|correta|falso_positivo|faltou)$", description="revisão humana da análise"),
     span_type: str | None = Query(None, max_length=40, description="tipo de trecho sensível detectado (ex.: aws_access_key, cpf)"),
     intent: str | None = Query(None, max_length=40, description="o que a pessoa pediu (ex.: resumir, declara_confidencial)"),
     session_id: str | None = Query(None, max_length=200),
@@ -89,6 +91,11 @@ def apply_filters(q, f: dict):
     if f["search"]:
         q = q.where(Event.masked_text.ilike(_like(f["search"]), escape="\\")
                     | cast(Event.attachments, JSONB).cast(Text).ilike(_like(f["search"]), escape="\\"))   # também acha pelo nome do arquivo
+    if f["review"]:
+        rv = select(EventFeedback.id).where(EventFeedback.event_pk == Event.id)
+        if f["review"] in ("correta", "falso_positivo", "faltou"):
+            rv = rv.where(EventFeedback.verdict == f["review"])
+        q = q.where(~rv.exists() if f["review"] == "pending" else rv.exists())
     if f["has_attachment"] is not None:
         has = cast(Event.attachments, JSONB).contains([{}])   # algum elemento-objeto: vale para NULL, null e [] (sem arquivos)
         q = q.where(has if f["has_attachment"] else ~has)
@@ -114,7 +121,8 @@ def list_events(
         order = (Analysis.risk_score.desc(), Event.occurred_at.desc()) if sort == "risk" else (Event.occurred_at.desc(), Event.id.desc())
         rows = s.execute(q.order_by(*order).limit(limit).offset(offset)).all()
         response.headers["X-Total-Count"] = str(total)
-        return [_view(e, a, i) for e, a, i in rows]
+        fbs = feedback_for(s, [e.id for e, _, _ in rows])
+        return [_view(e, a, i, fbs.get(e.id)) for e, a, i in rows]
 
 
 def _csv_safe(value: object) -> str:
@@ -153,7 +161,7 @@ def get_event(event_id: uuid.UUID, p: Annotated[Principal, Depends(require_roles
                         .outerjoin(Incident, Incident.event_pk == Event.id).where(Event.event_id == event_id)).first()
         if row is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "evento não encontrado")
-        return _view(*row)
+        return _view(*row, feedback_for(s, [row[0].id]).get(row[0].id))
 
 
 @router.post("/{event_id}/justification", status_code=204,
@@ -180,11 +188,11 @@ def read_original(event_id: uuid.UUID, body: OriginalRequest,
         return {"event_id": str(event_id), "text": crypto.decrypt_original(p.tenant_id, ev.original_ciphertext)}
 
 
-def _view(e: Event, a: Analysis, incident_id: uuid.UUID | None = None) -> dict:
+def _view(e: Event, a: Analysis, incident_id: uuid.UUID | None = None, fb: EventFeedback | None = None) -> dict:
     return {"event_id": str(e.event_id), "occurred_at": e.occurred_at.isoformat(), "app": e.app, "channel": e.channel,
             "user_id": e.user_id, "department": e.department, "kind": e.kind, "personal_account": e.personal_account,
             "masked_text": e.masked_text, "attachments": e.attachments or [], "has_original": e.original_ciphertext is not None, "tool_name": e.tool_name,
             "session_id": e.session_id, "spans": [{"type": sp.get("type"), "masked": sp.get("masked")} for sp in (a.spans or [])],
             "categories": a.categories, "flags": a.flags, "risk_score": a.risk_score, "reasons": a.reasons,
             "decision": a.decision, "would_decide": a.would_decide, "policy_hits": a.policy_hits,
-            "incident_id": str(incident_id) if incident_id else None}
+            "incident_id": str(incident_id) if incident_id else None, "feedback": view(fb)}
