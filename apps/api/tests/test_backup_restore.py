@@ -101,3 +101,31 @@ def test_backup_and_restore_round_trip(client, world, admin_engine, tmp_path):
     finally:
         with admin_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as c:
             c.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+
+
+def test_restore_survives_a_newer_pg_restore_client(client, world, admin_engine, tmp_path):
+    """Regressão do CI de 2026-10-20: pg_restore mais novo que o servidor escreve `SET transaction_timeout`, que o servidor 16 recusa."""
+    assert client.post("/v1/events", json=event("simulado"), headers=world.key()).status_code == 200
+    env = {**os.environ, "PGPASSWORD": make_url(ADMIN_URL).password or ""}
+    dump = tmp_path / "bk.dump"
+    subprocess.run([str(ROOT / "infra/backup.sh"), libpq(ADMIN_URL), str(dump)], check=True, env=env, capture_output=True)
+    shim = tmp_path / "bin" / "pg_restore"
+    shim.parent.mkdir()
+    # imita um pg_restore 17+ contra servidor 16: ligado direto ao banco (--dbname) ele falha em `SET transaction_timeout`; como gerador de SQL só escreve a linha
+    shim.write_text('#!/bin/sh\ncase "$*" in *--dbname*) echo "ERROR: unrecognized configuration parameter transaction_timeout" >&2; exit 1;; esac\n'
+                    '[ "$2" = "-f" ] && echo "SET transaction_timeout = 0;"\nexec "$REAL_PG_RESTORE" "$@"\n')
+    shim.chmod(0o755)
+    name = f"ps_restore_{uuid.uuid4().hex[:8]}"
+    with admin_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as c:
+        c.execute(text(f'CREATE DATABASE "{name}"'))
+    try:
+        shimmed = {**env, "REAL_PG_RESTORE": shutil.which("pg_restore") or "", "PATH": f"{shim.parent}:{env['PATH']}"}
+        done = subprocess.run([str(ROOT / "infra/restore.sh"), str(dump), libpq(ADMIN_URL, name)], env=shimmed, capture_output=True, text=True)
+        assert done.returncode == 0, done.stderr
+        eng = create_engine(make_url(ADMIN_URL).set(database=name).render_as_string(hide_password=False))
+        with eng.begin() as c:
+            assert c.execute(text("SELECT count(*) FROM events")).scalar() == 1
+        eng.dispose()
+    finally:
+        with admin_engine.connect().execution_options(isolation_level="AUTOCOMMIT") as c:
+            c.execute(text(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
