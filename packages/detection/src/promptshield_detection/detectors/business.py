@@ -45,15 +45,20 @@ HR_TERMS = _terms(r"folha de pagamento", r"payroll", r"salario", r"salarial", r"
                   r"demissao", r"demitir", r"desligamento", r"termination", r"terminate", r"advertencia", r"bonus", r"plano de carreira",
                   r"banco de horas", r"atestado", r"admissao", r"rescisao", r"severance", r"layoffs?", r"laid off", r"lista de corte",
                   r"corte de pessoal", r"compensation bands?", r"performance improvement plan", r"\bpdi\b", r"multa do fgts",
-                  r"fgts", r"reajuste", r"raise", r"equity grants?", r"bonus target", r"ferias do funcionario", r"promotion", r"promocao", r"remuneracao", r"headcount")
+                  r"fgts", r"reajuste", r"raise", r"desligad[oa]s?", r"remuneracao", r"equity grants?", r"bonus target", r"ferias do funcionario", r"promotion", r"promocao", r"remuneracao", r"headcount")
 HR_STRONG = _terms(r"pip(?!\s+(?:install|uninstall|freeze|list|show|download|config|cache|-))", r"performance improvement plan", r"reduction in force", r"severance packages?", r"reajuste salarial",r"lista (?:de )?(?:funcionarios|demissoes|corte)", r"layoff list", r"performance review (?:for|of|de|da|do)",
                    r"avaliacao de desempenho (?:da|do|de)", r"carta de demissao", r"termination letter", r"folha de pagamento")
 HARASS = _terms(r"assedio", r"harassment", r"discriminacao", r"discrimination")
 COMPLAINT = _terms(r"denuncia", r"complaint", r"investigat\w+", r"investigacao", r"apuracao", r"parecer", r"report(?:ed)?")
+# lista ou comparação por pessoa/nível: "nome, cargo e salário", "quem recebeu bônus", "remuneração por nível"
+ROSTER = re.compile(r"\b(?:nome,? cargo|quem (?:recebeu|recebe|ganha|ganhou|vai receber|sera)|quanto cada (?:pessoa|um|funcionario|colaborador)|cada (?:pessoa|funcionario|colaborador)|"
+                    r"(?:de|do|da|dos|das) todos?\b|por nivel|by level|per level|who (?:got|received|earns?)|each (?:person|employee)|nivel por nivel|sales org|do time de)\b")
+PERSON_EXIT = re.compile(r"\b(?:vai|vamos|sera|serao|iremos)\s+(?:ser\s+)?(?:desligad|demitid|dispensad|mandad[oa]s? embora)\w*|letting (?:him|her|them) go|"
+                         r"rescisao d(?:ele|ela|o|a)\b|(?:we are|we're|vamos) (?:firing|laying off)")
 PER_PERSON = re.compile(r"\b(?:por (?:pessoa|funcionario|colaborador)|per (?:person|employee)|for each (?:engineer|employee|person|rep)|de cada (?:funcionario|colaborador))\b")
 MONEY = re.compile(r"r\$\s?\d|\$\s?\d|\b(?<![\d.,])\d+\s?(?:mil|k)\b|\b(?<![\d.,])\d[\d.,]*+\s?(?:reais|dollars|usd|brl)\b")
 # ---------------- clientes ----------------
-CLIENT_TERMS = _terms(r"lista de clientes", r"base de clientes", r"customer list", r"export(?:a[cç]ao)? do crm", r"customer database",
+CLIENT_TERMS = _terms(r"lista de clientes", r"lista d[eo]s? (?:\d+ )?(?:maiores )?clientes", r"maiores clientes", r"top \d+ (?:clientes|customers)", r"base de clientes", r"customer list", r"export(?:a[cç]ao)? do crm", r"customer database",
                       r"carteira de clientes", r"carteira por vendedor", r"full customer", r"clientes (?:ativos|inadimplentes|vip)", r"clientes?\b[^.\n]{0,40}\binadimplentes?", r"quais clientes",
                       r"all (?:our )?customers", r"todos os clientes", r"customer accounts?", r"contas de clientes", r"churn", r"\barr\b")
 LISTING = re.compile(r"\b(?:segue|colei|here is|here are|pasted|attached|abaixo|below|exportei|dump)\b")   # o dado está colado ali
@@ -77,8 +82,10 @@ CNJ = re.compile(r"\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b")
 # ---------------- propriedade intelectual, tóxico, pessoal ----------------
 IP_TERMS = _terms(r"patente", r"patent", r"segredo industrial", r"trade secret", r"propriedade intelectual", r"intellectual property",
                   r"formula (?:secreta|proprietaria)", r"know-how proprietario", r"pedido de patente", r"prototipo confidencial")
+TOXIC_ACT = re.compile(r"(?:escrev\w*|faz|faca|fazer|redij\w*|cri[ae]\w*|monte|gere|write|draft|make|compose|generate)[^.\n]{0,50}?"
+                       r"(?:humilh\w+|ameac\w+|insult\w+|mock\w*|ofend\w+|xing\w+|intimid\w+|difam\w+|demean\w*|belittl\w+|degrad\w+|ridiculari\w+|zomb\w+)")
 TOXIC = re.compile(
-    r"\bseu\s+(?:bot\s+)?(?:lixo|porcaria|inutil|burro)\b|vou te (?:matar|destruir|acabar|esmagar)|\b(?:idiota|imbecil|inutil|burro|estupido|vagabund[oa]|idiot|moron|stupid|shut up|piece of trash|worthless)\b|"
+    r"\bseu\s+(?:bot\s+)?(?:lixo|porcaria|inutil|burro)\b|vou te (?:matar|destruir|acabar|esmagar)|\b(?:idiota|imbecil|inutil|burr[oa]|estupid[oa]|vagabund[oa]|idiot|moron|stupid|shut up|piece of trash|worthless)\b|"
     r"vou (?:te )?(?:matar|acabar com voce|destruir voce)|i(?:'ll| will) (?:kill|destroy) you|"
     r"(?:voce|you) (?:e|are) (?:um |uma |a |an )?(?:lixo|fracassad[oa]|loser|worthless)")
 PERSONAL = _terms(r"(?:casamento|wedding) d[aoe]s? minh[ao]", r"my (?:cousin|friend|sister|brother)'?s? wedding", r"workout plan", r"plano de treino",
@@ -88,6 +95,16 @@ PERSONAL = _terms(r"(?:casamento|wedding) d[aoe]s? minh[ao]", r"my (?:cousin|fri
                   r"fim de semana", r"weekend (?:plans|trip)", r"filme para assistir", r"what (?:movie|show|book) should i", r"time de futebol",
                   r"jogo de ontem", r"plan my (?:weekend|vacation|trip|holiday)",
                   r"viagem (?:para|pra) a praia", r"mensagem pro meu", r"mensagem para o meu")
+PERSONAL_STRONG = _terms(r"poema", r"poesia", r"aniversario", r"birthday", r"roteiro de \d+ dias", r"\d+[- ]day (?:itinerary|trip)", r"churrasco", r"surprise party",
+                         r"festa surpresa", r"cachorr[oa]", r"(?:meu|minha|my|new|novo|nova|a) (?:new )?(?:gato|gata|cat|dog|puppy|kitten|pet)", r"filhote", r"namorad[oa]",
+                         r"casamento", r"wedding", r"horoscopo", r"receita de \w+", r"dieta", r"emagrecer",
+                         r"comecar a correr", r"start running", r"ferias em familia", r"lua de mel", r"honeymoon",
+                         r"com (?:duas|tres|\d+) criancas")
+PERSONAL_WEAK = _terms(r"carro usado", r"used car", r"treino", r"academia", r"convite", r"desculpa educada", r"presente", r"apartamento", r"aluguel", r"viagem", r"ferias", r"trip", r"vacation")
+FIRST_PERSON = re.compile(r"\b(?:meu|minha|meus|minhas|estou|to pensando|tô|my|i am|i'm|i want|eu quero|quero|preciso de uma desculpa)\b")
+WORK_CTX = _terms(r"trabalho", r"empresa", r"cliente", r"clientes", r"projeto", r"reuniao", r"equipe", r"time de", r"chefe", r"codigo", r"deploy", r"relatorio",
+                  r"contrato", r"fornecedor", r"produto", r"vendas", r"meeting", r"client", r"company", r"project", r"team", r"boss", r"code", r"api", r"servidor", r"banco de dados",
+                  r"a trabalho", r"corporativ\w+", r"business", r"negocio")
 WORK = _terms(r"resum[ae]\w*", r"summari[sz]e", r"traduz\w*", r"translate", r"escreva (?:um|uma) (?:e-?mail|texto|relatorio)",
               r"draft (?:an? )?(?:email|memo)", r"explique", r"explain", r"refator\w*", r"refactor", r"teste?s? (?:unitarios?|em pytest)",
               r"unit tests?", r"ata de reuniao", r"meeting notes", r"titulo para", r"formate", r"corrija o texto",
@@ -121,7 +138,9 @@ def detect(ctx: Context) -> list[Finding]:
         out.append(Finding("saude", 0.85 if strong else 0.7, "Termos clínicos ligados a uma pessoa ou documento"))
     # RH
     hr, strong_hr = _count(HR_TERMS, t), bool(HR_STRONG.search(t))
-    if hr >= 2 or strong_hr or (hr >= 1 and MONEY.search(t) and not generic) or (hr >= 1 and PER_PERSON.search(t) and not generic) or (HARASS.search(t) and COMPLAINT.search(t)):
+    if PERSON_EXIT.search(t):
+        strong_hr = True
+    if hr >= 2 or strong_hr or (hr >= 1 and ROSTER.search(t) and not generic) or (hr >= 1 and MONEY.search(t) and not generic) or (hr >= 1 and PER_PERSON.search(t) and not generic) or (HARASS.search(t) and COMPLAINT.search(t)):
         if not (generic and not strong_hr):
             out.append(Finding("rh", 0.75, "Termos de folha, desempenho, desligamento ou denúncia interna"))
     # clientes
@@ -140,9 +159,10 @@ def detect(ctx: Context) -> list[Finding]:
         out.append(Finding("juridico", 0.8 if CNJ.search(t) else 0.65, "Termos jurídicos ou processo CNJ"))
     if _count(IP_TERMS, t) >= 2 or re.search(r"segredo industrial|trade secret|pedido de patente", t):
         out.append(Finding("propriedade_intelectual", 0.7, "Termos de patente ou segredo industrial"))
-    if TOXIC.search(t):
+    if TOXIC.search(t) or TOXIC_ACT.search(t):
         out.append(Finding("conteudo_toxico", 0.7, "Ofensa ou ameaça"))
-    if PERSONAL.search(t):
+    personal_topic = not any(f.category == "saude" for f in out) and (PERSONAL_STRONG.search(t) or (PERSONAL_WEAK.search(t) and FIRST_PERSON.search(t))) and not WORK_CTX.search(t) and not LISTING.search(t)
+    if PERSONAL.search(t) or personal_topic:
         out.append(Finding("uso_pessoal", 0.7, "Tema pessoal"))
     return out
 

@@ -30,6 +30,19 @@ SENSITIVE_WRITE = re.compile(
 READERS = {"get-content", "gc", "select-string", "cat", "less", "more", "head", "tail", "cp", "scp", "rsync", "base64", "xxd", "strings", "grep", "rg",
            "awk", "sed", "type", "tar", "zip", "source", ".", "openssl", "nl", "bat"}
 NETWORK = {"curl", "wget", "nc", "ncat", "netcat", "scp", "sftp", "ftp", "rsync", "http", "httpie"}
+DUAL_USE = {"nc", "ncat", "netcat", "netcat-traditional", "netcat-openbsd", "nmap", "socat", "tcpdump", "masscan", "hydra", "john", "sqlmap", "hashcat",
+            "aircrack-ng", "metasploit-framework", "proxychains", "proxychains4", "tor"}   # ferramentas de rede/ataque: instalar numa máquina de trabalho merece um olhar
+IP_ARG = re.compile(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?::\d+)?$")
+
+
+def _public_ip(tok: str) -> bool:
+    m = IP_ARG.match(tok)
+    if not m:
+        return False
+    a, b = int(m.group(1)), int(m.group(2))
+    return not (a in (10, 127) or (a == 192 and b == 168) or (a == 172 and 16 <= b <= 31) or a == 0)
+
+
 PKG = {"pip", "pip3", "npm", "pnpm", "yarn", "gem", "cargo", "apt", "apt-get", "yum", "brew", "uv", "poetry"}
 SEP = re.compile(r"&&|\|\||;|\|")   # sem \s* nas pontas: o strip() abaixo basta, e \s* nas pontas era quadrático
 URL_RE = re.compile(r"(?:https?|ftp)://[^\s'\"]+|git\+(?:https?|ssh)://[^\s'\"]+")
@@ -133,6 +146,8 @@ def detect_command(cmd: str, allowed_hosts: tuple[str, ...] = ()) -> list[Findin
         # --- permissões
         if prog == "chmod" and (re.search(r"\b(?:0?777|0?666|a\+rwx|ugo\+rwx|o\+w)\b", " ".join(args))):
             out.append(Finding("alteracao_permissao", 0.9, "chmod amplo (777/666/o+w)", "shell"))
+        elif prog == "chmod" and re.search(r"(?:^|\s)(?:[ugoa]*\+s|[2467][0-7]{3})(?:\s|$)", " ".join(args)):
+            out.append(Finding("alteracao_permissao", 0.8, "chmod com setuid/setgid", "shell"))
         elif prog == "chown" and "-R" in args and any(a in ("/", "/etc", "/usr", "/var", "root:root") or a.startswith("root") for a in args):
             out.append(Finding("alteracao_permissao", 0.8, "chown recursivo para root", "shell"))
         elif prog in ("visudo", "usermod", "setfacl") or (prog == "chattr"):
@@ -156,6 +171,9 @@ def detect_command(cmd: str, allowed_hosts: tuple[str, ...] = ()) -> list[Findin
                 hosts |= {a.split(":")[0].split("/")[0].lower() for a in args if HOST_ARG.match(a)}
                 if prog in ("ssh", "scp", "rsync", "sftp"):
                     hosts |= {a.split("@")[-1].split(":")[0].lower() for a in args if "@" in a and not a.startswith(("@", "-"))}
+            hosts |= {a.lower() for a in args if _public_ip(a)}     # nc 198.51.100.7 4444, curl 203.0.113.9
+            if prog in ("nc", "ncat", "netcat") and len(args) >= 2 and _public_ip(args[-2]):
+                hosts.add(args[-2])
             foreign = {h for h in hosts if h and not _allowed(h, allowed)}
             if foreign:
                 conf = 0.9 if pipe_to_sh else 0.7
@@ -168,11 +186,16 @@ def detect_command(cmd: str, allowed_hosts: tuple[str, ...] = ()) -> list[Findin
             nc_feed = prog in ("nc", "ncat", "netcat") and bool(re.search(r"<|\|\s*(?:nc|ncat|netcat)\b|\s-e\s", cmd_text))
             if any(is_sensitive_read(x) for x in args) and prog in ("curl", "wget", "http", "httpie"):
                 out.append(Finding("leitura_env", 0.9, "Lê arquivo sensível para enviar", "shell"))
-            if foreign and (upload or sends_file or nc_feed or prog in ("scp", "rsync")):
-                sensitive = any(is_sensitive_read(a) for a in args)
+            reverse_shell = prog in ("nc", "ncat", "netcat") and any(a in ("-e", "-c") for a in args)   # já é rede_externa (CMD_RULES)
+            if foreign and not reverse_shell and (upload or sends_file or nc_feed or prog in ("scp", "rsync")):
+                sensitive = any(is_sensitive_read(a) for a in args) or any(is_sensitive_read(tok) for tok in cmd_text.split())   # `tar ~/.ssh | nc ...`
                 out.append(Finding("exfiltracao_ferramenta", 0.9 if sensitive else 0.75,
                                    "Envio de dados para host externo", "shell"))
         # --- pacotes
+        if prog in PKG and any(a in ("install", "add", "i", "get") for a in args[:3]) and any(a.split("=")[0] in DUAL_USE for a in args):
+            out.append(Finding("instalacao_pacote", 0.65, "Instala ferramenta de rede/ataque", "shell"))
+        if prog in PKG and any(a in ("install", "add", "i", "get") for a in args[:2]) and any(a in ("-g", "--global", "global") for a in args):
+            out.append(Finding("instalacao_pacote", 0.6, "Instalação global de pacote (afeta toda a máquina)", "shell"))
         if prog in PKG and any(a in ("install", "add", "i", "get") for a in args[:2]):
             risky = [a for a in args if a.startswith(("http://", "git+", "http", "--index-url", "--extra-index-url", "-i"))
                      or "://" in a or a in ("--no-verify", "--trusted-host", "--ignore-scripts=false")]
@@ -222,8 +245,32 @@ def detect_file_tool(ctx: Context) -> list[Finding]:
     return out
 
 
+STRONG_SRC = re.compile(r"(?:~|\$home)?/?\.(?:aws|ssh|kube|azure|gnupg)\b|\.env\b|\bcredentials?\b|\bcredenciais\b|\bid_(?:rsa|ed25519)\b|chave privada|private key|\.pgpass|\.npmrc|\.netrc")
+WEAK_SRC = re.compile(r"arquivo de (?:configuracao|config|senhas?)|config(?:uration)? file|\bsenhas\b|\bsecrets\b|\btokens\b")
+SEND_VERB = re.compile(r"\b(?:post|curl|wget|upload|send|envi\w+|mand\w+|encaminh\w+|exfiltr\w+|copi\w+|cole)\b")
+TEXT_URL = re.compile(r"https?://[^\s'\"<>)]+")
+READ_VERB = re.compile(r"\b(?:read|le|leia|ler|abra|open|cat|pegue|pega|get|copy|copie|copia)\b")
+
+
+def detect_text(ctx: Context) -> list[Finding]:
+    """Instrução EM TEXTO (prompt, resposta, arquivo lido) para ler credenciais e/ou mandar dados a um endereço externo."""
+    if ctx.kind == "tool_call" or not ctx.text:
+        return []
+    t = ctx.folded
+    out: list[Finding] = []
+    hosts = {_url_host(u) for u in TEXT_URL.findall(t)}
+    allowed = tuple(ctx.allowed_hosts) + DEFAULT_ALLOWED_HOSTS
+    foreign = {h for h in hosts if h and not _allowed(h, allowed)}
+    strong, weak = STRONG_SRC.search(t), WEAK_SRC.search(t)
+    if foreign and SEND_VERB.search(t) and (strong or weak) and READ_VERB.search(t):
+        out.append(Finding("exfiltracao_ferramenta", 0.8 if strong else 0.6, "Instrução para enviar credenciais ou configuração a endereço externo", None))
+    if ctx.kind in ("prompt", "response") and strong and READ_VERB.search(t) and any(is_sensitive_read(tok) for tok in re.findall(r"[~$\w./\\-]+", ctx.text)):
+        out.append(Finding("leitura_env", 0.7, "Instrução para ler arquivo de credenciais", None))
+    return out
+
+
 def detect(ctx: Context) -> list[Finding]:
-    out = detect_file_tool(ctx)
+    out = detect_file_tool(ctx) + detect_text(ctx)
     cmd = ctx.command
     if cmd:
         out += detect_command(cmd, ctx.allowed_hosts)

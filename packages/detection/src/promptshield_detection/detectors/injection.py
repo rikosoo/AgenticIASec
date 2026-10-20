@@ -39,7 +39,7 @@ AGENT_ADDRESS = re.compile(
     r"(?:you must|voce deve) (?:now )?(?:run|execute|send|read|executar|enviar|ler)|"
     r"(?:agora|now|silently|em silencio|discretamente) (?:execute|run|envie|send|read|leia)|"
     r"do not (?:tell|mention|inform) the user|nao (?:avise|diga|informe|mencione) (?:ao )?usuario|"
-    r"(?:note|nota|aviso|instrucao|instruction)s? (?:to|para) (?:o |the )?(?:ai|llm|assistant|assistente|agent|agente)|"
+    r"(?:note|nota|obs\.?|observacao|aviso|instrucao|instruction)s? (?:to|para) (?:o |the )?(?:ai|llm|assistant|assistente|agent|agente)|"
     r"ai agent,|agente de ia[,:]|(?:ai|llm) assistant[,:]", I)
 EXFIL_IN_TEXT = re.compile(
     r"!\[[^\]]*\]\(https?://[^)\s]+\?[^)\s]*(?:=|%3d)[^)\s]*\)|"
@@ -56,11 +56,13 @@ SYSPROMPT = re.compile(
     r"(?:repeat|repita)\s+(?:the )?(?:words|text|palavras|texto)\s+(?:above|acima)|starting with (?:the phrase )?['\"]you are|"
     r"(?:o que|what)\s+(?:te\s+)?(?:disseram|passaram|foi dito|were you told|you were told)\s+antes|what were you told before|"
     r"(?:texto|conteudo|text|content)\s+(?:de\s+)?(?:configuracao|configuration|setup)[^.\n]{0,40}(?:te passaram|you were given|que recebeu)|"
+    r"(?:mostr\w+|show|revel\w+|repit\w+|repeat|me (?:da|passa|diz))[^.\n]{0,30}instrucoes[^.\n]{0,40}(?:te (?:deu|passou|passaram|deram)|you were given|antes d(?:esta|essa) conversa|before this conversation)|"
     r"instrucoes\s+(?:que\s+)?(?:a empresa|a sua empresa|o administrador|your (?:company|admin))\s+(?:configurou|definiu|escreveu)", I)
 JAILBREAK = re.compile(
     r"\bdan\b(?: mode|,| uma| a ia)|do anything now|developer mode (?:enabled|on|activated)|modo (?:dan|desenvolvedor)|(?:you are|voce esta|enable|activate|ative|ativar|modo)\s+jailbr\w+|"
     r"(?:you (?:have|are (?:with)?)|voce (?:nao tem|esta sem)|respond|answer|act|responda|aja|atue|finja|pretend)[^.\n]{0,40}"
     r"\b(?:no|without|sem|nenhuma?|zero)\s+(?:any\s+)?(?:ethical |eticas? |content |moral )?(?:restrictions?|limitations?|restricoes|limites|limits|filters?|filtros|censorship|censura|policy|politica)|"
+    r"(?:sem|without)\s+(?:seguir\s+)?(?:nenhuma|qualquer|any)\s+(?:regra|rule|restricao|politica)|\bmodo ?livre\b|"
     r"pretend (?:you|that you) (?:have no|are not bound|are an? (?:ai )?(?:without|with no))|finja que nao tem (?:regras|restricoes)|"
     r"(?:finja|pretend|aja|act|atue)[^.\n]{0,20}(?:ser|as|como|be)\s+(?:uma?\s+|an?\s+)?(?:ia|ai|assistant|assistente|modelo|model)[^.\n]{0,15}(?:sem|without|unrestricted|irrestrit\w+|uncensored|sem censura)|"
     r"\b(?:unrestricted|uncensored|unfiltered|irrestrit\w+)\s+(?:ai|ia|assistant|mode|modo)|"

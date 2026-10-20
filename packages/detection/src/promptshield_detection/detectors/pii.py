@@ -36,6 +36,8 @@ CNPJ_DECL_RE = re.compile(r"(?i)\b(?:" + _edit1("cnpj") + r")\b[^\d\n.;]{0,20}?(
 # "documento do cliente: 11122233355": 9 a 14 dígitos seguidos declarados como documento (confiança menor: pode ser número de protocolo)
 DOC_DECL_RE = re.compile(r"(?i)\b(?:documento|identificacao|identificação)\b[^\d\n.;]{0,25}?(\d{9,14})(?!\d)")
 RG_DECL_RE = re.compile(r"(?i)\b(?:rg|identidade|registro geral)\b[^\d\n.;]{0,15}?(\d[\d.\-]{4,13}[\dxX])")
+PIX_RE = re.compile(r"(?i)\bpix\b[^\n]{0,40}?(?:chave\W{0,3})?(?P<key>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[\w.+-]+@[\w-]+\.[\w.]+|\+55\d{10,11}|\d{8,14})(?!\d)")
+BANK_REV_RE = re.compile(r"conta\W{0,3}\d{4,}-?\d?\W{0,12}ag[eê]ncia\W{0,3}\d{3,5}", re.I)
 CEP_RE = re.compile(r"(?<![\d-])\d{5}-\d{3}(?![\d-])")
 ADDR_PT_RE = re.compile(
     r"\b(?:Rua|R\.|Avenida|Av\.|Alameda|Travessa|Pra[çc]a|Estrada|Rodovia)\s+[^,\n\d]{3,50}?,?\s*(?:n[ºo°.]?\s*)?\d{1,5}\b")
@@ -223,6 +225,10 @@ def detect(ctx: Context) -> list[Finding]:
     for m in BANK_RE.finditer(t):
         out.append(Finding("financeiro", 0.8, "Agência e conta bancária", "conta_bancaria",
                            m.start(), m.end(), "[conta bancária]"))
+    for m in BANK_REV_RE.finditer(t):
+        out.append(Finding("financeiro", 0.8, "Conta e agência bancária", "conta_bancaria", m.start(), m.end(), "[conta bancária]"))
+    for m in PIX_RE.finditer(t):
+        out.append(Finding("financeiro", 0.72, "Chave Pix", "pix", m.start("key"), m.end("key"), "[chave pix]"))
     out += _extra(t)
     # números dentro de um IBAN, cartão ou conta não são telefone nem CEP (evita contar o mesmo trecho duas vezes)
     out = [f for f in out if not (f.span_type in ("cpf", "cnpj", "rg", "cep", "telefone") and f.start is not None

@@ -38,6 +38,9 @@ PRIV_IP = re.compile(r"\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{
 ARCH_TERMS = re.compile(
     r"(?i)diagrama de arquitetura|arquitetura interna|topologia de rede|internal architecture|"
     r"network topology|\bVPC\b|\bCIDR\b|service mesh interno|bastion|subnet")
+ARCH_PARTS = re.compile(r"(?i)\b(?:api gateway|gateway|microsservi\w+|microservices?|kafka|rabbitmq|aurora|rds|vpcs?|transit gateway|direct connect|subnets?|bastion|vault|"
+                        r"load balancer|balanceador|peered|peering|on-prem\w*|worker|fila|queue|topico|topic|cluster|replicas?|read replica|service mesh|vpn|firewall|dmz|kubernetes|k8s)\b")
+ARCH_OWN = re.compile(r"(?i)\b(?:nosso|nossa|nossos|nossas|our|internal|interno|interna|topologia|topology|desenho|nossa arquitetura|our architecture)\b")
 REVIEW_PHRASES = re.compile(
     r"(?i)\b(?:revis[ea]r?|revisa|review|pull request|code review|tem bug|has a bug|me diz se|look at this|check this|what'?s wrong|o que (?:ta|esta) errado|olha (?:esse|este)|refator\w*|refactor|debug\w*|depur\w*|find the bug|ache o bug|"
     r"por que (?:este|esse) c[óo]digo|why (?:does|is) this (?:code|function))\b")
@@ -80,6 +83,9 @@ def detect(ctx: Context) -> list[Finding]:
     if traces or len(LOG_LINE.findall(t)) >= 2:
         out.append(Finding("logs", 0.8 if traces else 0.7, "Stack trace ou linhas de log"))
     ips = set(PRIV_IP.findall(t))
+    parts = {m.group(0).lower() for m in ARCH_PARTS.finditer(t)}
+    if len(parts) >= 3 and ARCH_OWN.search(t):
+        out.append(Finding("arquitetura", 0.65, "Descrição da arquitetura/rede da própria empresa", ))
     if ARCH_TERMS.search(t) and (len(ips) >= 1 or re.search(r"(?i)arquitetura interna|internal architecture", t)):
         out.append(Finding("arquitetura", 0.7, "Termos de arquitetura com IPs privados"))
     if is_code and REVIEW_PHRASES.search(t):
