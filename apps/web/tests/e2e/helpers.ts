@@ -3,7 +3,7 @@ import { expect, type Page } from "@playwright/test";
 
 export const USERS = {
   admin: "admin@empresa-exemplo.com.br", analista: "analista@empresa-exemplo.com.br", auditor: "auditor@empresa-exemplo.com.br",
-  leitura: "leitura@empresa-exemplo.com.br", vazia: "admin@empresa-vazia.example.com",
+  leitura: "leitura@empresa-exemplo.com.br", vazia: "admin@empresa-vazia.example.com", suspensa: "admin@empresa-suspensa.example.com",
 };
 
 export async function login(page: Page, email: string) {

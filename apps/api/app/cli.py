@@ -32,6 +32,26 @@ def create_tenant(session: Session, name: str, slug: str, admin_email: str, key_
     return {"tenant_id": str(tenant_id), "admin_user_id": str(admin.id), "api_key": key}
 
 
+def set_suspension(session: Session, slug: str, suspended: bool, reason: str | None = None) -> dict:
+    """Suspende ou reativa uma empresa (só o fornecedor, pelo CLI). Reversível: nenhum dado é apagado. Fica na auditoria da empresa."""
+    from datetime import datetime, timezone
+
+    from app import audit_system
+
+    tid = session.execute(text("SELECT id FROM tenants WHERE slug = :s"), {"s": slug}).scalar_one_or_none()
+    if tid is None:
+        raise SystemExit(f"empresa não encontrada: {slug}")
+    session.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tid)})
+    t = session.get(Tenant, tid)
+    was = t.suspended_at is not None
+    t.suspended_at = datetime.now(timezone.utc) if suspended and not was else (t.suspended_at if suspended else None)
+    t.suspended_reason = (reason or "")[:200] or None if suspended else None
+    session.flush()
+    audit_system.write(session, tid, "tenant.suspend" if suspended else "tenant.resume", "tenant", str(tid),
+                       {"reason": t.suspended_reason, "was_suspended": was}, actor_id="fornecedor")
+    return {"slug": slug, "suspended": suspended, "was_suspended": was, "reason": t.suspended_reason}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(prog="python -m app.cli")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -55,6 +75,12 @@ def main() -> None:
     e = lic.add_mutually_exclusive_group()
     e.add_argument("--expires", help="validade AAAA-MM-DD (UTC, fim do dia)")
     e.add_argument("--no-expiry", action="store_true", help="remove a validade")
+    sp = sub.add_parser("suspend", help="suspende uma empresa (inadimplência/encerramento): para a coleta e as alterações, mantém os dados (reversível)")
+    sp.add_argument("--slug", required=True)
+    sp.add_argument("--reason", default="", help="texto curto que o administrador da empresa vê no console (ex.: fatura em atraso)")
+    rs = sub.add_parser("resume", help="reativa uma empresa suspensa")
+    rs.add_argument("--slug", required=True)
+    sub.add_parser("tenants", help="lista as empresas: situação do contrato, validade, limite e máquinas ativas (só o fornecedor)")
     sub.add_parser("rewrap-keys", help="troca a chave mestra: reembrulha as chaves de dados (lê OLD_MASTER_KEY e NEW_MASTER_KEY do ambiente)")
     args = ap.parse_args()
     url = settings.admin_database_url or settings.database_url
@@ -87,6 +113,22 @@ def main() -> None:
                 t.license_expires_at = None
             s.flush()
             print(lic_mod.summary(s, t))
+        return
+    if args.cmd in ("suspend", "resume"):
+        with Session(create_engine(url)) as s, s.begin():
+            print(set_suspension(s, args.slug, args.cmd == "suspend", getattr(args, "reason", None)))
+        return
+    if args.cmd == "tenants":
+        from app import license as lic_mod
+
+        with Session(create_engine(url)) as s, s.begin():
+            for tid, slug, name in s.execute(text("SELECT id, slug, name FROM tenants ORDER BY created_at")).all():
+                s.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tid)})
+                t = s.get(Tenant, tid)
+                info = lic_mod.summary(s, t)
+                state = "SUSPENSA" if t.suspended_at else "vencida" if info["expired"] else "ativa"
+                print(f"{slug:24s} {state:9s} máquinas {info['active_seats']}/{info['max_devices'] if info['max_devices'] is not None else '∞'}  "
+                      f"validade {info['expires_at'] or '—'}  {name}")
         return
     if args.cmd == "rewrap-keys":
         import os

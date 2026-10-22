@@ -150,10 +150,19 @@ def audit_log(p: Annotated[Principal, Depends(require_roles("admin", "auditor"))
 
 
 
+def contract_view(t: Tenant, now: datetime | None = None) -> dict:
+    """Situação do contrato para o aviso no console (a decisão de suspender é sempre do fornecedor)."""
+    now = now or datetime.now(timezone.utc)
+    exp = t.license_expires_at
+    return {"suspended": t.suspended_at is not None, "suspended_at": t.suspended_at.isoformat() if t.suspended_at else None,
+            "suspended_reason": t.suspended_reason, "license_expires_at": exp.isoformat() if exp else None,
+            "days_to_expiry": (exp - now).days if exp else None, "expired": bool(exp and exp <= now)}
+
+
 def _tenant_view(t: Tenant) -> dict:
     return {"id": str(t.id), "name": t.name, "failure_mode": t.failure_mode, "retention_days": t.retention_days, "original_retention_days": t.original_retention_days, "omit_text_categories": list(t.omit_text_categories),
             "store_original": t.store_original, "policy_url": t.policy_url, "monitored_domains": t.monitored_domains,
-            "is_demo": t.is_demo, "volume_threshold_per_hour": t.volume_threshold_per_hour}
+            "is_demo": t.is_demo, "volume_threshold_per_hour": t.volume_threshold_per_hour, "contract": contract_view(t)}
 
 
 @router.get("/tenant", summary="Configurações do tenant")

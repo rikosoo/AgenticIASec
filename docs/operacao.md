@@ -63,3 +63,25 @@ Quem tem o banco **e** a chave mestra lê tudo: não há KMS/HSM (pendência).
 ## Limites conhecidos
 
 Limite de requisições por processo; sem Redis; sem KMS; TLS é do proxy reverso do operador; o `docker-compose` do projeto é para desenvolvimento e **nunca foi executado**.
+
+## Inadimplência e encerramento: suspender e reativar uma empresa (só o fornecedor)
+
+Comandos (na VM; `docker compose exec api` roda dentro do contêiner da API):
+
+```bash
+docker compose exec api python -m app.cli tenants                                   # situação de cada empresa: ativa, vencida ou SUSPENSA, máquinas e validade
+docker compose exec api python -m app.cli suspend --slug acme --reason "fatura em atraso"
+docker compose exec api python -m app.cli resume  --slug acme
+```
+
+**Suspensa significa:**
+- A API recusa tudo que vem dos coletores dessa empresa (403 "contrato suspenso"): eventos, configuração do hook e da extensão, inference hook. Novas matrículas de máquina também são recusadas (e o token não é gasto).
+- O console continua abrindo para os usuários da empresa e **só lê**: consultar, filtrar e exportar funciona; qualquer alteração (política, token, revisão, retenção) é recusada com a mesma mensagem. O administrador vê uma faixa vermelha "Contrato suspenso" com o motivo que você escreveu.
+- Relatórios agendados deixam de ser gerados e enviados. A retenção continua rodando.
+- **Nada é apagado.** `resume` volta tudo ao normal na hora (a verificação é feita a cada requisição, sem cache).
+- Os funcionários **não são afetados**: os sensores ficam em `fail_mode: open`, então o Claude Code, o ChatGPT etc. continuam funcionando; só o monitoramento para.
+- `suspend` e `resume` entram na auditoria da empresa (ator "fornecedor"). Suspender duas vezes não muda o "desde quando".
+
+**Avisos antes de suspender:** o console mostra uma faixa amarela quando faltam 15 dias ou menos para a validade da licença (`set-license --expires`) e vermelha quando venceu. A faixa é só informação: a suspensão nunca é automática.
+
+**O que NÃO existe ainda:** suspensão automática por data ou por falta de pagamento (cobrança, nota fiscal e boleto estão fora do escopo), aviso por e-mail ao administrador, apagamento da empresa inteira no encerramento (hoje só existe o apagamento por pessoa), painel do fornecedor no navegador. Os prazos de aviso, exportação e apagamento precisam estar no contrato (revisão jurídica pendente). Para encerrar de vez hoje: suspender, deixar o cliente exportar no prazo combinado e depois apagar manualmente no banco.

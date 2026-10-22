@@ -49,6 +49,9 @@ class Tenant(Base):
     # licença: definida SÓ pelo fornecedor (python -m app.cli set-license); nenhuma rota do administrador da empresa altera
     max_devices: Mapped[int | None] = mapped_column(Integer)
     license_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # suspensão (inadimplência/encerramento): só o fornecedor liga e desliga (python -m app.cli suspend/resume)
+    suspended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    suspended_reason: Mapped[str | None] = mapped_column(String(200))
     original_retention_days: Mapped[int] = mapped_column(Integer, default=30)
     last_retention_run: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     pilot_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

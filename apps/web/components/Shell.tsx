@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
+import { contractNotice } from "@/lib/contract";
 import { ROLE_LABEL } from "@/lib/labels";
 import { SessionProvider, useSession } from "./session";
 
@@ -76,6 +77,15 @@ function Frame({ children }: { children: ReactNode }) {
             <button type="button" className="btn" onClick={logout}>Sair</button>
           </div>
         </header>
+        {(() => {
+          const n = contractNotice(tenant.contract);
+          return n && (
+            <div role={n.level === "crit" ? "alert" : "status"} data-testid="contract-notice"
+              className={`border-b px-4 py-2 text-sm md:px-6 ${n.level === "crit" ? "border-crit bg-crit-bg text-crit" : "border-med bg-med-bg text-med"}`}>
+              <strong>{n.title}.</strong> {n.text}
+            </div>
+          );
+        })()}
         <main id="conteudo" className="px-4 py-5 md:px-6">{children}</main>
       </div>
     </div>

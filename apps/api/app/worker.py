@@ -37,6 +37,8 @@ def run_schedules(tenant_id, today: date | None = None) -> int:
     made = 0
     with tenant_session(tenant_id) as s:
         tenant = s.get(Tenant, tenant_id)
+        if tenant.suspended_at:      # contrato suspenso: não gera nem envia relatórios (a retenção continua rodando)
+            return 0
         for sch in s.execute(select(ReportSchedule).where(ReportSchedule.enabled.is_(True))).scalars().all():
             start, end = due_period(sch.frequency, today)
             if sch.last_period_end is not None and sch.last_period_end >= end:

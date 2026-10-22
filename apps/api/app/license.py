@@ -48,6 +48,8 @@ class Refused(Exception):
 def check_new_seat(session: Session, tenant, now: datetime | None = None) -> None:
     """Chamar com o tenant TRAVADO (FOR UPDATE) e depois de liberar a vaga de uma reinstalação."""
     now = now or datetime.now(timezone.utc)
+    if getattr(tenant, "suspended_at", None):
+        raise Refused("suspended", "o contrato desta empresa está suspenso: novas máquinas não podem ser matriculadas. Fale com o fornecedor.")
     if tenant.license_expires_at and tenant.license_expires_at <= now:
         raise Refused("license_expired", "a licença desta empresa expirou: novas máquinas não podem ser matriculadas. Fale com o fornecedor.")
     if tenant.max_devices is not None:

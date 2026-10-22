@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -118,7 +119,9 @@ def world(admin_engine, _configure):
 
 def event(text_value: str = "", kind: str = "prompt", **over):
     base = {
-        "event_id": str(uuid.uuid4()), "occurred_at": "2026-10-14T12:00:00Z",
+        "event_id": str(uuid.uuid4()),
+        # AGORA, não uma data fixa: janelas como "últimos 7 dias" quebram quando o calendário anda (já quebrou duas vezes)
+        "occurred_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source": {"channel": "agent_hook", "app": "claude_code", "integration_status": "partial"},
         "actor": {"user_id": "u-42", "department": "Engenharia", "groups": ["devs"]},
         "kind": kind, "content": {"text": text_value}, "context": {"session_id": "s1", "personal_account": False},

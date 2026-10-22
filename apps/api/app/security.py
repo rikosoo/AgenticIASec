@@ -129,6 +129,17 @@ def _resolve_user(token: str) -> Principal:
                      department=row.department, email=email)
 
 
+SUSPENDED_DETAIL = "contrato suspenso: a coleta e as alterações estão paradas; os dados continuam guardados. Fale com o fornecedor."
+SAFE_METHODS = ("GET", "HEAD", "OPTIONS")
+
+
+def tenant_suspension(tenant_id: uuid.UUID) -> tuple[Any, str | None] | None:
+    """(desde quando, motivo) se a empresa está suspensa; None se não. Uma consulta pequena por requisição (sem cache: a suspensão vale na hora)."""
+    with anonymous_session() as s:
+        row = s.execute(text("SELECT suspended_at, reason FROM tenant_suspension(:t)"), {"t": tenant_id}).first()
+    return (row.suspended_at, row.reason) if row else None
+
+
 def current_principal(
     request: Request,
     authorization: Annotated[str | None, Header()] = None,
@@ -139,6 +150,12 @@ def current_principal(
         raise _unauthorized("envie X-API-Key ou Authorization: Bearer")
     p = _resolve_key(raw) if raw.startswith(KEY_PREFIX) else _resolve_user(raw)
     request.state.tenant_id = str(p.tenant_id)  # para o log de acesso
+    if tenant_suspension(p.tenant_id) is not None:
+        # coletores: tudo recusado (o sensor segue em fail_mode open: os funcionários continuam trabalhando, só o monitoramento para).
+        # console: o administrador ainda entra e LÊ (e exporta) os dados, mas nada é alterado.
+        if p.kind == "api_key" or request.method not in SAFE_METHODS:
+            metrics.inc("ps_suspended_refusals_total", kind=p.kind)
+            raise HTTPException(status.HTTP_403_FORBIDDEN, SUSPENDED_DETAIL, headers={"X-PromptShield-Suspended": "1"})
     limit = settings.rate_limit_key_per_minute if p.kind == "api_key" else settings.rate_limit_user_per_minute
     wait = ratelimit.check(f"{p.kind}:{p.id}", limit)
     if wait is not None:

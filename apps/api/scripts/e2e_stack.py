@@ -47,12 +47,16 @@ def main() -> None:
     with Session(create_engine(admin_url)) as s, s.begin():
         create_tenant(s, "Empresa Exemplo S.A.", "exemplo", "admin@empresa-exemplo.com.br")
         other = create_tenant(s, "Empresa Vazia Ltda.", "vazia", "admin@empresa-vazia.example.com")
+        create_tenant(s, "Empresa Suspensa Ltda.", "suspensa", "admin@empresa-suspensa.example.com")
         tid = s.execute(text("SELECT id FROM tenants WHERE slug = 'exemplo'")).scalar_one()
         s.execute(text("SELECT set_config('app.tenant_id', :t, true)"), {"t": str(tid)})
         for role in ("analista", "auditor", "leitura"):
             s.add(User(tenant_id=tid, email=f"{role}@empresa-exemplo.com.br", role=role, display_name=role.capitalize()))
         s.flush()
         print("tenant vazio:", other["tenant_id"], flush=True)
+        from app.cli import set_suspension
+
+        set_suspension(s, "suspensa", True, "fatura em atraso")
     with Session(create_engine(admin_url)) as s, s.begin():
         print(seed_demo(s, "exemplo", days=14, count=args.count), flush=True)
 
