@@ -1,31 +1,94 @@
 # PromptShield
 
-Plataforma que observa o uso de IA por funcionários e agentes, classifica cada evento, calcula risco explicável e aplica políticas. Contexto completo em [`CLAUDE.md`](CLAUDE.md).
+Plataforma B2B multi-tenant, um "Defender para IA": observa o uso de IA por funcionários e agentes (prompts, arquivos anexados, ações de agentes), classifica cada evento, calcula um risco explicável e aplica políticas (permitir, mascarar, bloquear, pedir justificativa). Contexto completo e princípios em [`CLAUDE.md`](CLAUDE.md).
 
-**Estado:** Etapa 9 (endurecimento e preparação do piloto). As Etapas 0 a 9 estão feitas; leia as pendências em cada documento antes de ir a produção. O que existe:
+```
+sensor na máquina → evento universal → motor de detecção → política → console
+(hook / extensão)   (um só formato)    (regras locais)      (começa só monitorando)
+```
+
+## Estado (honesto)
+
+**Experimental, testado só com dados sintéticos e num servidor de teste.** Não está pronto para vender sem as pendências abaixo.
+
+| Funciona e foi visto rodando | Ainda não |
+|---|---|
+| Servidor na AWS (Docker), console, login de teste (mock) | Login real (OIDC) com provedor de verdade |
+| Instalação do sensor com uma linha no Windows; hook do Claude Code | HTTPS e domínio (hoje HTTP; o hook envia o texto original à API) |
+| Extensão no ChatGPT web (a única verificada em site real) | Seletores de Claude, Gemini e Copilot na web; Codex e Copilot desktop são só guias manuais |
+| Detecção por regras, histórico de prompts, revisão humana, licença, suspensão | Executável assinado; instalação por Intune/GPO; teste em Mac |
+| CI com testes de API, motor, console, extensão e `docker compose` | Pentest independente; revisão jurídica; cobrança |
+
+## Como usar (resumo)
+
+1. **Servidor** (uma VM Linux com Docker): `./infra/vm-setup.sh --admin-email voce@empresa.com`. Guia: [`docs/guia-simples.md`](docs/guia-simples.md) e [`docs/teste-vm.md`](docs/teste-vm.md).
+2. **Console:** `http://IP_DA_VM:3000`. Em **Dispositivos**, crie um token de matrícula.
+3. **Sensor em cada máquina** (uma linha, sem administrador):
+
+   ```powershell
+   $env:PS_API='http://IP_DA_VM:8000'; $env:PS_TOKEN='pse_...'; irm "$env:PS_API/sensor/install.ps1" | iex
+   ```
+
+   O instalador pergunta quais IAs monitorar, por números (1 ChatGPT web, 2 Copilot web, 3 Gemini web, 4 Codex desktop, 5 Claude desktop, 6 Claude Code CLI, 7 Codex CLI, 8 Copilot desktop, 9 GitHub Copilot CLI, 10 Claude web). Estado de cada uma: [`docs/guia-ias.md`](docs/guia-ias.md). Windows: [`docs/teste-windows.md`](docs/teste-windows.md).
+4. **Extensão do navegador:** um clique seu, uma vez (`chrome://extensions` → Carregar sem compactação → `~/.promptshield/extension`).
+5. **Atualizar o servidor:** `git pull` e `docker compose up -d --build` (as migrações rodam sozinhas ao subir). Faça backup antes ([`docs/operacao.md`](docs/operacao.md)); nunca use `docker compose down -v`.
+
+## O que o console mostra
+
+| Tela | Para quê |
+|---|---|
+| Visão geral | totais, risco alto, série por dia, departamentos, ferramentas |
+| **Todos os prompts** | tudo que foi capturado, quem escreveu, filtros por pessoa, palavra-chave (prompt ou nome de arquivo), ferramenta, categoria, decisão, departamento, período, revisão; exportação CSV (admin/auditor, auditada) |
+| Análise de prompts | do mais arriscado ao menos, com sinais clicáveis (segredos, o que as pessoas pedem) |
+| Incidentes | fila e triagem; texto original só com justificativa e auditoria |
+| **Qualidade da detecção** | revisão humana ("correta / falso positivo / faltou pegar") e precisão estimada por categoria; exportação auditada |
+| Risco por usuário, Alertas e SIEM, Relatórios | score explicável, webhook/Slack/Teams/e-mail/CEF, PDF e CSV |
+| Dispositivos | tokens de matrícula, cobertura por ferramenta, licença, revogação |
+| Políticas, Privacidade e segurança, Piloto, Inference hooks | políticas em modo monitorar ou aplicar, retenção, mapa de dados, piloto de 30 dias |
+
+## O que ele detecta (e o que não)
+
+30 categorias em [`packages/taxonomy`](packages/taxonomy): dados sensíveis (CPF, CNPJ, RG, cartão, chaves, senhas...), código e engenharia, ataques à IA (injection, jailbreak, extração de system prompt), ações de agente (comandos destrutivos, leitura de credenciais, rede externa...) e negócio. **Arquivos anexados:** só nome, tamanho e tipo (nunca o conteúdo); o nome gera risco (`.env`, `folha_pagamento`...).
+
+A detecção é **por regras locais**, sem LLM externo e sem modelo treinado. Medida honesta em textos sintéticos que não guiaram nenhum ajuste: **cerca de 85% de acerto exato** (conjunto D: 86,2%). Os 95% a 98% dos conjuntos A, B, C e E são otimistas, porque eles guiaram os ajustes. Em dados reais pode ser pior. Catálogo com exemplos rodados e erros conhecidos: [`docs/o-que-detecta.md`](docs/o-que-detecta.md). Método, números e limites: [`docs/deteccao.md`](docs/deteccao.md).
+
+## Contrato, licença e suspensão (só o fornecedor)
+
+- Licença por empresa: limite de **máquinas ativas nos últimos 45 dias** e validade (`python -m app.cli set-license`). Só barra novas matrículas.
+- `python -m app.cli tenants` lista as empresas; `suspend --slug X --reason "..."` e `resume --slug X` suspendem e reativam. Suspensa: coletores recusados, console só lê e exporta, nada é apagado, funcionários não são afetados (sensores em falha aberta). O console mostra faixa de aviso (amarela 15 dias antes do vencimento, vermelha depois). Nunca automático. Detalhes e o que falta (cobrança, apagar a empresa, painel): [`docs/operacao.md`](docs/operacao.md).
+- Domínio, subdomínio por cliente e executável assinado: [`docs/dominio-e-assinatura.md`](docs/dominio-e-assinatura.md) (nada contratado).
+
+## Mapa do repositório
 
 | Pasta | O que tem |
 |---|---|
-| `apps/api` | FastAPI: ingestão de eventos, políticas, incidentes, auditoria, multi-tenant com RLS (ver seção abaixo) |
-| `apps/web` | console Next.js: visão geral, prompts, incidentes, políticas, risco por usuário, alertas e SIEM, relatórios (ver o README da pasta) |
-| `infra/vm-setup.sh` | sobe o servidor de teste em uma VM Linux com um comando (não executado em máquina real) |
-| `docs/teste-vm.md` | servidor em uma VM e coletor no seu computador, via túnel SSH (não executado ainda) |
-| `docs/teste-windows.md` | passo a passo para rodar os testes reais em uma máquina Windows (não executado ainda) |
-| `docs/o-que-detecta.md` | catálogo do que o motor detecta, com exemplos rodados de verdade (inclui o que NÃO detecta) |
-| `docs/guia-ias.md` | escolher quais IAs monitorar (por números) e o passo a passo de cada uma, com o estado honesto |
-| `docs/guia-simples.md` | servidor (hive) e sensor em cada máquina, em dois passos (experimental) |
-| `docs/implantacao-empresa.md` | proposta de instalação na empresa inteira, com as decisões em aberto (nada construído) |
-| `docs/roteiro-testes-reais.md` | roteiro para validar as integrações em serviços reais (nenhum passo executado ainda) |
-| `packages/detection` | motor de detecção, com taxonomia em `packages/taxonomy` (`docs/deteccao.md`, `docs/relatorio-etapa2.md`) |
-| `apps/extension` | extensão Chrome/Edge para ChatGPT web e Claude.ai (EXPERIMENTAL; ver o README da pasta) |
-| `packages/adapters/inference_hooks` | biblioteca dos inference hooks do Claude Enterprise (assinatura, frames, veredito; ver `docs/inference-hooks.md`) |
-| `packages/adapters/claude_code_hook` | hook do Claude Code (instalação, modo de falha, testes; ver o README da pasta) |
-| `prototipo/console.html` | protótipo visual com **dados simulados** (abre direto no navegador) |
-| `docs/` | `viabilidade.md` (captura por ferramenta), `arquitetura.md`, `decisoes.md`, `siem.md` (alertas, CEF, relatórios), `inference-hooks.md`, `ameacas.md` (STRIDE), `lgpd.md` (LGPD, GDPR, EUA: modelos para advogado), `operacao.md`, `piloto.md` |
+| `apps/api` | FastAPI: ingestão, políticas, incidentes, auditoria, revisão humana, licença; multi-tenant com RLS; migrações Alembic 0001 a 0015 |
+| `apps/web` | console Next.js (claro por padrão, escuro por alternância); ver o README da pasta |
+| `apps/extension` | extensão Chrome/Edge (EXPERIMENTAL; ver o README da pasta) |
+| `packages/detection` | motor de detecção (biblioteca pura) e scripts de avaliação |
+| `packages/taxonomy` | as 30 categorias |
+| `packages/adapters/claude_code_hook` | sensor: hooks do Claude Code e do GitHub Copilot CLI, instalador, importação do histórico |
+| `packages/adapters/inference_hooks` | inference hooks do Claude Enterprise |
+| `infra/` | `vm-setup.sh`, `expose.sh`, `backup.sh`, `restore.sh` |
+| `tests/fixtures` | dados **sintéticos** e os conjuntos de avaliação (A a H) |
+| `prototipo/console.html` | protótipo visual com dados simulados |
+
+## Documentação
+
+| Documento | Assunto |
+|---|---|
+| [`docs/guia-simples.md`](docs/guia-simples.md), [`docs/guia-ias.md`](docs/guia-ias.md) | instalar servidor e sensor; escolher IAs |
+| [`docs/teste-vm.md`](docs/teste-vm.md), [`docs/teste-windows.md`](docs/teste-windows.md), [`docs/roteiro-testes-reais.md`](docs/roteiro-testes-reais.md) | testes em VM e Windows; roteiro de validação real |
+| [`docs/implantacao-empresa.md`](docs/implantacao-empresa.md) | instalar na empresa inteira (parcial) |
+| [`docs/operacao.md`](docs/operacao.md) | variáveis, backup e restauração, retenção, chaves, suspensão |
+| [`docs/vistoria-seguranca.md`](docs/vistoria-seguranca.md), [`docs/ameacas.md`](docs/ameacas.md) | vistoria (OWASP Top 10:2021), modelo de ameaças |
+| [`docs/lgpd.md`](docs/lgpd.md), [`docs/piloto.md`](docs/piloto.md) | modelos para advogado; piloto de 30 dias |
+| [`docs/arquitetura.md`](docs/arquitetura.md), [`docs/decisoes.md`](docs/decisoes.md), [`docs/viabilidade.md`](docs/viabilidade.md) | arquitetura, decisões (uma linha cada), captura por ferramenta |
+| [`docs/siem.md`](docs/siem.md), [`docs/inference-hooks.md`](docs/inference-hooks.md), [`docs/claude-code-hooks.md`](docs/claude-code-hooks.md) | alertas e CEF, inference hooks, hooks do Claude Code |
 
 ## Requisitos
 
-Docker com Compose (para `make up`). Para `make test` e `make lint` sem Docker: Python 3.12 ou superior e Node 22.
+Docker com Compose (para `make up`). Para `make test` e `make lint` sem Docker: Python 3.12 ou superior e Node 22. Para os testes de ponta a ponta do console e da extensão (Playwright): Chromium (`CHROMIUM_PATH`).
 
 ## Passo a passo
 
@@ -46,8 +109,9 @@ Segredos: `.env` fica fora do git. Troque a senha do banco em `.env` e na `DATAB
 ## Testes e lint
 
 ```bash
-make test      # pytest (api e detection) e vitest (web)
-make lint      # ruff e tsc
+make test      # pytest (api, detection, hooks) e vitest (web, extensão)
+make lint      # ruff (inclui regras de segurança) e eslint/tsc
+make audit     # npm audit e pip-audit
 ```
 
 O teste de migração roda em um Postgres de verdade quando `DATABASE_URL_TEST` está definida; sem ela é pulado.
