@@ -9,7 +9,7 @@ import { siteFor } from "./sites";
 import type { SiteModule } from "./sites/types";
 import { hostMatches } from "./config";
 import { setIndicator, showIndicator, showPlan, uiHost } from "./ui";
-import type { ApiResult, PublicConfig, Request, Response } from "./types";
+import { INSPECTION_STOPPED, type ApiResult, type PublicConfig, type Request, type Response } from "./types";
 
 function send<T>(msg: Request): Promise<Response<T>> {
   return new Promise((resolve) => {
@@ -83,8 +83,10 @@ async function start(): Promise<void> {
         plan = planFor(result);
         setIndicator("active");
       } else {
-        plan = failurePlan(cfg.failMode);
-        setIndicator("warning", cfg.failMode === "closed" ? "PromptShield: não foi possível verificar; envios bloqueados." : "PromptShield: sem conexão; enviado sem inspeção.");
+        const stopped = res.error === INSPECTION_STOPPED;       // licença/contrato parou a inspeção: nunca bloqueia o trabalho, mesmo em modo fechado
+        plan = failurePlan(stopped ? "open" : cfg.failMode);
+        setIndicator("warning", stopped ? "PromptShield: a inspeção está PARADA pela licença ou contrato da empresa; este envio não foi inspecionado. Fale com o administrador."
+          : cfg.failMode === "closed" ? "PromptShield: não foi possível verificar; envios bloqueados." : "PromptShield: sem conexão; enviado sem inspeção.");
       }
       const out = await showPlan(plan, "Não foi possível verificar este prompt com a política da empresa. O envio foi bloqueado.");
       if (out.action === "cancel") return;

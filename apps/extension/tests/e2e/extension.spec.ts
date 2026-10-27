@@ -177,3 +177,12 @@ test("arquivo anexado: o nome vai junto do prompt, o conteúdo nunca", async () 
   await expect.poll(() => api.events.length).toBe(2);
   expect(api.events[1].body.content.attachments).toBeUndefined();
 });
+
+test("inspeção parada pela licença: avisa claramente e NUNCA bloqueia o trabalho, nem em modo fechado", async () => {
+  api.stopped = true;
+  const page = await open({ fail_mode: "closed" });
+  await typeAndSubmit(page, "SIMULADO: texto qualquer");
+  await expect(ui(page).locator(".pill")).toContainText("PARADA pela licença");
+  await expect.poll(() => sent(page)).toEqual(["SIMULADO: texto qualquer"]);       // o prompt foi enviado ao site mesmo assim
+  expect(api.events).toHaveLength(1);                                              // e a extensão tentou inspecionar
+});

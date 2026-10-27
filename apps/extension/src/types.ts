@@ -1,3 +1,6 @@
+/** Erro que a API devolve quando a licença ou o contrato da empresa PAROU a inspeção (cabeçalho X-PromptShield-Inspection: stopped). */
+export const INSPECTION_STOPPED = "INSPECAO_PARADA";
+
 export type Decision = "allow" | "mask" | "block" | "ask_justification" | "alert";
 export type FailMode = "open" | "closed";
 

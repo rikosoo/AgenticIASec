@@ -226,3 +226,45 @@ def test_powershell_tool_sends_the_command_not_raw_json():
     from promptshield_claude_hook import translate
     c = translate._tool_content("PowerShell", {"command": "Get-Content $HOME\\.aws\\credentials", "description": "x"}, 1000)
     assert c == {"tool_name": "PowerShell", "tool_input": {"command": "Get-Content $HOME\\.aws\\credentials"}}
+
+
+def test_inspection_stopped_by_license_never_blocks_even_in_fail_closed_and_says_so(tmp_path, capsys):
+    """A API devolve 403 + cabeçalho quando a licença ou o contrato parou a inspeção: é decisão da empresa, não falha de rede."""
+    import http.server
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            self.send_response(403)
+            self.send_header("X-PromptShield-Inspection", "stopped")
+            self.send_header("Content-Length", "2")
+            self.end_headers()
+            self.wfile.write(b"{}")
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        cfg = _cfg(tmp_path, "closed")
+        cfg.api_url = f"http://127.0.0.1:{srv.server_address[1]}"
+        out = cli.run_hook(json.dumps(hook("PreToolUse", tool_name="Bash", tool_input={"command": "ls"}, tool_use_id="t")), cfg)
+        assert out is None or out.get("hookSpecificOutput", {}).get("permissionDecision") != "deny"      # a ferramenta do usuário segue
+        assert "PARADA" in capsys.readouterr().err
+        assert not (tmp_path / "spool.jsonl").exists()
+        # um 403 comum (sem o cabeçalho) continua sendo falha e segue o modo de falha
+        class Plain(Handler):
+            def do_POST(self):  # noqa: N802
+                self.send_response(403)
+                self.send_header("Content-Length", "2")
+                self.end_headers()
+                self.wfile.write(b"{}")
+
+        srv2 = http.server.HTTPServer(("127.0.0.1", 0), Plain)
+        threading.Thread(target=srv2.serve_forever, daemon=True).start()
+        cfg.api_url = f"http://127.0.0.1:{srv2.server_address[1]}"
+        denied = cli.run_hook(json.dumps(hook("PreToolUse", tool_name="Bash", tool_input={"command": "ls"}, tool_use_id="t")), cfg)
+        assert denied["hookSpecificOutput"]["permissionDecision"] == "deny"
+        srv2.shutdown()
+    finally:
+        srv.shutdown()

@@ -90,7 +90,8 @@ if settings.sideload_extension_origin and settings.sideload_extension_origin not
     _origins.append(settings.sideload_extension_origin)  # a extensão instalada pelo sensor (ID fixo); precisa de chave válida para qualquer coisa
 if _origins:  # nenhum outro site pode chamar a API pelo navegador
     app.add_middleware(CORSMiddleware, allow_origins=_origins, allow_methods=["GET", "POST"],
-                       allow_headers=["X-API-Key", "Content-Type", "Authorization"], max_age=600)
+                       allow_headers=["X-API-Key", "Content-Type", "Authorization"], max_age=600,
+                       expose_headers=["X-PromptShield-Inspection", "X-PromptShield-Suspended"])   # a extensão mostra "inspeção parada"
 
 app.include_router(events.router)
 app.include_router(feedback.router)

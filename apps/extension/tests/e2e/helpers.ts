@@ -15,6 +15,7 @@ export class MockApi {
   server!: Server;
   port = 0;
   mode: Mode = "allow";
+  stopped = false;   // simula a licença/contrato que parou a inspeção
   requests: Recorded[] = [];
   remote = { failure_mode: "open", domains: ["127.0.0.1", "localhost"], policy_url: "https://intranet.exemplo.test/politica-ia" };
 
@@ -36,6 +37,11 @@ export class MockApi {
       const body = await readBody(req);
       this.requests.push({ path: url.pathname, method: req.method ?? "", headers: req.headers, body });
       if (req.headers["x-api-key"] !== "ps_test_key") { res.writeHead(401).end("{}"); return; }
+      if (this.stopped && url.pathname === "/v1/events") {
+        res.writeHead(403, { "Content-Type": "application/json", "X-PromptShield-Inspection": "stopped", "Access-Control-Expose-Headers": "X-PromptShield-Inspection" })
+          .end(JSON.stringify({ detail: "inspeção parada" }));
+        return;
+      }
       if (url.pathname === "/v1/events" && req.method === "POST") {
         const text: string = body.content.text;
         const hasCpf = /\d{3}\.\d{3}\.\d{3}-\d{2}/.test(text);

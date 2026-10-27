@@ -32,10 +32,12 @@ def run_hook(raw: str, cfg: config.Config) -> dict | None:
         return decide.render(hook_event, result)
     except Exception as exc:  # noqa: BLE001 - qualquer falha cai no modo de falha, nunca derruba o Claude Code
         reason = str(exc) if isinstance(exc, client.ApiError) else f"erro interno ({type(exc).__name__})"
-        if cfg.fail_mode != "closed":
+        stopped = isinstance(exc, client.ApiError) and exc.stopped
+        mode = "open" if stopped else cfg.fail_mode          # inspeção parada pela licença nunca trava o trabalho da pessoa, mesmo em fail_mode closed
+        if mode != "closed" and not stopped:
             spool.record(cfg.spool_path, hook_event, event, reason)
-        print(f"promptshield: {reason}; modo de falha: {cfg.fail_mode}", file=sys.stderr)
-        return decide.render_failure(hook_event, cfg.fail_mode, reason)
+        print(f"promptshield: {reason}; modo de falha: {mode}", file=sys.stderr)
+        return decide.render_failure(hook_event, mode, reason)
 
 
 def run_copilot(event_name: str, raw: str, cfg: config.Config) -> dict | None:
@@ -48,10 +50,12 @@ def run_copilot(event_name: str, raw: str, cfg: config.Config) -> dict | None:
         return decide.render_copilot(event_name, client.post_event(cfg, event))
     except Exception as exc:  # noqa: BLE001 - qualquer falha cai no modo de falha, nunca derruba o Copilot
         reason = str(exc) if isinstance(exc, client.ApiError) else f"erro interno ({type(exc).__name__})"
-        if cfg.fail_mode != "closed":
+        stopped = isinstance(exc, client.ApiError) and exc.stopped
+        mode = "open" if stopped else cfg.fail_mode
+        if mode != "closed" and not stopped:
             spool.record(cfg.spool_path, event_name, event, reason)
-        print(f"promptshield: {reason}; modo de falha: {cfg.fail_mode}", file=sys.stderr)
-        return decide.render_copilot_failure(event_name, cfg.fail_mode, reason)
+        print(f"promptshield: {reason}; modo de falha: {mode}", file=sys.stderr)
+        return decide.render_copilot_failure(event_name, mode, reason)
 
 
 def cmd_check(cfg: config.Config) -> int:

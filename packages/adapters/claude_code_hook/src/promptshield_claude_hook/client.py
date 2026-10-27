@@ -10,10 +10,11 @@ from .config import Config
 
 
 class ApiError(Exception):
-    def __init__(self, message: str, status: int | None = None, retry_after: float | None = None) -> None:
+    def __init__(self, message: str, status: int | None = None, retry_after: float | None = None, stopped: bool = False) -> None:
         super().__init__(message)
         self.status = status
         self.retry_after = retry_after
+        self.stopped = stopped      # a empresa/licença parou a inspeção de propósito (não é falha de rede): a ferramenta do usuário segue normal
 
 
 def _request(cfg: Config, method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -34,6 +35,10 @@ def _request(cfg: Config, method: str, path: str, body: dict[str, Any] | None = 
             wait = float(retry) if retry else None
         except ValueError:
             wait = None
+        hdr = exc.headers
+        if hdr and (hdr.get("X-PromptShield-Inspection") == "stopped" or hdr.get("X-PromptShield-Suspended")):
+            raise ApiError("inspeção PARADA pela licença ou pelo contrato da empresa; sua ferramenta segue normal, sem inspeção",
+                           status=exc.code, stopped=True) from exc
         raise ApiError(f"API respondeu {exc.code}", status=exc.code, retry_after=wait) from exc
     except (urllib.error.URLError, OSError, ValueError) as exc:  # inclui timeout e conexão recusada
         raise ApiError(f"API indisponível ({type(exc).__name__})") from exc

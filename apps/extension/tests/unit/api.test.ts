@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { buildEvent } from "../../src/api";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { buildEvent, postEvent } from "../../src/api";
 import { mergeConfig } from "../../src/config";
+import { INSPECTION_STOPPED } from "../../src/types";
 
 const cfg = mergeConfig({ api_url: "https://a.test", api_key: "k", user_id: "fulano", department: "RH" }, undefined, false);
 
@@ -24,5 +25,25 @@ describe("buildEvent", () => {
     const a = buildEvent({ app: "a", text: "t", sessionPath: "" }, cfg, "i", "");
     const b = buildEvent({ app: "a", text: "t", sessionPath: "" }, cfg, "i", "");
     expect(a.event_id).not.toBe(b.event_id);
+  });
+});
+
+describe("inspeção parada pela licença ou contrato", () => {
+  const event = { event_id: "e" };
+  const stub = (status: number, headers: Record<string, string>) =>
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status, headers })));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("403 com o cabeçalho de inspeção parada vira o erro próprio (não 'API respondeu 403')", async () => {
+    stub(403, { "X-PromptShield-Inspection": "stopped" });
+    await expect(postEvent(cfg, event)).rejects.toThrow(INSPECTION_STOPPED);
+    stub(403, { "X-PromptShield-Suspended": "1" });
+    await expect(postEvent(cfg, event)).rejects.toThrow(INSPECTION_STOPPED);
+  });
+  it("outros erros continuam sendo erros comuns", async () => {
+    stub(403, {});
+    await expect(postEvent(cfg, event)).rejects.toThrow("API respondeu 403");
+    stub(500, { "X-PromptShield-Inspection": "ativa" });
+    await expect(postEvent(cfg, event)).rejects.toThrow("API respondeu 500");
   });
 });

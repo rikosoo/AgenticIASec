@@ -1,4 +1,4 @@
-import type { ApiResult, FullConfig } from "./types";
+import { INSPECTION_STOPPED, type ApiResult, type FullConfig } from "./types";
 
 export interface PromptInput {
   app: string;
@@ -35,7 +35,11 @@ async function call<T>(cfg: FullConfig, method: string, path: string, body?: unk
       headers: { "X-API-Key": cfg.apiKey, "Content-Type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    if (!r.ok) throw new Error(`API respondeu ${r.status}`);
+    if (!r.ok) {
+      // a empresa/licença parou a inspeção de propósito: a extensão avisa a pessoa e NÃO trata como erro de rede
+      if (r.headers.get("X-PromptShield-Inspection") === "stopped" || r.headers.get("X-PromptShield-Suspended")) throw new Error(INSPECTION_STOPPED);
+      throw new Error(`API respondeu ${r.status}`);
+    }
     return (expectJson ? await r.json() : undefined) as T;
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") throw new Error("tempo esgotado ao consultar a API");
