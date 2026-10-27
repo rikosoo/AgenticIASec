@@ -201,6 +201,22 @@ class EventFeedback(Base):
     updated_at: Mapped[datetime] = _ts()
 
 
+class LicenseRecord(Base):
+    """Estado da licença desta INSTALAÇÃO (uma linha). Sem tenant e sem RLS: vale para o servidor inteiro."""
+    __tablename__ = "license_state"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    installation_id: Mapped[str] = mapped_column(String(64))
+    auth_token: Mapped[str | None] = mapped_column(Text)
+    serial: Mapped[int] = mapped_column(Integer, default=0)
+    high_water: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))        # maior horário já visto: protege contra relógio voltado
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_attempt_failed: Mapped[bool] = mapped_column(Boolean, default=False)           # falha de COMUNICAÇÃO (rede, 5xx, 429)
+    last_error: Mapped[str | None] = mapped_column(String(300))                         # inclui recusas do fornecedor (contrato vencido...)
+    updated_at: Mapped[datetime] = _ts()
+
+
 class AuditLog(Base):
     __tablename__ = "audit_log"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)

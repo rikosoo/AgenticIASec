@@ -74,6 +74,12 @@ def run_retention(tenant_id) -> bool:
 
 def run_once() -> dict:
     out = notifier.deliver_all()
+    try:
+        from app import license_client
+
+        out["license"] = 0 if license_client.renew_if_due() in ("desligado", "não ativado", "em dia", "aguardando nova tentativa") else 1
+    except Exception:  # noqa: BLE001 - o worker não pode morrer por causa do licenciamento
+        log.exception("falha ao renovar a licença")
     with anonymous_session() as s:
         ids = [r.tenant_id for r in s.execute(text("SELECT tenant_id FROM list_tenant_ids()"))]
     out["reports"] = sum(run_schedules(t) for t in ids)

@@ -11,7 +11,7 @@ import jwt
 from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy import text
 
-from app import metrics, ratelimit
+from app import license_client, metrics, ratelimit
 from app.config import settings
 from app.db import anonymous_session
 
@@ -161,6 +161,16 @@ def current_principal(
     if wait is not None:
         metrics.inc("ps_rate_limited_total", kind=p.kind)
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "limite de requisições excedido", headers={"Retry-After": str(wait)})
+    if settings.license_mode == "onprem":
+        ls = license_client.state()
+        if not ls.inspecting:
+            # a inspeção está parada pela licença: aparece nos sensores (cabeçalho) e no console; ninguém perde dados nem acesso de leitura
+            if p.kind == "api_key":
+                metrics.inc("ps_license_refusals_total", kind="api_key")
+                raise HTTPException(status.HTTP_403_FORBIDDEN, ls.message, headers={"X-PromptShield-Inspection": "stopped"})
+            if request.method not in SAFE_METHODS and not request.url.path.startswith("/v1/license/"):
+                metrics.inc("ps_license_refusals_total", kind="user")
+                raise HTTPException(status.HTTP_403_FORBIDDEN, ls.message, headers={"X-PromptShield-Inspection": "stopped"})
     return p
 
 

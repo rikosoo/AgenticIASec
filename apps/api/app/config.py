@@ -15,6 +15,16 @@ class Settings(BaseSettings):
     # pasta da extensão construída com `node build.mjs --sideload` (no Docker: /srv/extension); vazio = o servidor não distribui a extensão
     extension_dist: str = "/srv/extension"
 
+    # licenciamento on-premise (docs/licenciamento.md). off = SaaS/desenvolvimento: nada muda. onprem = esta instalação precisa de uma autorização
+    # assinada pelo fornecedor (ativação por código, renovação periódica); as regras dos estados são públicas e testadas.
+    license_mode: str = "off"
+    license_server_url: str | None = None
+    # chave PÚBLICA do fornecedor, fixada na instalação (32 bytes em base64 urlsafe, ou PEM). Nunca baixe essa chave do serviço de licenças.
+    license_public_key: str | None = None
+    license_state_dir: str = "/var/lib/promptshield"     # guarda a chave PRIVADA da instalação (arquivo 0600); precisa de volume persistente
+    license_allow_http: bool = False                      # só desenvolvimento/teste; em produção o serviço de licenças é https
+    license_retry_minutes: int = 15                       # intervalo entre tentativas quando a renovação falha
+
     max_text_chars: int = 2_000_000
     enable_ner: bool = False
 

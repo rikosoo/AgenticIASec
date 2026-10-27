@@ -12,12 +12,14 @@ dependencies = [
   "pyjwt[crypto]>=2.8",
   "cryptography>=42",
   "reportlab>=4",
+  "httpx>=0.27",
   "promptshield-detection",
   "promptshield-inference-hooks",
+  "promptshield-licensing",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "httpx>=0.27", "ruff>=0.6", "pypdf>=4"]
+dev = ["pytest>=8", "ruff>=0.6", "pypdf>=4", "promptshield-licensing-service"]
 
 [tool.setuptools]
 packages = ["app"]
