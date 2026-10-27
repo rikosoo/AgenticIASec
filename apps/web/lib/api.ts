@@ -19,7 +19,7 @@ async function request(path: string, init: RequestInit = {}): Promise<Response> 
   }
   if (!r.ok) {
     const body = await r.json().catch(() => ({}));
-    const detail = typeof body.detail === "string" ? body.detail : Array.isArray(body.detail) ? body.detail.map((d: { msg: string }) => d.msg).join("; ") : `Erro ${r.status}`;
+    const detail = typeof body.detail === "string" ? body.detail : typeof body.detail?.message === "string" ? body.detail.message : Array.isArray(body.detail) ? body.detail.map((d: { msg: string }) => d.msg).join("; ") : `Erro ${r.status}`;
     throw new ApiError(r.status, detail);
   }
   return r;

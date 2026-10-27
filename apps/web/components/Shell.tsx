@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { contractNotice } from "@/lib/contract";
+import { licenseNotice } from "@/lib/license";
 import { ROLE_LABEL } from "@/lib/labels";
 import { SessionProvider, useSession } from "./session";
 
@@ -16,6 +17,7 @@ const NAV = [
   { href: "/alerts", label: "Alertas e SIEM" },
   { href: "/reports", label: "Relatórios" },
   { href: "/devices", label: "Dispositivos" },
+  { href: "/license", label: "Licença" },
   { href: "/inference-hooks", label: "Inference hooks" },
   { href: "/pilot", label: "Piloto" },
   { href: "/privacy", label: "Privacidade e segurança" },
@@ -41,7 +43,7 @@ function ThemeToggle() {
 
 function Frame({ children }: { children: ReactNode }) {
   const path = usePathname();
-  const { me, tenant } = useSession();
+  const { me, tenant, license } = useSession();
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST", headers: { "X-Requested-With": "promptshield" } });
     location.assign("/login");
@@ -77,6 +79,15 @@ function Frame({ children }: { children: ReactNode }) {
             <button type="button" className="btn" onClick={logout}>Sair</button>
           </div>
         </header>
+        {(() => {
+          const l = licenseNotice(license);
+          return l && (
+            <div role={l.level === "crit" ? "alert" : "status"} data-testid="license-notice"
+              className={`border-b px-4 py-2 text-sm md:px-6 ${l.level === "crit" ? "border-crit bg-crit-bg text-crit" : "border-med bg-med-bg text-med"}`}>
+              <strong>{l.title}.</strong> {l.text} <Link href={l.href} className="underline">Ver a licença</Link>
+            </div>
+          );
+        })()}
         {(() => {
           const n = contractNotice(tenant.contract);
           return n && (

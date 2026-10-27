@@ -10,6 +10,14 @@ export interface Tenant {
   policy_url: string | null; monitored_domains: string[]; contract?: Contract; is_demo: boolean; volume_threshold_per_hour: number; original_retention_days: number; omit_text_categories: string[];
 }
 export interface Contract { suspended: boolean; suspended_at: string | null; suspended_reason: string | null; license_expires_at: string | null; days_to_expiry: number | null; expired: boolean }
+export type LicenseStateId = "nao_ativado" | "ativo" | "sem_contato" | "em_tolerancia" | "expirado" | "encerrado";
+export interface LicenseStatus {
+  mode: "off" | "onprem"; state: LicenseStateId; message: string; can_enroll: boolean; inspecting: boolean;
+  deadline?: string | null; days_left?: number | null; max_devices?: number | null; installation_id?: string | null; server_configured?: boolean;
+  customer?: string | null; serial?: number | null; on_end?: "stop_inspection" | "keep_inspection" | null;
+  contract_start?: string | null; contract_end?: string | null; tolerance_end?: string | null; auth_expires?: string | null;
+  last_success_at?: string | null; last_attempt_at?: string | null; last_attempt_failed?: boolean; last_error?: string | null; problem?: string | null;
+}
 export interface Category { id: string; confidence: number }
 export interface TaxonomyItem { id: string; nome: string; grupo: string; risco_padrao: string }
 
