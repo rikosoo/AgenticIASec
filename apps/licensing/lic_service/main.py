@@ -10,9 +10,9 @@ from fastapi.responses import JSONResponse
 from promptshield_licensing import SignatureError, fingerprint, load_private_key, public_key_b64
 from pydantic import BaseModel, Field
 
-from app import service
-from app.config import settings
-from app.db import session_scope
+from lic_service import service
+from lic_service.config import settings
+from lic_service.db import session_scope
 
 app = FastAPI(title="PromptShield, serviço de licenças", version=settings.version)
 

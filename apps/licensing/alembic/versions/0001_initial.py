@@ -4,7 +4,7 @@ Revision ID: 0001
 Revises:
 """
 from alembic import op
-from app.models import Base
+from lic_service.models import Base
 
 revision = "0001"
 down_revision = None

@@ -51,9 +51,9 @@ def _configure(request):
     if "db" not in request.keywords or not ADMIN_URL:
         yield
         return
-    from app import db
-    from app.config import settings
-    from app.main import reset_limits
+    from lic_service import db
+    from lic_service.config import settings
+    from lic_service.main import reset_limits
 
     engine = request.getfixturevalue("engine")
     vendor_key = request.getfixturevalue("vendor_key")

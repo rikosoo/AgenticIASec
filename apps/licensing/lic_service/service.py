@@ -19,7 +19,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.models import ActivationCode, AuditEntry, Contract, Customer, Installation, IssuedAuthorization, Nonce
+from lic_service.models import ActivationCode, AuditEntry, Contract, Customer, Installation, IssuedAuthorization, Nonce
 
 CODE_PREFIX = "psa_"
 

@@ -8,10 +8,10 @@ import pytest
 from promptshield_licensing import Installation, State, build_request, evaluate, verify_authorization
 from sqlalchemy import select, text
 
-from app import service
-from app.db import session_scope
-from app.models import AuditEntry, Contract, IssuedAuthorization
-from app.models import Installation as InstRow
+from lic_service import service
+from lic_service.db import session_scope
+from lic_service.models import AuditEntry, Contract, IssuedAuthorization
+from lic_service.models import Installation as InstRow
 
 pytestmark = pytest.mark.db
 

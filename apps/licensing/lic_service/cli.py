@@ -10,9 +10,9 @@ from promptshield_licensing import generate_signing_key, public_key_b64
 from promptshield_licensing.crypto import private_pem
 from sqlalchemy import select
 
-from app import service
-from app.db import session_scope
-from app.models import ActivationCode, AuditEntry, Contract, Customer, Installation, IssuedAuthorization
+from lic_service import service
+from lic_service.db import session_scope
+from lic_service.models import ActivationCode, AuditEntry, Contract, Customer, Installation, IssuedAuthorization
 
 
 def _contract(s, ref: str) -> Contract:
@@ -30,7 +30,7 @@ def _fmt(dt) -> str:
 
 
 def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(prog="python -m app.cli")
+    ap = argparse.ArgumentParser(prog="python -m lic_service.cli")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("gen-key", help="gera a chave de assinatura do fornecedor (guarde a privada como segredo; a pública vai no produto do cliente)")
     c = sub.add_parser("create-customer"); c.add_argument("--name", required=True); c.add_argument("--email")  # noqa: E702

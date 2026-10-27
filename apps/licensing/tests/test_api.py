@@ -6,10 +6,10 @@ from fastapi.testclient import TestClient
 from promptshield_licensing import Installation, build_request, fingerprint, public_key_b64, verify_authorization
 from sqlalchemy import text
 
-from app import cli, service
-from app.config import settings
-from app.db import session_scope
-from app.main import app, reset_limits
+from lic_service import cli, service
+from lic_service.config import settings
+from lic_service.db import session_scope
+from lic_service.main import app, reset_limits
 
 pytestmark = pytest.mark.db
 

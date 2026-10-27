@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 
-from app.config import settings
+from lic_service.config import settings
 
 _engine: Engine | None = None
 
