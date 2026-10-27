@@ -58,3 +58,8 @@ Modelo de ameaças (STRIDE): `docs/ameacas.md`. Mapa de dados, bases legais suge
 ## Todos os prompts (histórico pesquisável)
 
 Página `/history` do console. Usa `GET /v1/events` (filtros: `user_q`, `q`, `app`, `kind`, `category`, `decision`, `department`, `date_from`/`date_to`/`days`, `personal_account`, `session_id`; total no cabeçalho `X-Total-Count`), `GET /v1/people` (volume, risco e última atividade por pessoa) e `GET /v1/events/export.csv` (admin e auditor; auditado). A busca atua só no texto já mascarado, nunca no original.
+
+## Licenciamento on-premise
+
+Serviço separado do fornecedor (`apps/licensing`, banco próprio, tabelas `lic_*`) + biblioteca pura (`packages/licensing`) + cliente dentro da API (`app/license_client.py`, tabela `license_state`, rotas `/v1/license/*`, renovação no worker). O estado da licença é uma função pura sobre a autorização assinada guardada; a API aplica o resultado em um único ponto (`security.current_principal` para inspeção e escrita, `license.check_new_seat` para matrícula). Ver [`licenciamento.md`](licenciamento.md).
+

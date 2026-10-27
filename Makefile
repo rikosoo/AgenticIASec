@@ -13,7 +13,7 @@ down:
 
 .venv:
 	$(PY) -m venv .venv
-	.venv/bin/pip install -q -e "packages/detection[dev]" -e "packages/adapters/inference_hooks[dev]" && .venv/bin/pip install -q -e "apps/api[dev]" -e "packages/adapters/claude_code_hook[dev]"
+	.venv/bin/pip install -q -e "packages/detection[dev]" -e "packages/adapters/inference_hooks[dev]" -e "packages/licensing[dev]" && .venv/bin/pip install -q -e "apps/licensing[dev]" && .venv/bin/pip install -q -e "apps/api[dev]" -e "packages/adapters/claude_code_hook[dev]"
 
 apps/web/node_modules: apps/web/package-lock.json
 	cd apps/web && npm ci
@@ -26,11 +26,13 @@ test: .venv apps/web/node_modules apps/extension/node_modules ## testes de api, 
 	cd packages/detection && ../../.venv/bin/pytest -q
 	cd packages/adapters/claude_code_hook && ../../../.venv/bin/pytest -q
 	cd packages/adapters/inference_hooks && ../../../.venv/bin/pytest -q
+	cd packages/licensing && ../../.venv/bin/pytest -q
+	cd apps/licensing && ../../.venv/bin/pytest -q   # precisa de DATABASE_URL_TEST; sem ela os testes de banco são pulados
 	cd apps/web && npm test
 	cd apps/extension && npm test
 
 lint: .venv apps/web/node_modules apps/extension/node_modules
-	.venv/bin/ruff check apps/api packages/detection packages/adapters
+	.venv/bin/ruff check apps/api apps/licensing packages/detection packages/adapters packages/licensing
 	.venv/bin/ruff check --config ruff.toml packages  # regras de segurança (S) também nos pacotes
 	cd apps/web && npm run lint
 	cd apps/extension && npm run lint

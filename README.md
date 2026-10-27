@@ -17,7 +17,8 @@ sensor na máquina → evento universal → motor de detecção → política �
 | Instalação do sensor com uma linha no Windows; hook do Claude Code | HTTPS e domínio (hoje HTTP; o hook envia o texto original à API) |
 | Extensão no ChatGPT web (a única verificada em site real) | Seletores de Claude, Gemini e Copilot na web; Codex e Copilot desktop são só guias manuais |
 | Detecção por regras, histórico de prompts, revisão humana, licença, suspensão | Executável assinado; instalação por Intune/GPO; teste em Mac |
-| CI com testes de API, motor, console, extensão e `docker compose` | Pentest independente; revisão jurídica; cobrança |
+| CI com testes de API, motor, console, extensão, serviço de licenças e `docker compose` | Pentest independente; revisão jurídica; cobrança |
+| Licenciamento on-premise (ativação por código, autorização assinada, estados), testado em processo e em banco real | Ensaio entre duas máquinas e com um cliente de verdade ([`docs/licenciamento.md`](docs/licenciamento.md)) |
 
 ## Como usar (resumo)
 
@@ -56,16 +57,19 @@ A detecção é **por regras locais**, sem LLM externo e sem modelo treinado. Me
 
 - Licença por empresa: limite de **máquinas ativas nos últimos 45 dias** e validade (`python -m app.cli set-license`). Só barra novas matrículas.
 - `python -m app.cli tenants` lista as empresas; `suspend --slug X --reason "..."` e `resume --slug X` suspendem e reativam. Suspensa: coletores recusados, console só lê e exporta, nada é apagado, funcionários não são afetados (sensores em falha aberta). O console mostra faixa de aviso (amarela 15 dias antes do vencimento, vermelha depois). Nunca automático. Detalhes e o que falta (cobrança, apagar a empresa, painel): [`docs/operacao.md`](docs/operacao.md).
+- **Licenciamento on-premise** (servidor do cliente): o fornecedor cadastra contrato e gera um **código de ativação** de uso único; o administrador o informa no console (**Licença**); a instalação cria a própria identidade (chave Ed25519), o serviço de licenças vincula o contrato à chave pública dela e devolve uma **autorização assinada**; o worker renova sozinho (por exemplo, uma vez por dia; cada autorização vale poucos dias). Há **dois prazos** (contrato e autorização local; a autorização nunca passa do contrato mais a tolerância) e cinco estados: ativo, sem contato, em tolerância, expirado, encerrado. Nenhum estado apaga dados; se a inspeção parar, console e sensores avisam. Desligado por padrão (`LICENSE_MODE=off`). Desenho, segurança, operação e **como validar**: [`docs/licenciamento.md`](docs/licenciamento.md).
 - Domínio, subdomínio por cliente e executável assinado: [`docs/dominio-e-assinatura.md`](docs/dominio-e-assinatura.md) (nada contratado).
 
 ## Mapa do repositório
 
 | Pasta | O que tem |
 |---|---|
-| `apps/api` | FastAPI: ingestão, políticas, incidentes, auditoria, revisão humana, licença; multi-tenant com RLS; migrações Alembic 0001 a 0015 |
+| `apps/api` | FastAPI: ingestão, políticas, incidentes, auditoria, revisão humana, licença; multi-tenant com RLS; migrações Alembic 0001 a 0016 |
 | `apps/web` | console Next.js (claro por padrão, escuro por alternância); ver o README da pasta |
 | `apps/extension` | extensão Chrome/Edge (EXPERIMENTAL; ver o README da pasta) |
 | `packages/detection` | motor de detecção (biblioteca pura) e scripts de avaliação |
+| `packages/licensing` | licenciamento: assinatura Ed25519, autorização, pedidos da instalação e máquina de estados (biblioteca pura) |
+| `apps/licensing` | **serviço de licenças do fornecedor** (contratos, códigos, instalações, auditoria, CLI); não vai para o servidor do cliente |
 | `packages/taxonomy` | as 30 categorias |
 | `packages/adapters/claude_code_hook` | sensor: hooks do Claude Code e do GitHub Copilot CLI, instalador, importação do histórico |
 | `packages/adapters/inference_hooks` | inference hooks do Claude Enterprise |
@@ -81,6 +85,7 @@ A detecção é **por regras locais**, sem LLM externo e sem modelo treinado. Me
 | [`docs/teste-vm.md`](docs/teste-vm.md), [`docs/teste-windows.md`](docs/teste-windows.md), [`docs/roteiro-testes-reais.md`](docs/roteiro-testes-reais.md) | testes em VM e Windows; roteiro de validação real |
 | [`docs/implantacao-empresa.md`](docs/implantacao-empresa.md) | instalar na empresa inteira (parcial) |
 | [`docs/operacao.md`](docs/operacao.md) | variáveis, backup e restauração, retenção, chaves, suspensão |
+| [`docs/licenciamento.md`](docs/licenciamento.md) | licenciamento on-premise: fluxo, prazos, estados, segurança, operação e validação |
 | [`docs/vistoria-seguranca.md`](docs/vistoria-seguranca.md), [`docs/ameacas.md`](docs/ameacas.md) | vistoria (OWASP Top 10:2021), modelo de ameaças |
 | [`docs/lgpd.md`](docs/lgpd.md), [`docs/piloto.md`](docs/piloto.md) | modelos para advogado; piloto de 30 dias |
 | [`docs/arquitetura.md`](docs/arquitetura.md), [`docs/decisoes.md`](docs/decisoes.md), [`docs/viabilidade.md`](docs/viabilidade.md) | arquitetura, decisões (uma linha cada), captura por ferramenta |

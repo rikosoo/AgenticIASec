@@ -85,3 +85,8 @@ docker compose exec api python -m app.cli resume  --slug acme
 **Avisos antes de suspender:** o console mostra uma faixa amarela quando faltam 15 dias ou menos para a validade da licença (`set-license --expires`) e vermelha quando venceu. A faixa é só informação: a suspensão nunca é automática.
 
 **O que NÃO existe ainda:** suspensão automática por data ou por falta de pagamento (cobrança, nota fiscal e boleto estão fora do escopo), aviso por e-mail ao administrador, apagamento da empresa inteira no encerramento (hoje só existe o apagamento por pessoa), painel do fornecedor no navegador. Os prazos de aviso, exportação e apagamento precisam estar no contrato (revisão jurídica pendente). Para encerrar de vez hoje: suspender, deixar o cliente exportar no prazo combinado e depois apagar manualmente no banco.
+
+## Licenciamento on-premise (servidor do cliente)
+
+Só vale com `LICENSE_MODE=onprem` (padrão `off`). Variáveis: `LICENSE_SERVER_URL`, `LICENSE_PUBLIC_KEY` (do fornecedor, fixada), `LICENSE_ALLOW_HTTP` (só teste), `LICENSE_STATE_DIR` (padrão `/var/lib/promptshield`). **O volume `licensedata` guarda a chave privada da instalação: faça backup dele junto com o banco** e guarde com o mesmo cuidado do `.env`. Sem ele a instalação perde a identidade e precisa de `unbind` e um código novo do fornecedor. O worker renova a autorização sozinho; a página **Licença** mostra o estado, os prazos, o último contato e o último erro. Métricas: `ps_license_refusals_total`. Detalhes e ensaio de validação: [`licenciamento.md`](licenciamento.md).
+

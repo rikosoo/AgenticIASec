@@ -12,7 +12,7 @@ WORKDIR /srv
 COPY packages ./packages
 COPY apps/api ./apps/api
 COPY --from=extension /ext/dist/sideload /srv/extension
-RUN pip install --no-cache-dir -e packages/detection -e packages/adapters/inference_hooks -e packages/adapters/claude_code_hook -e apps/api
+RUN pip install --no-cache-dir -e packages/detection -e packages/adapters/inference_hooks -e packages/adapters/claude_code_hook -e packages/licensing -e apps/api
 WORKDIR /srv/apps/api
 EXPOSE 8000
 # migra com o dono do banco (ADMIN_DATABASE_URL) e serve com o papel restrito (DATABASE_URL)
