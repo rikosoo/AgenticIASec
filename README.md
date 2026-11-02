@@ -86,6 +86,7 @@ A detecção é **por regras locais**, sem LLM externo e sem modelo treinado. Me
 | [`docs/implantacao-empresa.md`](docs/implantacao-empresa.md) | instalar na empresa inteira (parcial) |
 | [`docs/operacao.md`](docs/operacao.md) | variáveis, backup e restauração, retenção, chaves, suspensão |
 | [`docs/licenciamento.md`](docs/licenciamento.md) | licenciamento on-premise: fluxo, prazos, estados, segurança, operação e validação |
+| [`docs/cobranca.md`](docs/cobranca.md) | **proposta** (nada construído): plano de cobrança, linha do tempo de inadimplência, escada de limitação e arquitetura |
 | [`docs/vistoria-seguranca.md`](docs/vistoria-seguranca.md), [`docs/ameacas.md`](docs/ameacas.md) | vistoria (OWASP Top 10:2021), modelo de ameaças |
 | [`docs/lgpd.md`](docs/lgpd.md), [`docs/piloto.md`](docs/piloto.md) | modelos para advogado; piloto de 30 dias |
 | [`docs/arquitetura.md`](docs/arquitetura.md), [`docs/decisoes.md`](docs/decisoes.md), [`docs/viabilidade.md`](docs/viabilidade.md) | arquitetura, decisões (uma linha cada), captura por ferramenta |

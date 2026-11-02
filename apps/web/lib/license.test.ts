@@ -10,6 +10,19 @@ describe("licenseNotice", () => {
     expect(licenseNotice({ ...base, mode: "off", state: "encerrado", inspecting: false })).toBeNull();
     expect(licenseNotice(base)).toBeNull();
   });
+  it("ativo só avisa nos últimos 30 dias do contrato, e nunca depois de vencido (aí o estado muda)", () => {
+    const now = new Date("2026-11-02T12:00:00Z");
+    const at = (days: number) => ({ ...base, contract_end: new Date(now.getTime() + days * 86_400_000).toISOString() });
+    expect(licenseNotice(at(200), now)).toBeNull();
+    expect(licenseNotice(at(31), now)).toBeNull();
+    expect(licenseNotice(at(30), now)?.level).toBe("warn");
+    expect(licenseNotice(at(30), now)?.text).toContain("30 dias");
+    expect(licenseNotice(at(1), now)?.text).toContain("1 dia.");
+    expect(licenseNotice(at(0), now)?.text).toContain("hoje");
+    expect(licenseNotice(at(-1), now)).toBeNull();
+    expect(licenseNotice({ ...base, contract_end: null }, now)).toBeNull();
+    expect(licenseNotice({ ...at(10), mode: "off" }, now)).toBeNull();
+  });
   it("cada estado tem a gravidade certa e leva à página da licença", () => {
     const lvl = (state: LicenseStatus["state"], inspecting = true) => licenseNotice({ ...base, state, inspecting, can_enroll: false })?.level;
     expect(lvl("sem_contato")).toBe("warn");

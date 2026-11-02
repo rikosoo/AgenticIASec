@@ -3,11 +3,13 @@ import { expectAccessible, login, USERS } from "./helpers";
 
 // O servidor de teste roda com LICENSE_MODE=off; aqui a API de licença é SIMULADA (page.route) para ver como o console mostra cada estado.
 // A lógica real dos estados é testada em packages/licensing e apps/api/tests/test_license_onprem.py.
+// datas relativas a HOJE: com data fixa, o teste "licença ativa: sem faixa" quebraria sozinho quando o calendário chegasse perto do fim do contrato
+const days = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString();
 const base = {
   mode: "onprem", state: "ativo", message: "Licença ativa.", can_enroll: true, inspecting: true, max_devices: 100, customer: "Empresa Exemplo (simulado)",
   installation_id: "0123456789abcdef0123456789abcdef", server_configured: true, serial: 3, on_end: "stop_inspection",
-  contract_start: "2026-01-10T12:00:00Z", contract_end: "2027-01-10T12:00:00Z", tolerance_end: "2027-01-25T12:00:00Z", auth_expires: "2026-11-02T12:00:00Z",
-  last_success_at: "2026-10-26T12:00:00Z", last_attempt_at: "2026-10-26T12:00:00Z", last_attempt_failed: false, last_error: null,
+  contract_start: days(-165), contract_end: days(200), tolerance_end: days(215), auth_expires: days(5),
+  last_success_at: days(-1), last_attempt_at: days(-1), last_attempt_failed: false, last_error: null,
 };
 
 async function mockStatus(page: Page, over: Record<string, unknown>) {
@@ -70,4 +72,14 @@ test("licenciamento desligado (SaaS e desenvolvimento): a página explica e não
   await expect(page.getByTestId("license-notice")).toHaveCount(0);
   await page.goto("/license");
   await expect(page.getByTestId("license-off")).toContainText("LICENSE_MODE=off");
+});
+
+test("licença ativa perto do fim do contrato: faixa amarela com os dias e o caminho para a licença", async ({ page }) => {
+  await mockStatus(page, { contract_end: days(12.5) });   // meio dia de folga: a página calcula alguns segundos depois e arredonda para baixo
+  await login(page, USERS.admin);
+  const notice = page.getByTestId("license-notice");
+  await expect(notice).toContainText("Contrato perto do fim");
+  await expect(notice).toContainText("12 dias");
+  await page.getByRole("link", { name: "Ver a licença" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Licença");
 });

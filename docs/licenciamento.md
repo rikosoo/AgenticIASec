@@ -134,4 +134,4 @@ Foi verificado que removendo de propósito a trava de uso único, o nonce ou o b
 
 ## O que não existe ainda
 
-Painel web do fornecedor (hoje é a CLI), aviso por e-mail (30/15/7 dias antes e no vencimento), cobrança e nota fiscal, assinatura do instalador/executável, vários tenants com um limite de máquinas **compartilhado**, rotação da chave do fornecedor (a instalação fixa uma chave; trocar exigiria aceitar duas), modo totalmente offline (sem nenhuma renovação, com arquivo de licença levado por pendrive), e a revisão jurídica do contrato.
+Painel web do fornecedor (hoje é a CLI), aviso **por e-mail** (30/15/7 dias antes e no vencimento; a faixa no console nos últimos 30 dias do contrato já existe), cobrança e nota fiscal, assinatura do instalador/executável, vários tenants com um limite de máquinas **compartilhado**, rotação da chave do fornecedor (a instalação fixa uma chave; trocar exigiria aceitar duas), modo totalmente offline (sem nenhuma renovação, com arquivo de licença levado por pendrive), e a revisão jurídica do contrato.
