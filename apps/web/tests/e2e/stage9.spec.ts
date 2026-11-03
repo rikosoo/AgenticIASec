@@ -113,9 +113,11 @@ test("privacidade: mapa de dados, retenção, direito do titular e chaves de API
   await expect(page.getByTestId("new-key")).toHaveText(/^ps_[0-9a-f]{8}_/);
   await page.getByRole("button", { name: "Já guardei" }).click();
   await expect(page.getByTestId("key-row").filter({ hasText: "chave de teste e2e" }).filter({ hasText: "expira em breve" })).toHaveCount(1);
+  // relativo ao que já havia: outros testes (dispositivos, sensores) também revogam chaves no mesmo tenant, então a contagem global não é fixa
+  const revokedBefore = await page.getByTestId("key-row").filter({ hasText: "revogada" }).count();
   page.once("dialog", (d) => d.accept());
   await page.getByTestId("key-row").filter({ hasText: "chave de teste e2e" }).filter({ hasText: "ativa" }).getByRole("button", { name: "Revogar" }).click();
-  await expect(page.getByTestId("key-row").filter({ hasText: "revogada" })).toHaveCount(1);
+  await expect(page.getByTestId("key-row").filter({ hasText: "revogada" })).toHaveCount(revokedBefore + 1);
 
   await logout(page);
   await login(page, USERS.analista);

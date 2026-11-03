@@ -112,8 +112,12 @@ export interface ApiKeyRow { id: string; name: string; prefix: string; status: s
 
 export interface EnrollTokenRow { id: string; name: string; prefix: string; status: string; uses: number; max_uses: number | null; expires_at: string; created_at: string }
 export interface License { max_devices: number | null; active_seats: number; window_days: number; level: "ok" | "alerta" | "esgotada"; expired: boolean; expires_at: string | null }
-export interface DeviceRow { counts_toward_license?: boolean; id: string; hostname: string; os: string | null; client_version: string | null; tools: string[]; enrolled_at: string; last_seen_at: string | null; revoked: boolean }
-export interface DevicesOut { devices: DeviceRow[]; active: number; coverage: Record<string, number>; license: License }
+export interface AppActivity { events_7d: number; events_30d: number; last_at: string }
+export interface DeviceRow {
+  counts_toward_license?: boolean; id: string; hostname: string; os: string | null; client_version: string | null; tools: string[]; enrolled_at: string;
+  last_seen_at: string | null; revoked: boolean; ias?: string[]; activity?: Record<string, AppActivity>;
+}
+export interface DevicesOut { devices: DeviceRow[]; active: number; coverage: Record<string, number>; ias_coverage?: Record<string, number>; license: License }
 
 export interface SignalsOut { span_types: Record<string, number>; intents: Record<string, number>; kinds: Record<string, number>; tools: Record<string, number> }
 export interface PersonRow { user_id: string; department: string | null; events: number; high_risk: number; max_risk: number; avg_risk: number; last_seen: string }

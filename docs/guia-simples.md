@@ -44,3 +44,16 @@ O instalador **pergunta quais IAs monitorar** (números separados por vírgula: 
 | Não cobre o chat do app Claude Desktop, nem o Copilot do VS Code, nem Codex | sem hooks documentados / a verificar |
 | Instalação em nível de máquina (todos os usuários, por MDM) | existe como `deploy` sem `--user`, nunca testado em MDM real |
 | Login do console em modo de teste (mock) | login real (OIDC) nunca testado com provedor real |
+
+## Ver os sensores instalados e as IAs de cada um (painel **Sensores**)
+
+No console, **Sensores** mostra todas as máquinas com sensor, pelo **nome da máquina** (hostname), com o sistema, a versão do sensor, o último envio e **as IAs habilitadas em cada uma** (as que a pessoa escolheu por número na instalação ou no assistente `setup`). Filtros: nome da máquina, IA e situação. Clicar na máquina mostra, por IA, como ela é monitorada e quantos eventos chegaram em 7 e 30 dias.
+
+Como ler:
+- **capturando**: chegou evento dessa IA nos últimos 7 dias (prova real, não suposição).
+- **aguardando evento**: a IA foi habilitada mas ainda não chegou nada. Para IAs de navegador isso pode ser só o clique que falta para carregar a extensão.
+- **sem eventos há 7 dias+**: já chegou antes e parou.
+- **manual** / **indisponível hoje**: o sensor não configura sozinho ou não há como monitorar; nunca aparece como "capturando".
+- O sensor só fala com o servidor quando alguém usa uma IA. **"Sem atividade" não quer dizer que o sensor quebrou.**
+- "Não informado": sensor instalado antes desta versão, ou com `--tools` em vez de `--ias`. Reinstale com `--ias` ou rode `setup` e escolha as IAs.
+

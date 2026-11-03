@@ -44,6 +44,7 @@ sensor na máquina → evento universal → motor de detecção → política �
 | Incidentes | fila e triagem; texto original só com justificativa e auditoria |
 | **Qualidade da detecção** | revisão humana ("correta / falso positivo / faltou pegar") e precisão estimada por categoria; exportação auditada |
 | Risco por usuário, Alertas e SIEM, Relatórios | score explicável, webhook/Slack/Teams/e-mail/CEF, PDF e CSV |
+| **Sensores** | **painel de todas as máquinas com sensor**: nome da máquina, sistema, **quais IAs estão habilitadas em cada uma** e se chegaram eventos (capturando / aguardando / manual), última atividade, filtros por máquina, IA e situação |
 | Dispositivos | tokens de matrícula, cobertura por ferramenta, licença, revogação |
 | Políticas, Privacidade e segurança, Piloto, Inference hooks | políticas em modo monitorar ou aplicar, retenção, mapa de dados, piloto de 30 dias |
 
@@ -64,7 +65,7 @@ A detecção é **por regras locais**, sem LLM externo e sem modelo treinado. Me
 
 | Pasta | O que tem |
 |---|---|
-| `apps/api` | FastAPI: ingestão, políticas, incidentes, auditoria, revisão humana, licença; multi-tenant com RLS; migrações Alembic 0001 a 0016 |
+| `apps/api` | FastAPI: ingestão, políticas, incidentes, auditoria, revisão humana, licença; multi-tenant com RLS; migrações Alembic 0001 a 0017 |
 | `apps/web` | console Next.js (claro por padrão, escuro por alternância); ver o README da pasta |
 | `apps/extension` | extensão Chrome/Edge (EXPERIMENTAL; ver o README da pasta) |
 | `packages/detection` | motor de detecção (biblioteca pura) e scripts de avaliação |
