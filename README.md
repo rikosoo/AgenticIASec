@@ -44,7 +44,7 @@ sensor na máquina → evento universal → motor de detecção → política �
 | Incidentes | fila e triagem; texto original só com justificativa e auditoria |
 | **Qualidade da detecção** | revisão humana ("correta / falso positivo / faltou pegar") e precisão estimada por categoria; exportação auditada |
 | Risco por usuário, Alertas e SIEM, Relatórios | score explicável, webhook/Slack/Teams/e-mail/CEF, PDF e CSV |
-| **Sensores** | **painel de todas as máquinas com sensor**: nome da máquina, sistema, **quais IAs estão habilitadas em cada uma** e se chegaram eventos (capturando / aguardando / manual), última atividade, filtros por máquina, IA e situação |
+| **Sensores** | **painel de todas as máquinas com sensor**: nome da máquina, sistema, **quais IAs estão habilitadas em cada uma** e se chegaram eventos (capturando / aguardando / manual), último usuário (e quantas pessoas usaram a máquina), última atividade, **alertas** (nunca enviou, inativo, extensão sem evento, sensor desatualizado), filtros por máquina, IA, situação e alerta, atalho para os prompts do sensor e **exportação em CSV** (admin/auditor, auditada) |
 | Dispositivos | tokens de matrícula, cobertura por ferramenta, licença, revogação |
 | Políticas, Privacidade e segurança, Piloto, Inference hooks | políticas em modo monitorar ou aplicar, retenção, mapa de dados, piloto de 30 dias |
 

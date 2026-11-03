@@ -57,3 +57,10 @@ Como ler:
 - O sensor só fala com o servidor quando alguém usa uma IA. **"Sem atividade" não quer dizer que o sensor quebrou.**
 - "Não informado": sensor instalado antes desta versão, ou com `--tools` em vez de `--ias`. Reinstale com `--ias` ou rode `setup` e escolha as IAs.
 
+Mais no painel **Sensores**:
+- **Último usuário** de cada máquina (calculado dos eventos dos últimos 30 dias) e quantas pessoas diferentes a usaram; mais de uma sugere máquina compartilhada.
+- **Alertas** (pistas, não provas): *nunca enviou* (matriculada há mais de 24 h), *sem atividade há mais de 7 dias*, *extensão sem nenhum evento* (IA de navegador habilitada há mais de 3 dias e nenhum evento em 30 dias: provavelmente falta carregar a extensão ou o site mudou) e *sensor desatualizado* (versão atrás da mais nova da frota). Clicar no alerta filtra a tabela.
+- **Ver os prompts deste sensor**: abre **Todos os prompts** só com os eventos enviados por aquela máquina.
+- **Exportar CSV** (administrador e auditor; fica na auditoria): colunas `maquina, sistema, versao_sensor, situacao, matriculada_em, ultimo_envio, ultimo_usuario, usuarios_30d, ias_habilitadas, ias_capturando_7d, mecanismos, ocupa_vaga`, respeitando os filtros da tela (nome, IA e situação). O filtro de alerta é só da tela.
+- Eventos anteriores à versão que passou a guardar o sensor de origem não entram em "último usuário" nem nas contagens por IA.
+

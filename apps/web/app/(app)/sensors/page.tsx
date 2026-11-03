@@ -3,9 +3,9 @@ import { useEffect, useState } from "react";
 import { Dialog } from "@/components/Dialog";
 import { useSession } from "@/components/session";
 import { Empty, ErrorBox, Kpi, Loading, Panel } from "@/components/ui";
-import { api, send, useLoad } from "@/lib/api";
+import { api, qs, send, useLoad } from "@/lib/api";
 import { whenFull } from "@/lib/format";
-import { EVIDENCE_LABEL, filterSensors, IA_INFO, iaLabel, iaState, MODE_LABEL, sensorStatus, STATUS_LABEL, summarize, type SensorSort, type SensorStatus } from "@/lib/sensors";
+import { EVIDENCE_LABEL, filterSensors, IA_INFO, iaLabel, iaState, latestVersion, MODE_LABEL, PROBLEM_LABEL, problemCounts, problems, sensorStatus, STATUS_LABEL, summarize, type ProblemCode, type SensorSort, type SensorStatus } from "@/lib/sensors";
 import type { DeviceRow, DevicesOut } from "@/lib/types";
 
 const TOOL_LABEL: Record<string, string> = { claude_code: "Hook do Claude Code", github_copilot_cli: "Hook do GitHub Copilot CLI", browser_extension: "Extensão do navegador" };
@@ -23,10 +23,12 @@ function IaChip({ d, id }: { d: DeviceRow; id: string }) {
 export default function SensorsPage() {
   const { me } = useSession();
   const isAdmin = me.role === "admin";
+  const canExport = me.role === "admin" || me.role === "auditor";
   const data = useLoad(() => api<DevicesOut>("v1/devices"), []);
   const [q, setQ] = useState("");
   const [ia, setIa] = useState("");
   const [status, setStatus] = useState<SensorStatus | "">("");
+  const [problem, setProblem] = useState<ProblemCode | "qualquer" | "">("");
   const [sort, setSort] = useState<SensorSort>("hostname");
   const [live, setLive] = useState(false);
   const [open, setOpen] = useState<DeviceRow | null>(null);
@@ -45,7 +47,10 @@ export default function SensorsPage() {
   const d = data.data;
   const all = d?.devices ?? [];
   const sum = summarize(all, now);
-  const rows = filterSensors(all, { q, ia, status }, now, sort);
+  const rows = filterSensors(all, { q, ia, status, problem }, now, sort);
+  const latest = latestVersion(all);
+  const pc = problemCounts(all, now);
+  const exportHref = `/api/proxy/v1/devices/export.csv${qs({ q: q.trim(), ia, situacao: status })}`;
   const iaIds = [...new Set([...Object.keys(IA_INFO), ...all.flatMap((x) => x.ias ?? [])])];
   const cover = d?.ias_coverage ?? {};
   const selected = open ? (all.find((x) => x.id === open.id) ?? open) : null;
@@ -91,6 +96,21 @@ export default function SensorsPage() {
             </ul>
             {sum.semIas > 0 && <p className="mt-2 text-xs text-muted" data-testid="sem-ias">{sum.semIas} sensor(es) não informaram as IAs (instalados sem escolher IAs, ou com versão antiga do sensor). Neles aparece só o mecanismo instalado (hook ou extensão).</p>}
           </Panel>
+          <Panel title={`Precisam de atenção (${pc.total})`}>
+            {pc.total === 0 ? <p className="text-sm" data-testid="sem-alertas">Nenhum sensor com alerta agora.</p> : (
+              <ul className="flex flex-wrap gap-1" data-testid="alertas">
+                {(Object.keys(PROBLEM_LABEL) as ProblemCode[]).filter((c) => pc.byCode[c] > 0).map((c) => (
+                  <li key={c}>
+                    <button type="button" aria-pressed={problem === c} onClick={() => setProblem(problem === c ? "" : c)}
+                      className={`rounded border px-2 py-1 text-xs ${problem === c ? "border-accent bg-accent text-accent-fg" : "border-line bg-panel hover:bg-panel2"}`}>
+                      {PROBLEM_LABEL[c]} <span className="font-mono">{pc.byCode[c]}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p className="mt-2 text-xs text-muted">Alertas são pistas, não provas: o sensor só fala quando alguém usa uma IA, então máquina parada pode estar só sem uso.</p>
+          </Panel>
           <form className="flex flex-wrap items-end gap-3 rounded-md border border-line bg-panel px-4 py-3 text-sm" onSubmit={(e) => e.preventDefault()}>
             <div><label htmlFor="q" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Nome da máquina</label>
               <input id="q" className="field w-56" value={q} maxLength={100} onChange={(e) => setQ(e.target.value)} placeholder="ex.: NOTE-ANA" /></div>
@@ -103,15 +123,20 @@ export default function SensorsPage() {
             <div><label htmlFor="so" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Ordenar por</label>
               <select id="so" className="field" value={sort} onChange={(e) => setSort(e.target.value as SensorSort)}>
                 <option value="hostname">Nome da máquina</option><option value="recente">Último envio</option></select></div>
-            {(q || ia || status) && <button type="button" className="btn" onClick={() => { setQ(""); setIa(""); setStatus(""); }}>Limpar filtros</button>}
+            <div><label htmlFor="pr" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">Alertas</label>
+              <select id="pr" className="field" value={problem} onChange={(e) => setProblem(e.target.value as ProblemCode | "qualquer" | "")}>
+                <option value="">Todos os sensores</option><option value="qualquer">Com qualquer alerta</option>
+                {(Object.keys(PROBLEM_LABEL) as ProblemCode[]).map((c) => <option key={c} value={c}>{PROBLEM_LABEL[c]}</option>)}</select></div>
+            {(q || ia || status || problem) && <button type="button" className="btn" onClick={() => { setQ(""); setIa(""); setStatus(""); setProblem(""); }}>Limpar filtros</button>}
+            {canExport && <a className="btn ml-auto" data-testid="export-sensors" download href={exportHref}>Exportar CSV (auditado)</a>}
           </form>
           <Panel title={`Sensores (${rows.length} de ${all.length})`}>
             {rows.length === 0 ? <Empty>{all.length === 0 ? "Nenhum sensor instalado ainda. Crie um token em Dispositivos e rode a linha de instalação." : "Nenhum sensor com esses filtros."}</Empty> : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[56rem] border-collapse" data-testid="sensors-table">
+                <table className="w-full min-w-[64rem] border-collapse" data-testid="sensors-table">
                   <caption className="sr-only">Sensores instalados, com as IAs habilitadas em cada um</caption>
                   <thead><tr>
-                    <th scope="col" className="th">Nome da máquina</th><th scope="col" className="th">Sistema</th><th scope="col" className="th">IAs habilitadas</th>
+                    <th scope="col" className="th">Nome da máquina</th><th scope="col" className="th">Sistema</th><th scope="col" className="th">Último usuário</th><th scope="col" className="th">IAs habilitadas</th>
                     <th scope="col" className="th">Último envio</th><th scope="col" className="th">Situação</th><th scope="col" className="th">Sensor</th>
                   </tr></thead>
                   <tbody>{rows.map((x) => {
@@ -120,11 +145,12 @@ export default function SensorsPage() {
                       <tr key={x.id} data-testid="sensor-row">
                         <th scope="row" className="td text-left font-medium"><button type="button" className="text-accent underline-offset-2 hover:underline" onClick={() => setOpen(x)} aria-label={`Ver detalhes da máquina ${x.hostname}`}>{x.hostname}</button></th>
                         <td className="td">{x.os ?? "—"}</td>
+                        <td className="td text-xs" data-testid="last-user">{x.last_user ? <>{x.last_user}{(x.users_30d ?? 0) > 1 && <span className="text-muted"> · +{(x.users_30d ?? 1) - 1} pessoa(s) em 30 dias</span>}</> : <span className="text-muted">sem eventos em 30 dias</span>}</td>
                         <td className="td">{(x.ias ?? []).length ? <ul className="flex flex-wrap" aria-label={`IAs habilitadas em ${x.hostname}`}>{(x.ias ?? []).map((id) => <IaChip key={id} d={x} id={id} />)}</ul>
                           : <span className="text-xs text-muted">não informado{x.tools.length ? ` · ${x.tools.map((t) => TOOL_LABEL[t] ?? t).join(", ")}` : ""}</span>}</td>
                         <td className="td whitespace-nowrap text-xs">{x.last_seen_at ? whenFull(x.last_seen_at) : "nunca"}</td>
-                        <td className="td text-xs">{STATUS_LABEL[st]}</td>
-                        <td className="td text-xs">{x.client_version ?? "—"}</td>
+                        <td className="td text-xs">{STATUS_LABEL[st]}{problems(x, now, latest).length > 0 && <ul className="mt-1" aria-label={`Alertas de ${x.hostname}`}>{problems(x, now, latest).map((p) => <li key={p.code} className="text-high" data-testid="alerta">⚠ {PROBLEM_LABEL[p.code]}</li>)}</ul>}</td>
+                        <td className="td text-xs">{x.client_version ?? "—"}{latest && x.client_version && !x.revoked && problems(x, now, latest).some((p) => p.code === "versao") && <span className="block text-high">desatualizado</span>}</td>
                       </tr>
                     );
                   })}</tbody>
@@ -145,6 +171,8 @@ export default function SensorsPage() {
               <dt className="text-muted">Matriculada em</dt><dd>{whenFull(selected.enrolled_at)}</dd>
               <dt className="text-muted">Último envio</dt><dd>{selected.last_seen_at ? whenFull(selected.last_seen_at) : "nunca"}</dd>
               <dt className="text-muted">Situação</dt><dd>{STATUS_LABEL[sensorStatus(selected, now)]}</dd>
+              <dt className="text-muted">Último usuário</dt><dd>{selected.last_user ? `${selected.last_user}${selected.last_department ? ` (${selected.last_department})` : ""}${selected.last_user_at ? `, em ${whenFull(selected.last_user_at)}` : ""}` : "sem eventos em 30 dias"}</dd>
+              <dt className="text-muted">Pessoas em 30 dias</dt><dd>{selected.users_30d ?? 0}{(selected.users_30d ?? 0) > 1 ? " (máquina compartilhada?)" : ""}</dd>
               <dt className="text-muted">Mecanismos instalados</dt><dd>{selected.tools.map((t) => TOOL_LABEL[t] ?? t).join(", ") || "—"}</dd>
               <dt className="text-muted">Ocupa vaga da licença</dt><dd>{selected.counts_toward_license ? "sim" : "não"}</dd>
             </dl>
@@ -163,7 +191,12 @@ export default function SensorsPage() {
               )}
               <p className="mt-2 text-xs text-muted">Extensão do navegador: o sensor só deixa a extensão pronta; a pessoa ainda precisa carregá-la uma vez. Por isso &quot;aguardando evento&quot; pode significar que ainda falta esse clique. Itens manuais ou indisponíveis não geram evidência.</p>
             </div>
-            <div className="flex justify-end gap-2">
+            {problems(selected, now, latest).length > 0 && (
+              <div role="group" aria-label="Alertas desta máquina"><h3 className="mb-1 text-xs font-semibold uppercase text-muted">Alertas</h3>
+                <ul className="space-y-1 text-xs" data-testid="detail-alertas">{problems(selected, now, latest).map((p) => <li key={p.code}>⚠ {p.text}</li>)}</ul></div>
+            )}
+            <div className="flex flex-wrap justify-end gap-2">
+              <a className="btn" href={`/history?sensor=${encodeURIComponent(selected.id)}&host=${encodeURIComponent(selected.hostname)}`} data-testid="ver-prompts">Ver os prompts deste sensor</a>
               {isAdmin && !selected.revoked && <button type="button" className="btn" disabled={busy} onClick={() => void revoke(selected)}>Revogar</button>}
               <button type="button" className="btn" onClick={() => setOpen(null)}>Fechar</button>
             </div>

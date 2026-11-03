@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Attachments } from "@/components/Attachments";
 import { VERDICT_LABEL } from "@/components/FeedbackForm";
 import { PromptDetailDialog } from "@/components/PromptDetail";
@@ -53,22 +53,31 @@ export default function HistoryPage() {
   const [personalOnly, setPersonalOnly] = useState(false);
   const [withFile, setWithFile] = useState(false);
   const [review, setReview] = useState("");
+  const [sensor, setSensor] = useState<{ id: string; host: string } | null>(null);
+  const [urlRead, setUrlRead] = useState(false);
   const [sessionId, setSessionId] = useState("");
   const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<PromptRow | null>(null);
   const { name, groups } = useTaxonomy();
 
+  useEffect(() => {      // vindo do painel de Sensores: /history?sensor=<id>&host=<nome da máquina>
+    const sp = new URLSearchParams(window.location.search);
+    const id = sp.get("sensor");
+    if (id && /^[0-9a-f-]{36}$/i.test(id)) setSensor({ id, host: (sp.get("host") ?? "").slice(0, 200) });
+    setUrlRead(true);
+  }, []);
   const reset = <T,>(set: (v: T) => void) => (v: T) => { set(v); setPage(0); };
   const people = useLoad(() => api<PersonRow[]>(`v1/people${qs({ days, limit: 100 })}`), [days]);
   const filters = {
     days, user_q: personApplied, q: wordApplied, app: app || undefined, kind, category, decision, department,
-    session_id: sessionId, has_attachment: withFile ? true : undefined, review, min_score: onlyRisk ? 1 : 0, personal_account: personalOnly ? true : undefined,
+    session_id: sessionId, sensor: sensor?.id, has_attachment: withFile ? true : undefined, review, min_score: onlyRisk ? 1 : 0, personal_account: personalOnly ? true : undefined,
   };
-  const list = useLoad(() => apiPage<PromptRow[]>(`v1/events${qs({ ...filters, sort: "recent", limit: PAGE, offset: page * PAGE })}`),
-    [days, personApplied, wordApplied, app, kind, category, decision, department, onlyRisk, personalOnly, withFile, review, sessionId, page]);
+  const list = useLoad(() => (urlRead ? apiPage<PromptRow[]>(`v1/events${qs({ ...filters, sort: "recent", limit: PAGE, offset: page * PAGE })}`)
+    : Promise.resolve({ items: [] as PromptRow[], total: 0 })),     // espera ler o ?sensor= da URL antes da primeira busca (senão piscaria a lista inteira)
+    [days, personApplied, wordApplied, app, kind, category, decision, department, onlyRisk, personalOnly, withFile, review, sessionId, sensor?.id, urlRead, page]);
   const departments = Array.from(new Set((people.data ?? []).map((p) => p.department).filter((d): d is string => !!d))).sort();
-  const anyFilter = sessionId || personApplied || wordApplied || app || kind || category || decision || department || onlyRisk || personalOnly || withFile || review;
-  const clear = () => { setPerson(""); setPersonApplied(""); setWord(""); setWordApplied(""); setApp(""); setKind(""); setCategory(""); setDecision(""); setDepartment(""); setOnlyRisk(false); setPersonalOnly(false); setWithFile(false); setReview(""); setSessionId(""); setPage(0); };
+  const anyFilter = sessionId || personApplied || wordApplied || app || kind || category || decision || department || onlyRisk || personalOnly || withFile || review || sensor;
+  const clear = () => { setPerson(""); setPersonApplied(""); setWord(""); setWordApplied(""); setApp(""); setKind(""); setCategory(""); setDecision(""); setDepartment(""); setOnlyRisk(false); setPersonalOnly(false); setWithFile(false); setReview(""); setSessionId(""); setSensor(null); setPage(0); };
   const choosePerson = (id: string) => { setPerson(id); setPersonApplied(id); setSelected(null); setPage(0); };
 
   return (
@@ -118,6 +127,7 @@ export default function HistoryPage() {
         </div>
       </form>
 
+      {sensor && <p className="text-sm" data-testid="sensor-chip">Mostrando só os prompts do sensor <strong>{sensor.host || sensor.id}</strong>. <button type="button" className="text-accent underline" onClick={() => reset(setSensor)(null)}>Ver todos</button></p>}
       {sessionId && <p className="text-sm">Mostrando só a sessão <code className="font-mono text-xs">{sessionId}</code>. <button type="button" className="text-accent underline" onClick={() => reset(setSessionId)("")}>Ver todas</button></p>}
 
       <Panel title={`Pessoas no período (${people.data?.length ?? 0}) — clique para filtrar`}>

@@ -116,6 +116,7 @@ export interface AppActivity { events_7d: number; events_30d: number; last_at: s
 export interface DeviceRow {
   counts_toward_license?: boolean; id: string; hostname: string; os: string | null; client_version: string | null; tools: string[]; enrolled_at: string;
   last_seen_at: string | null; revoked: boolean; ias?: string[]; activity?: Record<string, AppActivity>;
+  last_user?: string | null; last_department?: string | null; last_user_at?: string | null; users_30d?: number;
 }
 export interface DevicesOut { devices: DeviceRow[]; active: number; coverage: Record<string, number>; ias_coverage?: Record<string, number>; license: License }
 
