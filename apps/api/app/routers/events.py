@@ -13,8 +13,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql.expression import cast
 
 from app import audit, crypto
+from app.csvsafe import csv_safe
 from app.db import tenant_session
-from app.models import Analysis, Event, EventFeedback, Incident
+from app.models import Analysis, Device, Event, EventFeedback, Incident
 from app.routers.analytics import window_start
 from app.routers.feedback import feedback_for, view
 from app.schemas import EventIn, EventResult, JustificationIn, OriginalRequest
@@ -40,6 +41,7 @@ def event_filters(
     decision: str | None = Query(None, pattern="^(allow|mask|block|ask_justification|alert)$", description="decisão tomada ou que seria tomada"),
     kind: str | None = Query(None, pattern="^(prompt|response|tool_call|tool_result|file_upload)$"),
     search: str | None = Query(None, alias="q", min_length=2, max_length=100, description="busca no texto JÁ mascarado (nunca no original)"),
+    sensor: Annotated[uuid.UUID | None, Query(description="id do sensor (dispositivo): só os eventos enviados pela chave dele")] = None,
     has_attachment: bool | None = Query(None, description="o prompt veio com arquivo anexado"),
     review: str | None = Query(None, pattern="^(pending|reviewed|correta|falso_positivo|faltou)$", description="revisão humana da análise"),
     span_type: str | None = Query(None, max_length=40, description="tipo de trecho sensível detectado (ex.: aws_access_key, cpf)"),
@@ -91,6 +93,8 @@ def apply_filters(q, f: dict):
     if f["search"]:
         q = q.where(Event.masked_text.ilike(_like(f["search"]), escape="\\")
                     | cast(Event.attachments, JSONB).cast(Text).ilike(_like(f["search"]), escape="\\"))   # também acha pelo nome do arquivo
+    if f["sensor"]:
+        q = q.where(Event.api_key_id == select(Device.api_key_id).where(Device.id == f["sensor"]).scalar_subquery())
     if f["review"]:
         rv = select(EventFeedback.id).where(EventFeedback.event_pk == Event.id)
         if f["review"] in ("correta", "falso_positivo", "faltou"):
@@ -125,12 +129,6 @@ def list_events(
         return [_view(e, a, i, fbs.get(e.id)) for e, a, i in rows]
 
 
-def _csv_safe(value: object) -> str:
-    """Planilha: célula que começa com = + - @ vira fórmula. Prefixa com apóstrofo (texto já mascarado, mas o conteúdo é de terceiros)."""
-    t = "" if value is None else str(value)
-    return "'" + t if t[:1] in ("=", "+", "-", "@", "\t", "\r") else t
-
-
 @router.get("/export.csv", response_class=PlainTextResponse, summary="Exporta em CSV (texto mascarado) com os mesmos filtros; a exportação é auditada")
 def export_csv(
     p: Annotated[Principal, Depends(require_roles("admin", "auditor"))],
@@ -146,10 +144,10 @@ def export_csv(
         w = csv.writer(buf)
         w.writerow(["quando_utc", "pessoa", "departamento", "ferramenta", "tipo", "categorias", "pedido", "arquivos", "score", "decisao", "teria_decidido", "texto_mascarado"])
         for e, a in rows:
-            w.writerow([e.occurred_at.isoformat(), _csv_safe(e.user_id), _csv_safe(e.department), e.app, e.kind,
+            w.writerow([e.occurred_at.isoformat(), csv_safe(e.user_id), csv_safe(e.department), e.app, e.kind,
                         ";".join(c["id"] for c in a.categories), ";".join((a.flags or {}).get("intents", [])),
-                        _csv_safe("; ".join(x.get("name", "") for x in (e.attachments or []))), a.risk_score,
-                        a.decision, a.would_decide, _csv_safe(e.masked_text)])
+                        csv_safe("; ".join(x.get("name", "") for x in (e.attachments or []))), a.risk_score,
+                        a.decision, a.would_decide, csv_safe(e.masked_text)])
     return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8",
                     headers={"Content-Disposition": 'attachment; filename="prompts.csv"'})
 

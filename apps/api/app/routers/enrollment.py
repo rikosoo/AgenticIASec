@@ -3,18 +3,21 @@ uma chave de API PRÓPRIA. Assim um instalador vazado não permite falsificar ev
 para revogar uma máquina só. Integração REAL só depois de testada em máquinas reais (docs/implantacao-empresa.md)."""
 from __future__ import annotations
 
+import csv
 import hashlib
+import io
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select, text
 
 from app import audit, audit_system, license, ratelimit
 from app.config import settings
+from app.csvsafe import csv_safe
 from app.db import anonymous_session, tenant_session
 from app.models import ApiKey, Device, EnrollmentToken, Event, Tenant
 from app.security import READ_ROLES, Principal, generate_api_key, require_ingest, require_roles
@@ -145,10 +148,36 @@ def _activity(s, key_ids: list[uuid.UUID], now: datetime) -> dict[uuid.UUID, dic
     return out
 
 
-def _device_view(d: Device, k: ApiKey | None, activity: dict[str, dict] | None = None) -> dict:
+def _last_users(s, key_ids: list[uuid.UUID], now: datetime) -> dict[uuid.UUID, dict]:
+    """Quem usou cada máquina por último e quantas pessoas diferentes nos últimos 30 dias (máquina compartilhada aparece com mais de uma)."""
+    if not key_ids:
+        return {}
+    since = now - timedelta(days=30)
+    last = s.execute(select(Event.api_key_id, Event.user_id, Event.department, Event.occurred_at)
+                     .where(Event.api_key_id.in_(key_ids), Event.occurred_at >= since)
+                     .distinct(Event.api_key_id).order_by(Event.api_key_id, Event.occurred_at.desc())).all()
+    counts = dict(s.execute(select(Event.api_key_id, func.count(func.distinct(Event.user_id)))
+                            .where(Event.api_key_id.in_(key_ids), Event.occurred_at >= since).group_by(Event.api_key_id)).all())
+    return {kid: {"last_user": user, "last_department": dept, "last_user_at": at.isoformat(), "users_30d": int(counts.get(kid, 1))}
+            for kid, user, dept, at in last}
+
+
+def sensor_status(revoked: bool, last_seen_at: str | None, now: datetime) -> str:
+    """Mesma regra do console (lib/sensors.ts): ativo até 24 h, sem atividade até 7 dias, inativo depois. O sensor só fala quando alguém usa uma IA."""
+    if revoked:
+        return "revogado"
+    if not last_seen_at:
+        return "nunca"
+    age = now - datetime.fromisoformat(last_seen_at)
+    return "ativo" if age <= timedelta(hours=24) else "quieto" if age <= timedelta(days=7) else "inativo"
+
+
+def _device_view(d: Device, k: ApiKey | None, activity: dict[str, dict] | None = None, who: dict | None = None) -> dict:
     last = k.last_used_at if k else None
     ref = max(x for x in (last, d.enrolled_at) if x is not None)
     return {"counts_toward_license": d.revoked_at is None and ref >= license.cutoff(), "id": str(d.id), "hostname": d.hostname, "os": d.os, "client_version": d.client_version, "tools": d.tools, "ias": list(d.ias or []), "activity": activity or {},
+            "last_user": (who or {}).get("last_user"), "last_department": (who or {}).get("last_department"),
+            "last_user_at": (who or {}).get("last_user_at"), "users_30d": (who or {}).get("users_30d", 0),
             "enrolled_at": d.enrolled_at.isoformat(), "last_seen_at": last.isoformat() if last else None,
             "revoked": d.revoked_at is not None}
 
@@ -157,8 +186,10 @@ def _device_view(d: Device, k: ApiKey | None, activity: dict[str, dict] | None =
 def list_devices(p: Annotated[Principal, Depends(require_roles(*READ_ROLES))]) -> dict:
     with tenant_session(p.tenant_id) as s:
         rows = s.execute(select(Device, ApiKey).outerjoin(ApiKey, ApiKey.id == Device.api_key_id).order_by(Device.enrolled_at.desc())).all()
-        acts = _activity(s, [d.api_key_id for d, _ in rows if d.api_key_id], datetime.now(timezone.utc))
-        devices = [_device_view(d, k, acts.get(d.api_key_id)) for d, k in rows]
+        now = datetime.now(timezone.utc)
+        key_ids = [d.api_key_id for d, _ in rows if d.api_key_id]
+        acts, users = _activity(s, key_ids, now), _last_users(s, key_ids, now)
+        devices = [_device_view(d, k, acts.get(d.api_key_id), users.get(d.api_key_id)) for d, k in rows]
         lic = license.summary(s, s.get(Tenant, p.tenant_id))
     active = [d for d in devices if not d["revoked"]]
     coverage: dict[str, int] = {}
@@ -169,6 +200,39 @@ def list_devices(p: Annotated[Principal, Depends(require_roles(*READ_ROLES))]) -
         for i in d["ias"]:
             ias_coverage[i] = ias_coverage.get(i, 0) + 1
     return {"devices": devices, "active": len(active), "coverage": coverage, "ias_coverage": ias_coverage, "license": lic}
+
+
+CAPTURE_APPS = {"chatgpt_web", "copilot_web", "gemini_web", "claude_web", "claude_code", "github_copilot_cli"}   # IAs cujo id é o `source.app` dos eventos
+
+
+@router.get("/devices/export.csv", response_class=Response, summary="Exporta os sensores em CSV (mesmos filtros do painel); a exportação é auditada")
+def export_devices(p: Annotated[Principal, Depends(require_roles("admin", "auditor"))], q: Annotated[str | None, Query(max_length=100)] = None,
+                   ia: Annotated[str | None, Query(pattern=r"^[a-z0-9_]{2,40}$")] = None,
+                   situacao: Annotated[str | None, Query(pattern="^(ativo|quieto|inativo|nunca|revogado)$")] = None) -> Response:
+    with tenant_session(p.tenant_id) as s:
+        rows = s.execute(select(Device, ApiKey).outerjoin(ApiKey, ApiKey.id == Device.api_key_id)).all()
+        now = datetime.now(timezone.utc)
+        key_ids = [d.api_key_id for d, _ in rows if d.api_key_id]
+        acts, users = _activity(s, key_ids, now), _last_users(s, key_ids, now)
+        views = [_device_view(d, k, acts.get(d.api_key_id), users.get(d.api_key_id)) for d, k in rows]
+        wanted = (q or "").strip().casefold()
+        out = []
+        for v in sorted(views, key=lambda x: x["hostname"].casefold()):
+            st = sensor_status(v["revoked"], v["last_seen_at"], now)
+            if (wanted and wanted not in v["hostname"].casefold()) or (ia and ia not in v["ias"]) or (situacao and st != situacao):
+                continue
+            out.append((v, st))
+        audit.write(s, p, "export.sensors_csv", "devices", None, {"filters": {k: x for k, x in (("q", q), ("ia", ia), ("situacao", situacao)) if x}, "rows": len(out)})
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["maquina", "sistema", "versao_sensor", "situacao", "matriculada_em", "ultimo_envio", "ultimo_usuario", "usuarios_30d", "ias_habilitadas",
+                "ias_capturando_7d", "mecanismos", "ocupa_vaga"])
+    for v, st in out:
+        capturing = [i for i in v["ias"] if i in CAPTURE_APPS and v["activity"].get(i, {}).get("events_7d", 0) > 0]
+        w.writerow([csv_safe(v["hostname"]), csv_safe(v["os"]), csv_safe(v["client_version"]), st, v["enrolled_at"], v["last_seen_at"] or "",
+                    csv_safe(v["last_user"]), v["users_30d"], ";".join(v["ias"]), ";".join(capturing), ";".join(v["tools"]),
+                    "sim" if v.get("counts_toward_license") else "nao"])
+    return Response("\ufeff" + buf.getvalue(), media_type="text/csv; charset=utf-8", headers={"Content-Disposition": 'attachment; filename="sensores.csv"'})
 
 
 class IasIn(BaseModel):
