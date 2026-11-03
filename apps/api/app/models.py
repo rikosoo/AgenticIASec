@@ -113,6 +113,7 @@ class Device(Base):
     os: Mapped[str | None] = mapped_column(String(60))
     client_version: Mapped[str | None] = mapped_column(String(40))
     tools: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    ias: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)       # IAs que a pessoa escolheu monitorar nesta máquina (ids do catálogo do sensor)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     enrolled_at: Mapped[datetime] = _ts()
 
@@ -154,6 +155,7 @@ class Event(Base):
     masked_text: Mapped[str] = mapped_column(Text)
     text_length: Mapped[int] = mapped_column(Integer)
     original_ciphertext: Mapped[bytes | None] = mapped_column(LargeBinary)
+    api_key_id: Mapped[uuid.UUID | None] = mapped_column(Uuid)              # chave (sensor) que enviou; nulo em eventos antigos
     attachments: Mapped[list[Any] | None] = mapped_column(JSON)   # nomes já mascarados, tamanho e tipo; nunca o conteúdo
 
 

@@ -73,6 +73,9 @@ CATALOG: list[IA] = [
        "Extensão do navegador. EXPERIMENTAL: seletores nunca conferidos na página real (A VERIFICAR).", EXT_STEPS),
 ]
 BY_N = {i.n: i for i in CATALOG}
+# identificador estável de cada IA (vai para o servidor; o console mostra o nome). Onde a IA gera eventos, é o mesmo valor de `source.app`.
+KEY = {1: "chatgpt_web", 2: "copilot_web", 3: "gemini_web", 4: "codex_desktop", 5: "claude_desktop", 6: "claude_code",
+       7: "codex_cli", 8: "copilot_desktop", 9: "github_copilot_cli", 10: "claude_web"}
 ALL_TOOLS_FROM = {"claude_code", "github_copilot_cli", "browser_extension"}
 
 
@@ -108,6 +111,11 @@ def tools_for(nums: list[int]) -> list[str]:
         if t and t not in out:
             out.append(t)
     return out
+
+
+def keys_for(nums: list[int]) -> list[str]:
+    """Identificadores das IAs escolhidas, na ordem dos números."""
+    return [KEY[n] for n in nums]
 
 
 def guide(n: int, command: str = "") -> str:

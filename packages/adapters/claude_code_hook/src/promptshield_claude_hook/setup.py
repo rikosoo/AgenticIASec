@@ -337,6 +337,11 @@ class Wizard:
         tools = ias.tools_for(nums)
         if any(t in tools for t in ("claude_code", "github_copilot_cli", "browser_extension")) and not self.ensure_config():
             return
+        try:
+            client.put_ias(config.load(), ias.keys_for(nums), "add")
+            self.say("  (as IAs escolhidas foram registradas no painel de Sensores do console)")
+        except (client.ApiError, OSError, ValueError) as exc:
+            self.say(f"  (não consegui registrar as IAs no painel de Sensores: {exc}; o monitoramento em si não depende disso)")
         results: dict[int, str] = {}
         if "claude_code" in tools:
             self.claude_code()

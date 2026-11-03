@@ -80,10 +80,12 @@ def machine_hash() -> str | None:
     return hashlib.sha256(f"promptshield:{raw}".encode()).hexdigest() if raw else None
 
 
-def enroll(api_url: str, token: str, tools: list[str], sleep=time.sleep) -> dict[str, Any]:
+def enroll(api_url: str, token: str, tools: list[str], sleep=time.sleep, ias_keys: list[str] | None = None) -> dict[str, Any]:
     if not api_url.lower().startswith(("http://", "https://")):
         raise client.ApiError("api_url precisa começar com https:// (http:// só em testes)")
     body: dict[str, Any] = {"token": token, "hostname": socket.gethostname()[:200], "os": platform.system(), "client_version": CLIENT_VERSION, "tools": tools}
+    if ias_keys:
+        body["ias"] = ias_keys      # as IAs que a pessoa escolheu: aparecem no painel de sensores do console
     mh = machine_hash()
     if mh:
         body["machine_id_hash"] = mh
@@ -124,7 +126,7 @@ def _write(path: Path, text: str, mode: int = 0o644) -> None:
 
 
 def install(api_url: str, token: str, tools: list[str], department: str | None, fail_mode: str, root: Path | None, force: bool,
-            say=print, user: bool = False) -> int:
+            say=print, user: bool = False, ias_keys: list[str] | None = None) -> int:
     p = paths(root, user)
     existing = None
     if p["config"].is_file():
@@ -137,7 +139,7 @@ def install(api_url: str, token: str, tools: list[str], department: str | None, 
         key = existing["api_key"]
     else:
         try:
-            key = enroll(api_url, token, tools)["api_key"]
+            key = enroll(api_url, token, tools, ias_keys=ias_keys)["api_key"]
         except client.ApiError as exc:
             say(f"FALHOU: {exc}")
             return 1
@@ -231,7 +233,7 @@ def main(argv: list[str]) -> int:
     if not a.api_url or not a.token:
         print("Informe --api-url e --token.")
         return 2
-    code = install(a.api_url, a.token, tools, a.department, a.fail_mode, a.root, a.force, user=a.user)
+    code = install(a.api_url, a.token, tools, a.department, a.fail_mode, a.root, a.force, user=a.user, ias_keys=ias.keys_for(chosen) if chosen else None)
     if code == 0 and chosen:
         exe, args = setup.self_command()
         command = " ".join([f'"{exe}"'] + [f'"{x}"' for x in args])

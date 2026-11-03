@@ -66,7 +66,7 @@ def test_wizard_choice_reasks_on_bad_input_and_gives_up_after_three(tmp_path, mo
 
 
 def test_deploy_ias_flag_prints_guides_and_maps_tools(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(deploy, "enroll", lambda url, token, tools: {"api_key": "ps_m"})
+    monkeypatch.setattr(deploy, "enroll", lambda url, token, tools, ias_keys=None: {"api_key": "ps_m"})
     monkeypatch.setattr(deploy.client, "get_hook_config", lambda cfg: {"failure_mode": "open"})
     monkeypatch.setattr(deploy.browser, "install_extension", lambda *a, **k: tmp_path)
     assert deploy.main(["--list-ias"]) == 0 and "Quais IAs" in capsys.readouterr().out
@@ -83,3 +83,95 @@ def test_docs_list_every_option():
     doc = (Path(__file__).resolve().parents[4] / "docs" / "guia-ias.md").read_text(encoding="utf-8")
     for i in ias.CATALOG:
         assert f"| {i.n} |" in doc and i.name.split(" (")[0] in doc, i.name
+
+
+def test_every_ia_has_a_stable_key_the_server_accepts():
+    import re
+    assert set(ias.KEY) == set(ias.BY_N)                                           # nenhuma IA do catálogo fica sem identificador
+    assert len(set(ias.KEY.values())) == len(ias.KEY)
+    assert all(re.fullmatch(r"[a-z0-9_]{2,40}", k) for k in ias.KEY.values())      # o mesmo padrão que a API valida
+    assert ias.keys_for([10, 1, 6]) == ["claude_web", "chatgpt_web", "claude_code"]
+    # onde a IA gera eventos, o identificador é o `source.app` do evento (o painel liga uma coisa à outra)
+    assert {ias.KEY[1], ias.KEY[2], ias.KEY[3], ias.KEY[6], ias.KEY[9], ias.KEY[10]} == {
+        "chatgpt_web", "copilot_web", "gemini_web", "claude_code", "github_copilot_cli", "claude_web"}
+
+
+def test_deploy_sends_the_chosen_ias_to_the_server(tmp_path, monkeypatch):
+    seen = {}
+
+    def fake_enroll(url, token, tools, ias_keys=None):
+        seen["tools"], seen["ias"] = tools, ias_keys
+        return {"api_key": "ps_m"}
+
+    monkeypatch.setattr(deploy, "enroll", fake_enroll)
+    monkeypatch.setattr(deploy.client, "get_hook_config", lambda cfg: {"failure_mode": "open"})
+    monkeypatch.setattr(deploy.browser, "install_extension", lambda *a, **k: tmp_path)
+    assert deploy.main(["--api-url", "http://x", "--token", "pse_t", "--ias", "7,1,6", "--confirm-employees-notified", "--root", str(tmp_path)]) == 0
+    assert seen["ias"] == ["chatgpt_web", "claude_code", "codex_cli"] and seen["tools"] == ["browser_extension", "claude_code"]
+    seen.clear()
+    assert deploy.main(["--api-url", "http://x", "--token", "pse_t", "--tools", "claude_code", "--force", "--confirm-employees-notified",
+                        "--root", str(tmp_path)]) == 0
+    assert seen["ias"] is None                                                       # sem --ias, o sensor não inventa quais IAs são
+
+
+def test_enroll_body_carries_ias_only_when_given(monkeypatch):
+    import io
+    bodies = []
+
+    class Resp(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def fake_urlopen(req, timeout=0):
+        bodies.append(json.loads(req.data))
+        return Resp(json.dumps({"api_key": "ps_ok"}).encode())
+
+    monkeypatch.setattr(deploy.urllib.request, "urlopen", fake_urlopen)
+    deploy.enroll("http://x", "pse_t", ["claude_code"], ias_keys=["claude_code", "gemini_web"])
+    deploy.enroll("http://x", "pse_t", ["claude_code"])
+    assert bodies[0]["ias"] == ["claude_code", "gemini_web"] and "ias" not in bodies[1]
+
+
+def test_wizard_reports_choices_with_add_and_survives_a_failed_report(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    monkeypatch.setattr(setup.Path, "home", classmethod(lambda cls: tmp_path))
+    for k in ("PROMPTSHIELD_HOOK_CONFIG", "PROMPTSHIELD_API_URL", "PROMPTSHIELD_API_KEY"):
+        monkeypatch.delenv(k, raising=False)
+    setup.write_hook_config("http://localhost:8000", "ps_x")
+    monkeypatch.setattr("promptshield_claude_hook.client.get_hook_config", lambda cfg: {"failure_mode": "open"})
+    sent = []
+    monkeypatch.setattr("promptshield_claude_hook.client.put_ias", lambda cfg, keys, mode="add": sent.append((keys, mode)) or {"ias": keys})
+    out, answers = [], iter(["6, 5", "sim", "0"])
+    w = setup.Wizard(ask=lambda p: next(answers), secret=lambda p: "", say=lambda *x: out.append(" ".join(map(str, x))), open_url=lambda u: None)
+    w.choose()
+    assert sent == [(["claude_desktop", "claude_code"], "add")] and "painel de Sensores" in "\n".join(out)
+
+    def broken(cfg, keys, mode="add"):
+        raise client_mod.ApiError("API indisponível")
+
+    from promptshield_claude_hook import client as client_mod
+    monkeypatch.setattr(client_mod, "put_ias", broken)
+    out2, answers2 = [], iter(["6", "sim", "0"])
+    w2 = setup.Wizard(ask=lambda p: next(answers2), secret=lambda p: "", say=lambda *x: out2.append(" ".join(map(str, x))), open_url=lambda u: None)
+    w2.choose()
+    assert "não consegui registrar" in "\n".join(out2) and "Resumo" in "\n".join(out2)               # o resto do assistente continua
+
+
+def test_client_put_ias_sends_a_put_with_the_key_and_the_mode(monkeypatch):
+    import io
+
+    from promptshield_claude_hook import client as c
+    from promptshield_claude_hook.config import Config
+    seen = {}
+
+    class Resp(io.BytesIO):
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def fake_urlopen(req, timeout=0):
+        seen.update(method=req.get_method(), url=req.full_url, body=json.loads(req.data), key=req.get_header("X-api-key"))
+        return Resp(b'{"ias": ["claude_code"]}')
+
+    monkeypatch.setattr(c.urllib.request, "urlopen", fake_urlopen)
+    out = c.put_ias(Config(api_url="http://x", api_key="ps_k"), ["claude_code"], "add")
+    assert out == {"ias": ["claude_code"]} and seen == {"method": "PUT", "url": "http://x/v1/device/ias", "body": {"ias": ["claude_code"], "mode": "add"}, "key": "ps_k"}

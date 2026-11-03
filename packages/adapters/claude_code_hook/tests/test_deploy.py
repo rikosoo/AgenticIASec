@@ -16,7 +16,7 @@ def test_unknown_tool_is_rejected(tmp_path):
 
 
 def test_install_is_idempotent_keeps_foreign_settings_and_uninstall_is_clean(tmp_path, monkeypatch):
-    monkeypatch.setattr(deploy, "enroll", lambda url, token, tools: {"api_key": "ps_maquina1"})
+    monkeypatch.setattr(deploy, "enroll", lambda url, token, tools, ias_keys=None: {"api_key": "ps_maquina1"})
     monkeypatch.setattr(deploy.client, "get_hook_config", lambda cfg: {"failure_mode": "open"})
     p = deploy.paths(tmp_path)
     p["claude"].parent.mkdir(parents=True)
@@ -38,7 +38,7 @@ def test_install_is_idempotent_keeps_foreign_settings_and_uninstall_is_clean(tmp
 
 
 def test_failed_enrollment_changes_nothing(tmp_path, monkeypatch):
-    def boom(url, token, tools):
+    def boom(url, token, tools, ias_keys=None):
         raise deploy.client.ApiError("recusada", status=401)
     monkeypatch.setattr(deploy, "enroll", boom)
     assert deploy.install("http://x", "pse_ruim", ["claude_code"], None, "open", tmp_path, False, say=lambda *_: None) == 1

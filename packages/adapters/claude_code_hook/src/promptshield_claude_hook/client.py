@@ -48,5 +48,10 @@ def post_event(cfg: Config, event: dict[str, Any]) -> dict[str, Any]:
     return _request(cfg, "POST", "/v1/events", event)
 
 
+def put_ias(cfg: Config, keys: list[str], mode: str = "add") -> dict[str, Any]:
+    """Informa ao servidor quais IAs foram escolhidas nesta máquina (aparece no painel de sensores). `add` acumula entre execuções do assistente."""
+    return _request(cfg, "PUT", "/v1/device/ias", {"ias": keys, "mode": mode})
+
+
 def get_hook_config(cfg: Config) -> dict[str, Any]:
     return _request(cfg, "GET", "/v1/hook-config")

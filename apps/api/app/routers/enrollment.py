@@ -7,17 +7,17 @@ import hashlib
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 
 from app import audit, audit_system, license, ratelimit
 from app.config import settings
 from app.db import anonymous_session, tenant_session
-from app.models import ApiKey, Device, EnrollmentToken, Tenant
-from app.security import READ_ROLES, Principal, generate_api_key, require_roles
+from app.models import ApiKey, Device, EnrollmentToken, Event, Tenant
+from app.security import READ_ROLES, Principal, generate_api_key, require_ingest, require_roles
 
 router = APIRouter(prefix="/v1", tags=["matrícula de dispositivos"])
 TOKEN_PREFIX = "pse_"  # noqa: S105 - prefixo público do formato do token, não é segredo
@@ -41,6 +41,7 @@ class EnrollIn(BaseModel):
     os: str | None = Field(default=None, max_length=60)
     client_version: str | None = Field(default=None, max_length=40)
     tools: list[str] = Field(default_factory=list, max_length=20)
+    ias: list[Annotated[str, Field(pattern=r"^[a-z0-9_]{2,40}$")]] = Field(default_factory=list, max_length=20)   # IAs escolhidas (ids do catálogo do sensor)
     # SHA-256 de um identificador da máquina (MachineGuid, machine-id, IOPlatformUUID): reinstalar na mesma máquina reaproveita a vaga
     machine_id_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
@@ -114,10 +115,10 @@ def enroll(body: EnrollIn, request: Request) -> dict:
             s.add(k)
             s.flush()
             d = Device(tenant_id=tenant_id, token_id=row.token_id, api_key_id=k.id, hostname=body.hostname, os=body.os,
-                       client_version=body.client_version, tools=sorted(set(body.tools)), machine_hash=body.machine_id_hash)
+                       client_version=body.client_version, tools=sorted(set(body.tools)), ias=sorted(set(body.ias)), machine_hash=body.machine_id_hash)
             s.add(d)
             s.flush()
-            audit_system.write(s, tenant_id, "device.enroll", "device", str(d.id), {"hostname": body.hostname, "tools": d.tools})
+            audit_system.write(s, tenant_id, "device.enroll", "device", str(d.id), {"hostname": body.hostname, "tools": d.tools, "ias": d.ias})
             out = {"device_id": str(d.id), "api_key": key}
     except license.Refused as exc:
         refused = exc
@@ -129,10 +130,25 @@ def enroll(body: EnrollIn, request: Request) -> dict:
     return out
 
 
-def _device_view(d: Device, k: ApiKey | None) -> dict:
+def _activity(s, key_ids: list[uuid.UUID], now: datetime) -> dict[uuid.UUID, dict[str, dict]]:
+    """Por sensor (chave), de quais apps chegaram eventos nos últimos 30 dias: evidência REAL de que a IA está sendo capturada."""
+    if not key_ids:
+        return {}
+    since7 = now - timedelta(days=7)
+    rows = s.execute(select(Event.api_key_id, Event.app, func.count().label("n30"), func.count().filter(Event.occurred_at >= since7).label("n7"),
+                            func.max(Event.occurred_at).label("last"))
+                     .where(Event.api_key_id.in_(key_ids), Event.occurred_at >= now - timedelta(days=30))
+                     .group_by(Event.api_key_id, Event.app)).all()
+    out: dict[uuid.UUID, dict[str, dict]] = {}
+    for kid, app, n30, n7, last in rows:
+        out.setdefault(kid, {})[app] = {"events_7d": int(n7), "events_30d": int(n30), "last_at": last.isoformat()}
+    return out
+
+
+def _device_view(d: Device, k: ApiKey | None, activity: dict[str, dict] | None = None) -> dict:
     last = k.last_used_at if k else None
     ref = max(x for x in (last, d.enrolled_at) if x is not None)
-    return {"counts_toward_license": d.revoked_at is None and ref >= license.cutoff(), "id": str(d.id), "hostname": d.hostname, "os": d.os, "client_version": d.client_version, "tools": d.tools,
+    return {"counts_toward_license": d.revoked_at is None and ref >= license.cutoff(), "id": str(d.id), "hostname": d.hostname, "os": d.os, "client_version": d.client_version, "tools": d.tools, "ias": list(d.ias or []), "activity": activity or {},
             "enrolled_at": d.enrolled_at.isoformat(), "last_seen_at": last.isoformat() if last else None,
             "revoked": d.revoked_at is not None}
 
@@ -141,14 +157,35 @@ def _device_view(d: Device, k: ApiKey | None) -> dict:
 def list_devices(p: Annotated[Principal, Depends(require_roles(*READ_ROLES))]) -> dict:
     with tenant_session(p.tenant_id) as s:
         rows = s.execute(select(Device, ApiKey).outerjoin(ApiKey, ApiKey.id == Device.api_key_id).order_by(Device.enrolled_at.desc())).all()
-        devices = [_device_view(d, k) for d, k in rows]
+        acts = _activity(s, [d.api_key_id for d, _ in rows if d.api_key_id], datetime.now(timezone.utc))
+        devices = [_device_view(d, k, acts.get(d.api_key_id)) for d, k in rows]
         lic = license.summary(s, s.get(Tenant, p.tenant_id))
     active = [d for d in devices if not d["revoked"]]
     coverage: dict[str, int] = {}
+    ias_coverage: dict[str, int] = {}
     for d in active:
         for t in d["tools"]:
             coverage[t] = coverage.get(t, 0) + 1
-    return {"devices": devices, "active": len(active), "coverage": coverage, "license": lic}
+        for i in d["ias"]:
+            ias_coverage[i] = ias_coverage.get(i, 0) + 1
+    return {"devices": devices, "active": len(active), "coverage": coverage, "ias_coverage": ias_coverage, "license": lic}
+
+
+class IasIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ias: list[Annotated[str, Field(pattern=r"^[a-z0-9_]{2,40}$")]] = Field(max_length=20)
+    mode: Literal["set", "add"] = "set"          # add: o assistente pode rodar várias vezes e as escolhas se acumulam
+
+
+@router.put("/device/ias", summary="O sensor informa quais IAs foram escolhidas nesta máquina (a chave identifica a máquina)")
+def set_device_ias(body: IasIn, p: Annotated[Principal, Depends(require_ingest)]) -> dict:
+    with tenant_session(p.tenant_id) as s:
+        d = s.execute(select(Device).where(Device.api_key_id == uuid.UUID(p.id), Device.revoked_at.is_(None))).scalar()
+        if d is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "esta chave não pertence a uma máquina matriculada")
+        d.ias = sorted(set(d.ias or []) | set(body.ias)) if body.mode == "add" else sorted(set(body.ias))
+        audit_system.write(s, p.tenant_id, "device.ias_update", "device", str(d.id), {"ias": d.ias, "mode": body.mode}, actor_id=f"device:{d.id}")
+        return {"ias": d.ias}
 
 
 @router.post("/devices/{device_id}/revoke")
