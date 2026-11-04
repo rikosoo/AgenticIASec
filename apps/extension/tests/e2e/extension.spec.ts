@@ -40,6 +40,9 @@ test("o aviso pode ser minimizado (continua visível como ponto) e expandido de 
   await expect(ui(page).getByText("monitoramento ativo")).toBeHidden();    // o texto some, o ponto fica
   await ui(page).getByRole("button", { name: "Expandir o aviso do PromptShield" }).click();
   await expect(ui(page).getByText("monitoramento ativo")).toBeVisible();
+  await page.mouse.click(400, 300);    // clicar fora também minimiza
+  await expect(pill).toHaveAttribute("data-min", "1");
+  await expect(pill).toBeVisible();
 });
 
 test("CPF sintético: pede confirmação e envia a versão mascarada", async () => {

@@ -107,6 +107,13 @@ export function showIndicator(policyUrl?: string): void {
     sync();
   });
   sync();
+  // Clicar fora do aviso também o minimiza (só minimiza: o aviso de transparência nunca some).
+  document.addEventListener("click", (e) => {
+    if (pill && pill.dataset.min !== "1" && host && !e.composedPath().includes(host)) {
+      pill.dataset.min = "1";
+      sync();
+    }
+  }, true);
   pill.append(min);
   r.appendChild(pill);
 }
