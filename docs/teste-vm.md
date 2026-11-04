@@ -56,6 +56,33 @@ git pull origin claude/wonderful-hamilton-9dsk59
 
 Riscos que o script repete e exige confirmar: o login é **mock** (quem alcançar a porta entra com um e-mail cadastrado) e o tráfego é **HTTP sem cifra**. O console mostra só texto mascarado, mas o **hook envia o texto original** à API: expor a API em HTTP faz esse texto cruzar a internet sem cifra. O banco nunca é exposto. O IP público muda se a instância for parada e religada (use um Elastic IP) e o seu IP residencial também pode mudar. A solução definitiva é domínio + HTTPS + login real (`docs/roteiro-testes-reais.md`, passo 2).
 
+## Mudar para portas altas (opcional)
+
+Por padrão o console usa a porta **3000** e a API a **8000**. Para trocar, edite o `.env` da VM **antes** de abrir:
+
+```bash
+# .env
+WEB_PORT=13000
+API_PORT=18000
+```
+
+Regras: números de 1024 a 65535, diferentes entre si. Prefira **abaixo de 32768**: o Linux usa 32768 a 60999 para conexões de saída e pode colidir. Depois:
+
+```bash
+./infra/expose.sh --public-ip IP_PUBLICO --web --api    # grava PUBLIC_BASE_URL com a porta nova e mostra quais portas liberar
+```
+
+E no firewall da nuvem (grupo de segurança): **troque** as regras antigas pelas novas (TCP 13000 e 18000), sempre **só para o seu IP**.
+
+O que muda por causa da porta:
+- O console passa a ser `http://IP:13000` e a API `http://IP:18000`.
+- **Os sensores já instalados guardam o endereço antigo** (`api_url` em `~/.promptshield/hook.json` e na pasta da extensão). Reinstale com `PS_API='http://IP:18000'` e um token novo, ou edite o `api_url`. Até lá, eles seguem em falha aberta (sem monitorar), e o painel mostra "sem atividade".
+- O campo "Endereço público da API" da página Dispositivos (que monta a linha de instalação) precisa da porta nova.
+
+**Porta alta não é segurança.** Ela só reduz o barulho de varredura automática; quem varre a faixa inteira acha de qualquer jeito. O que protege é a regra do firewall limitada ao seu IP, e depois HTTPS e login de verdade. Para **clientes**, o certo é o contrário: **443 com HTTPS e domínio**, porque redes de empresa costumam deixar sair só 80 e 443, e uma porta incomum pode ser bloqueada no firewall ou no proxy deles.
+
+Para conferir o que está aberto: na VM, `docker compose ps` mostra `0.0.0.0:18000->8000` (aberta) ou `127.0.0.1:...` (só local); no seu Windows, `Test-NetConnection IP_PUBLICO -Port 18000`. O banco (5432) nunca é aberto.
+
 ## Histórico que já existe na sua máquina
 
 Além do uso ao vivo, dá para importar as transcrições locais (últimos 30 dias, se você não mudou `cleanupPeriodDays`). Primeiro simule, depois envie, ainda com o túnel aberto e em tenant sem canais de alerta:
