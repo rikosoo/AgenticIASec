@@ -134,16 +134,27 @@ def install(api_url: str, token: str, tools: list[str], department: str | None, 
             existing = json.loads(p["config"].read_text(encoding="utf-8-sig"))
         except (OSError, ValueError):
             existing = None
-    if existing and existing.get("api_key") and not force:
-        say("Esta máquina já está matriculada (use --force para matricular de novo).")
-        key = existing["api_key"]
+    stored_url = str((existing or {}).get("api_url") or "").rstrip("/")
+    # Reusa a chave existente só se o servidor é o mesmo; se a pessoa passou outro endereço com um token, matricula de novo
+    # (a mesma máquina não ocupa vaga nova: ver docs/licenciamento.md / enrollment).
+    reuse = bool(existing and existing.get("api_key")) and not force and (stored_url == api_url.rstrip("/") or not token)
+    key = ""
+    if reuse:
+        say("Esta máquina já está matriculada neste servidor (use --force para matricular de novo).")
+        key = existing["api_key"]  # type: ignore[index]
         if ias_keys:    # reinstalar só para informar/atualizar as IAs: usa a chave que já existe, sem gastar token nem vaga
             try:
-                client.put_ias(Config(api_url=str(existing.get("api_url") or api_url).rstrip("/"), api_key=key, timeout_seconds=10), ias_keys, "set")
+                client.put_ias(Config(api_url=stored_url or api_url.rstrip("/"), api_key=key, timeout_seconds=10), ias_keys, "set")
                 say("IAs informadas ao servidor (painel Sensores): " + ", ".join(ias_keys))
             except client.ApiError as exc:
-                say(f"Não consegui informar as IAs ao servidor ({exc}). O monitoramento não depende disso; se o endereço mudou, use --force com um token novo.")
-    else:
+                if token:
+                    say(f"A chave antiga não funcionou ({exc}); matriculando de novo com o token informado.")
+                    reuse = False
+                else:
+                    say(f"Não consegui informar as IAs ao servidor ({exc}). O monitoramento não depende disso.")
+    elif existing and existing.get("api_key") and not force and stored_url != api_url.rstrip("/"):
+        say(f"O endereço mudou ({stored_url or '?'} -> {api_url.rstrip('/')}): matriculando de novo com o token informado.")
+    if not reuse:
         try:
             key = enroll(api_url, token, tools, ias_keys=ias_keys)["api_key"]
         except client.ApiError as exc:

@@ -177,24 +177,45 @@ def test_client_put_ias_sends_a_put_with_the_key_and_the_mode(monkeypatch):
     assert out == {"ias": ["claude_code"]} and seen == {"method": "PUT", "url": "http://x/v1/device/ias", "body": {"ias": ["claude_code"], "mode": "add"}, "key": "ps_k"}
 
 
-def test_reinstalling_on_an_enrolled_machine_reports_the_ias_with_the_existing_key(tmp_path, monkeypatch, capsys):
-    """O instalador de uma linha não re-matricula quem já tem chave; ainda assim as IAs escolhidas precisam chegar ao painel Sensores."""
+def _enrolled(tmp_path, url="http://servidor:8000/"):
     p = deploy.paths(tmp_path)
     p["config"].parent.mkdir(parents=True, exist_ok=True)
-    p["config"].write_text(json.dumps({"api_url": "http://servidor:8000/", "api_key": "ps_ja_existe", "fail_mode": "open"}))
+    p["config"].write_text(json.dumps({"api_url": url, "api_key": "ps_ja_existe", "fail_mode": "open"}))
+    return p
+
+
+def test_reinstalling_on_an_enrolled_machine_reports_the_ias_with_the_existing_key(tmp_path, monkeypatch, capsys):
+    """Mesmo servidor: não re-matricula (não gasta token nem vaga), mas as IAs escolhidas chegam ao painel Sensores."""
+    _enrolled(tmp_path)
     monkeypatch.setattr(deploy, "enroll", lambda *a, **k: (_ for _ in ()).throw(AssertionError("não pode re-matricular")))
     monkeypatch.setattr(deploy.client, "get_hook_config", lambda cfg: {"failure_mode": "open"})
     seen = []
     monkeypatch.setattr(deploy.client, "put_ias", lambda cfg, keys, mode="add": seen.append((cfg.api_url, cfg.api_key, keys, mode)) or {"ias": keys})
-    rc = deploy.main(["--api-url", "http://novo:9999", "--token", "pse_t", "--ias", "6,1", "--confirm-employees-notified", "--root", str(tmp_path)])
+    rc = deploy.main(["--api-url", "http://servidor:8000", "--token", "pse_t", "--ias", "6,1", "--confirm-employees-notified", "--root", str(tmp_path)])
     out = capsys.readouterr().out
     assert rc == 0 and "já está matriculada" in out and "IAs informadas ao servidor" in out
-    assert seen == [("http://servidor:8000", "ps_ja_existe", ["chatgpt_web", "claude_code"], "set")]         # usa o endereço e a chave que já estavam gravados
-    # sem --ias não chama o servidor à toa
-    seen.clear()
-    assert deploy.main(["--api-url", "http://x", "--token", "pse_t", "--tools", "claude_code", "--confirm-employees-notified", "--root", str(tmp_path)]) == 0
+    assert seen == [("http://servidor:8000", "ps_ja_existe", ["chatgpt_web", "claude_code"], "set")]
+    seen.clear()    # sem --ias não chama o servidor à toa
+    assert deploy.main(["--api-url", "http://servidor:8000", "--token", "pse_t", "--tools", "claude_code", "--confirm-employees-notified", "--root", str(tmp_path)]) == 0
     assert seen == []
-    # servidor fora do ar: avisa, não falha e não derruba a instalação
+
+
+def test_a_different_server_address_with_a_token_enrolls_again(tmp_path, monkeypatch, capsys):
+    """Caso real do teste na AWS: a máquina tinha chave de outro endereço; o instalador de uma linha precisa funcionar sem --force."""
+    p = _enrolled(tmp_path, "http://antigo:8000")
+    calls = []
+    monkeypatch.setattr(deploy, "enroll", lambda url, token, tools, **k: calls.append((url, token)) or {"api_key": "ps_nova"})
+    monkeypatch.setattr(deploy.client, "get_hook_config", lambda cfg: {"failure_mode": "open"})
+    rc = deploy.main(["--api-url", "http://novo:8000", "--token", "pse_t", "--tools", "claude_code", "--confirm-employees-notified", "--root", str(tmp_path)])
+    cfg = json.loads(p["config"].read_text())
+    assert rc == 0 and calls == [("http://novo:8000", "pse_t")] and cfg["api_url"] == "http://novo:8000" and cfg["api_key"] == "ps_nova"
+    assert "endereço mudou" in capsys.readouterr().out
+
+
+def test_a_dead_old_key_falls_back_to_enrolling_when_a_token_is_given(tmp_path, monkeypatch, capsys):
+    p = _enrolled(tmp_path)
+    monkeypatch.setattr(deploy, "enroll", lambda *a, **k: {"api_key": "ps_nova"})
+    monkeypatch.setattr(deploy.client, "get_hook_config", lambda cfg: {"failure_mode": "open"})
     monkeypatch.setattr(deploy.client, "put_ias", lambda cfg, keys, mode="add": (_ for _ in ()).throw(deploy.client.ApiError("API indisponível")))
-    assert deploy.main(["--api-url", "http://x", "--token", "pse_t", "--ias", "6", "--confirm-employees-notified", "--root", str(tmp_path)]) == 0
-    assert "Não consegui informar as IAs" in capsys.readouterr().out
+    assert deploy.main(["--api-url", "http://servidor:8000", "--token", "pse_t", "--ias", "6", "--confirm-employees-notified", "--root", str(tmp_path)]) == 0
+    assert json.loads(p["config"].read_text())["api_key"] == "ps_nova" and "matriculando de novo" in capsys.readouterr().out
