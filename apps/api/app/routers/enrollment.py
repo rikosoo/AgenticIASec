@@ -202,7 +202,7 @@ def list_devices(p: Annotated[Principal, Depends(require_roles(*READ_ROLES))]) -
     return {"devices": devices, "active": len(active), "coverage": coverage, "ias_coverage": ias_coverage, "license": lic}
 
 
-CAPTURE_APPS = {"chatgpt_web", "copilot_web", "gemini_web", "claude_web", "claude_code", "github_copilot_cli"}   # IAs cujo id é o `source.app` dos eventos
+CAPTURE_APPS = {"chatgpt_web", "copilot_web", "gemini_web", "claude_web", "claude_code", "github_copilot_cli", "codex_cli"}   # IAs cujo id é o `source.app` dos eventos
 
 
 @router.get("/devices/export.csv", response_class=Response, summary="Exporta os sensores em CSV (mesmos filtros do painel); a exportação é auditada")

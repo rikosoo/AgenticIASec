@@ -18,14 +18,14 @@ from . import client, config, decide, spool, translate
 MAX_STDIN = 20 * 1024 * 1024
 
 
-def run_hook(raw: str, cfg: config.Config) -> dict | None:
+def run_hook(raw: str, cfg: config.Config, app: str = "claude_code") -> dict | None:
     """Núcleo testável: devolve o JSON de saída (ou None). Nunca levanta exceção."""
     hook_event = "desconhecido"
     event = None
     try:
         data = json.loads(raw)
         hook_event = str(data.get("hook_event_name", "desconhecido"))
-        event = translate.build_event(data, cfg)
+        event = translate.build_event(data, cfg, app)
         if event is None:
             return None
         result = client.post_event(cfg, event)
@@ -110,8 +110,9 @@ def main(argv: list[str] | None = None) -> int:
         if out is not None:
             print(json.dumps(out, ensure_ascii=False))
         return 0
+    app = "codex_cli" if args and args[0] == "--codex" else "claude_code"      # o Codex usa o mesmo esquema de eventos; só o rótulo da IA muda
     raw = sys.stdin.read(MAX_STDIN)
-    out = run_hook(raw, cfg)
+    out = run_hook(raw, cfg, app)
     if out is not None:
         print(json.dumps(out, ensure_ascii=False))
     return 0

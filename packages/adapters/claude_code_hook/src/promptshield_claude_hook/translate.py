@@ -49,7 +49,7 @@ def event_id_for(hook_input: dict[str, Any]) -> str:
     return str(uuid.uuid5(_NS, f"{hook_input.get('session_id', '')}:{hook_input.get('hook_event_name')}:{ref}"))
 
 
-def build_event(hook_input: dict[str, Any], cfg: Config) -> dict[str, Any] | None:
+def build_event(hook_input: dict[str, Any], cfg: Config, app: str = "claude_code") -> dict[str, Any] | None:
     name = hook_input.get("hook_event_name")
     if name not in SUPPORTED:
         return None
@@ -70,7 +70,7 @@ def build_event(hook_input: dict[str, Any], cfg: Config) -> dict[str, Any] | Non
     return {
         "event_id": event_id_for(hook_input),
         "occurred_at": datetime.now(timezone.utc).isoformat(),
-        "source": {"channel": "agent_hook", "app": "claude_code", "integration_status": cfg.integration_status},
+        "source": {"channel": "agent_hook", "app": app, "integration_status": "experimental" if app == "codex_cli" else cfg.integration_status},
         "actor": actor,
         "kind": kind,
         "content": content,

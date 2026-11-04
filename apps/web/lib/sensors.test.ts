@@ -29,7 +29,7 @@ describe("iaState: só diz 'capturando' com evento de verdade", () => {
   });
   it("manual e indisponível não fingem evidência, mesmo que haja evento de outra IA", () => {
     expect(iaState({ activity: { claude_code: { events_7d: 50, events_30d: 50, last_at: ago(1) } } }, "claude_desktop").evidence).toBe("manual");
-    expect(iaState({ activity: {} }, "codex_cli").evidence).toBe("manual");
+    expect(iaState({ activity: {} }, "codex_cli")).toMatchObject({ mode: "automatico", evidence: "aguardando" });   // hooks do Codex: automático, mas só vira "capturando" com evento
     expect(iaState({ activity: {} }, "codex_desktop").evidence).toBe("indisponivel");
     expect(iaState({ activity: {} }, "copilot_desktop").evidence).toBe("indisponivel");
   });

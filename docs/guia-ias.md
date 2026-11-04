@@ -14,7 +14,7 @@ No instalador de uma linha (ele pergunta) ou no assistente (`python -m promptshi
 | 4 | Codex (app desktop) | indisponível hoje | sem hooks documentados para o app desktop nas fontes lidas: A VERIFICAR |
 | 5 | Claude (app desktop) | manual | a aba Code usa os mesmos arquivos de configuração do CLI (marque também o 6; o disparo dos hooks lá é A VERIFICAR). O chat comum não tem hooks e não é coberto |
 | 6 | Claude Code (CLI) | automático | hooks no `~/.claude/settings.json`, com cópia de segurança |
-| 7 | Codex (CLI) | manual, a verificar | o formato dos dados do hook é compatível (esquema oficial), mas onde registrar o hook não foi verificado, então nada é gravado sozinho |
+| 7 | Codex (CLI) | automático, experimental | grava hooks em ~/.codex/hooks.json (formato da documentação de Hooks do Codex, cópia colada em 2026-11-04); o Codex exige que você confie nos hooks em /hooks; nunca rodou no Codex real |
 | 8 | Copilot (app desktop) | indisponível hoje | Microsoft 365 Copilot só por API do servidor (Graph; conector não construído); o Copilot gratuito do Windows não tem gancho |
 | 9 | GitHub Copilot CLI | automático, experimental | arquivo `~/.copilot/hooks/promptshield.json`; o prompt só é monitorado |
 | 10 | Claude (web, claude.ai) | extensão, experimental | idem 1 |
@@ -33,7 +33,7 @@ No instalador de uma linha (ele pergunta) ou no assistente (`python -m promptshi
 2. Teste com `SIMULADO: o CPF de teste é 529.982.247-25` e veja o evento em **Análise de prompts**.
 3. No app desktop, teste também na aba Code. O chat comum e o Cowork não passam por hooks.
 
-**Codex CLI (7), manual.** Consulte na documentação atual do Codex onde declarar hooks. Use como comando o caminho do sensor que o assistente imprime. Teste com um prompt sintético; se o Codex não chamar o comando, o formato de registro mudou e nada deve ser forçado.
+**Codex CLI (7), automático (experimental).** O instalador acrescenta os hooks ao ~/.codex/hooks.json sem tocar nos seus. Abra o Codex CLI e digite /hooks para confiar neles (sem isso o Codex os ignora). Teste com um prompt sintético; os eventos aparecem como codex_cli. O nome do campo do prompt no UserPromptSubmit está A VERIFICAR contra o Codex real.
 
 **Codex desktop (4) e Copilot desktop (8).** Sem integração possível hoje. O 8 tem um caminho de servidor (Microsoft Graph) que depende de um tenant com licença do Microsoft 365 Copilot e do consentimento do administrador.
 

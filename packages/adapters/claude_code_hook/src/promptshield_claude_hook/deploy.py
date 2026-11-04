@@ -33,14 +33,19 @@ from . import browser, client, config, ias, setup
 from .config import Config
 
 CLIENT_VERSION = "0.1"
-ALL_TOOLS = ("claude_code", "github_copilot_cli", "browser_extension")
+ALL_TOOLS = ("claude_code", "github_copilot_cli", "codex_cli", "browser_extension")
 DEFAULT_TOOLS = ("claude_code", "github_copilot_cli")   # a extensão do navegador exige um clique da pessoa: só entra se pedida (--tools)
+
+
+def _codex_present() -> bool:
+    import shutil
+    return shutil.which("codex") is not None or (Path.home() / ".codex").is_dir()
 
 
 def paths(root: Path | None = None, user: bool = False) -> dict[str, Path]:
     """Caminhos de máquina por sistema operacional. `root` prefixa tudo (testes). `user`: nível do usuário, sem administrador."""
     if user:
-        return {"claude": setup.claude_settings_path(), "copilot": setup.copilot_hooks_path(), "config": Path(config.user_config_path())}
+        return {"claude": setup.claude_settings_path(), "copilot": setup.copilot_hooks_path(), "codex": setup.codex_hooks_path(), "config": Path(config.user_config_path())}
     sysname = platform.system()
     if sysname == "Windows":
         p = {"claude": Path("C:/Program Files/ClaudeCode/managed-settings.json"),
@@ -173,6 +178,14 @@ def install(api_url: str, token: str, tools: list[str], department: str | None, 
     if "github_copilot_cli" in tools:
         _write(p["copilot"], json.dumps(setup.copilot_doc(), indent=2) + "\n")
         say(f"GitHub Copilot CLI: hooks de política em {p['copilot']}")
+    if "codex_cli" in tools:
+        if "codex" not in p:
+            say("Codex CLI: nível de máquina ainda não suportado (usa requirements.toml gerenciado: A VERIFICAR). Use a instalação por usuário (--user).")
+        else:
+            data = setup.merge_codex(setup.read_settings(p["codex"]))
+            backup = setup.write_settings(p["codex"], data)
+            say(f"Codex CLI: hooks em {p['codex']}" + (f" (cópia: {backup})" if backup else ""))
+            say("  ATENÇÃO (Codex): hooks novos só rodam depois que VOCÊ os revisa e confia neles. Abra o Codex CLI e digite /hooks para confiar nos hooks do PromptShield.")
     if "browser_extension" in tools:
         try:
             browser.install_extension(api_url, key, department, say=say, open_browser=root is None)
@@ -199,6 +212,10 @@ def uninstall(root: Path | None, say=print, user: bool = False) -> int:
         import shutil
         shutil.rmtree(ext)
         say(f"Removida a pasta da extensão: {ext} (remova também a extensão em chrome://extensions)")
+    if "codex" in p and p["codex"].is_file():
+        data = setup.read_settings(p["codex"])
+        setup.write_settings(p["codex"], setup.remove_ours(data))
+        say(f"Codex CLI: hooks do PromptShield removidos de {p['codex']}")
     for k in ("copilot", "config"):
         if p[k].is_file():
             p[k].unlink()
@@ -238,6 +255,8 @@ def main(argv: list[str]) -> int:
         tools = ias.tools_for(chosen)
     else:
         tools = [t.strip() for t in a.tools.split(",") if t.strip()]
+    if a.tools == ",".join(DEFAULT_TOOLS) and not a.ias and a.user and "codex_cli" not in tools and _codex_present():
+        tools.append("codex_cli")          # padrão: se o Codex CLI está nesta máquina, entra sozinho (a pessoa ainda precisa confiar nos hooks em /hooks)
     bad = [t for t in tools if t not in ALL_TOOLS]
     if bad:
         print(f"Ferramenta desconhecida: {', '.join(bad)}. Disponíveis: {', '.join(ALL_TOOLS)}.")

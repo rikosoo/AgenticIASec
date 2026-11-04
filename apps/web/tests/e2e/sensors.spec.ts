@@ -48,7 +48,7 @@ test("sensores: hostname, IAs habilitadas por máquina, evidência de captura, f
   const ana = page.getByRole("row", { name: /SENS-E2E-ANA/ });
   await expect(ana.getByTestId("ia-chip").filter({ hasText: "ChatGPT (web)" })).toContainText("capturando");
   await expect(ana.getByTestId("ia-chip").filter({ hasText: "Claude Code (CLI)" })).toContainText("capturando");
-  await expect(ana.getByTestId("ia-chip").filter({ hasText: "Codex (CLI)" })).toContainText("manual");   // sem como provar: não finge
+  await expect(ana.getByTestId("ia-chip").filter({ hasText: "Codex (CLI)" })).toContainText("aguardando");   // instalado, mas sem evento: não finge
   const bruno = page.getByRole("row", { name: /SENS-E2E-BRUNO/ });
   await expect(bruno.getByTestId("ia-chip")).toContainText("Gemini (web) · aguardando evento");           // habilitada, mas sem evento ainda
   await expect(page.getByRole("row", { name: /SENS-E2E-LEGADO/ })).toContainText("não informado");
@@ -99,7 +99,7 @@ test("sensores: hostname, IAs habilitadas por máquina, evidência de captura, f
   await expect(chat).toContainText("extensão do navegador");
   await expect(chat).toContainText("capturando");
   await expect(chat.getByRole("cell").nth(3)).toHaveText("1");                              // 1 evento nos últimos 7 dias
-  await expect(detail.getByTestId("ia-detail").getByRole("row", { name: /Codex \(CLI\)/ })).toContainText("configuração manual");
+  await expect(detail.getByTestId("ia-detail").getByRole("row", { name: /Codex \(CLI\)/ })).toContainText("automática");
   await expect(detail.getByTestId("detail-alertas")).toHaveCount(0);                      // a Ana não tem alerta
   await expectAccessible(page);
 

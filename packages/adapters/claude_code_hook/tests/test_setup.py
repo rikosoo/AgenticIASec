@@ -80,12 +80,12 @@ def test_full_flow_links_claude_code_then_removes(env, monkeypatch):
     assert json.loads(Path(config.user_config_path()).read_text())["api_key"] == "ps_teste123"
 
 
-def test_declining_changes_nothing_and_codex_is_honest(env):
+def test_declining_changes_nothing_including_codex(env):
     setup.write_hook_config("http://localhost:8000", "ps_x")
-    w, out, _ = wizard(["1", "nao", "3", "0"])
+    w, out, _ = wizard(["1", "nao", "3", "nao", "0"])
     w.run()
-    assert not setup.claude_settings_path().exists()
-    assert "A VERIFICAR" in "\n".join(out) and "Cancelado" in "\n".join(out)
+    assert not setup.claude_settings_path().exists() and not setup.codex_hooks_path().exists()
+    assert "Cancelado" in "\n".join(out)
 
 
 def test_bad_key_is_not_saved_and_browser_option_opens_console(env):

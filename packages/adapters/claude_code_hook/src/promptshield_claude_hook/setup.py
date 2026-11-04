@@ -41,6 +41,31 @@ def copilot_hooks_path() -> Path:
     return (Path(base) if base else Path.home() / ".copilot") / "hooks" / "promptshield.json"
 
 
+def codex_hooks_path() -> Path:
+    return Path.home() / ".codex" / "hooks.json"     # documentado: ~/.codex/hooks.json (CODEX_HOME: A VERIFICAR, por isso não usado)
+
+
+def codex_command() -> str:
+    """Uma linha de comando (o Codex usa `command` como texto, não lista de argumentos)."""
+    exe, args = self_command()
+    return " ".join([f'"{exe}"'] + [f'"{a}"' for a in args] + ["--codex"])
+
+
+def merge_codex(data: dict[str, Any]) -> dict[str, Any]:
+    """Acrescenta os nossos hooks ao hooks.json do Codex sem tocar nos do usuário; repetir não duplica.
+    Formato conferido na documentação de Hooks do Codex (cópia colada pelo dono do produto em 2026-11-04): evento > grupo (matcher) > handlers {type, command, timeout em segundos}."""
+    data = remove_ours(data)
+    hooks = data.setdefault("hooks", {})
+    cmd = codex_command()
+    for ev in EVENTS:
+        handler = {"type": "command", "command": cmd, "commandWindows": cmd, "timeout": 10, "statusMessage": "PromptShield"}
+        group: dict[str, Any] = {"hooks": [handler]}
+        if ev != "UserPromptSubmit":
+            group = {"matcher": "*", **group}    # no UserPromptSubmit o matcher é ignorado pelo Codex
+        hooks.setdefault(ev, []).append(group)
+    return data
+
+
 def copilot_doc() -> dict[str, Any]:
     """Arquivo de hooks do Copilot CLI (versão 1). Eventos em camelCase => payloads camelCase. Usa `bash` e `powershell` (documentados)."""
     exe, args = self_command()
@@ -278,9 +303,16 @@ class Wizard:
         self.test()
 
     def codex(self) -> None:
-        self.say("\nCodex (OpenAI): ainda NÃO disponível.\n"
-                 "O Codex tem hooks, mas o formato (arquivo, eventos e campos) não pôde ser lido na documentação oficial neste ambiente,"
-                 " e o princípio do projeto é não implementar o que não foi verificado: A VERIFICAR.")
+        if not self.ensure_config():
+            return
+        path = codex_hooks_path()
+        self.say(f"\nCodex CLI (EXPERIMENTAL): vou acrescentar os hooks do PromptShield em {path} (com cópia de segurança; os seus não são tocados).")
+        if not self.yes("Continuar?"):
+            self.say("Cancelado.")
+            return
+        backup = write_settings(path, merge_codex(read_settings(path)))
+        self.say("Pronto." + (f" Cópia: {backup}." if backup else ""))
+        self.say("IMPORTANTE: o Codex só roda hooks novos depois que você os revisa. Abra o Codex CLI e digite /hooks para confiar nos do PromptShield.")
 
     def extension(self) -> None:
         here = Path(__file__).resolve()
@@ -335,7 +367,7 @@ class Wizard:
             return
         self.say("\nSelecionado: " + ", ".join(f"{n}) {ias.BY_N[n].name}" for n in nums))
         tools = ias.tools_for(nums)
-        if any(t in tools for t in ("claude_code", "github_copilot_cli", "browser_extension")) and not self.ensure_config():
+        if any(t in tools for t in ("claude_code", "github_copilot_cli", "codex_cli", "browser_extension")) and not self.ensure_config():
             return
         try:
             client.put_ias(config.load(), ias.keys_for(nums), "add")
@@ -347,6 +379,8 @@ class Wizard:
             self.claude_code()
         if "github_copilot_cli" in tools:
             self.copilot()
+        if "codex_cli" in tools:
+            self.codex()
         ext_ready = False
         if "browser_extension" in tools:
             cfg = config.load()

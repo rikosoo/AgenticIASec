@@ -30,11 +30,12 @@ def test_every_option_has_an_honest_state_and_a_guide_and_manual_ones_do_not_aut
     assert {i.state for i in ias.CATALOG} <= {ias.AUTO, ias.EXT, ias.MANUAL, ias.NONE}
     for i in ias.CATALOG:
         assert i.status and ias.guide(i.n)
-    for n in (4, 7, 8):                                    # Codex (desktop e CLI) e Copilot desktop: nada é instalado sozinho
+    for n in (4, 8):                                       # Codex desktop e Copilot desktop: nada é instalado sozinho
         assert ias.BY_N[n].state != ias.AUTO and ias.BY_N[n].tool is None
-    assert "A VERIFICAR" in ias.BY_N[7].status and "A VERIFICAR" in ias.BY_N[4].status
+    assert ias.BY_N[7].state == ias.AUTO and ias.BY_N[7].tool == "codex_cli"      # Codex CLI: hooks.json, EXPERIMENTAL
+    assert "EXPERIMENTAL" in ias.BY_N[7].status and "A VERIFICAR" in ias.BY_N[4].status
     assert ias.tools_for([1, 2, 3, 10]) == ["browser_extension"] and ias.tools_for([6, 5, 1]) == ["claude_code", "browser_extension"]
-    assert ias.tools_for([4, 7, 8]) == []
+    assert ias.tools_for([4, 8]) == [] and ias.tools_for([7]) == ["codex_cli"]
 
 
 def test_wizard_choice_flow_configures_only_what_is_automatic(tmp_path, monkeypatch):
@@ -53,7 +54,7 @@ def test_wizard_choice_flow_configures_only_what_is_automatic(tmp_path, monkeypa
     text = "\n".join(out)
     assert setup.is_installed(setup.read_settings(setup.claude_settings_path()))        # 6: automático
     assert prepared and not setup.copilot_hooks_path().exists()                        # 1: extensão preparada; Copilot CLI não foi pedido
-    assert "[7] Codex (CLI): MANUAL" in text and "[8] Copilot (app desktop): INDISPONÍVEL" in text and "Resumo" in text
+    assert "[7] Codex (CLI): AUTOMÁTICO" in text and "[8] Copilot (app desktop): INDISPONÍVEL" in text and "Resumo" in text
     assert "extensão" in text.lower()
 
 
@@ -72,7 +73,7 @@ def test_deploy_ias_flag_prints_guides_and_maps_tools(tmp_path, monkeypatch, cap
     assert deploy.main(["--list-ias"]) == 0 and "Quais IAs" in capsys.readouterr().out
     rc = deploy.main(["--api-url", "http://x", "--token", "pse_t", "--ias", "6,7", "--confirm-employees-notified", "--root", str(tmp_path)])
     out = capsys.readouterr().out
-    assert rc == 0 and "[7] Codex (CLI): MANUAL" in out and "[6] Claude Code (CLI, terminal): AUTOMÁTICO" in out
+    assert rc == 0 and "[7] Codex (CLI): AUTOMÁTICO" in out and "[6] Claude Code (CLI, terminal): AUTOMÁTICO" in out
     p = deploy.paths(tmp_path)
     assert setup.is_installed(json.loads(p["claude"].read_text())) and not p["copilot"].exists()
     assert deploy.main(["--api-url", "http://x", "--token", "pse_t", "--ias", "0", "--confirm-employees-notified", "--root", str(tmp_path)]) == 2
@@ -107,7 +108,7 @@ def test_deploy_sends_the_chosen_ias_to_the_server(tmp_path, monkeypatch):
     monkeypatch.setattr(deploy.client, "get_hook_config", lambda cfg: {"failure_mode": "open"})
     monkeypatch.setattr(deploy.browser, "install_extension", lambda *a, **k: tmp_path)
     assert deploy.main(["--api-url", "http://x", "--token", "pse_t", "--ias", "7,1,6", "--confirm-employees-notified", "--root", str(tmp_path)]) == 0
-    assert seen["ias"] == ["chatgpt_web", "claude_code", "codex_cli"] and seen["tools"] == ["browser_extension", "claude_code"]
+    assert seen["ias"] == ["chatgpt_web", "claude_code", "codex_cli"] and seen["tools"] == ["browser_extension", "claude_code", "codex_cli"]
     seen.clear()
     assert deploy.main(["--api-url", "http://x", "--token", "pse_t", "--tools", "claude_code", "--force", "--confirm-employees-notified",
                         "--root", str(tmp_path)]) == 0
@@ -219,3 +220,48 @@ def test_a_dead_old_key_falls_back_to_enrolling_when_a_token_is_given(tmp_path, 
     monkeypatch.setattr(deploy.client, "put_ias", lambda cfg, keys, mode="add": (_ for _ in ()).throw(deploy.client.ApiError("API indisponível")))
     assert deploy.main(["--api-url", "http://servidor:8000", "--token", "pse_t", "--ias", "6", "--confirm-employees-notified", "--root", str(tmp_path)]) == 0
     assert json.loads(p["config"].read_text())["api_key"] == "ps_nova" and "matriculando de novo" in capsys.readouterr().out
+
+
+# ---------- Codex CLI (hooks.json) ----------
+def test_codex_hooks_json_is_merged_without_touching_user_hooks_and_is_idempotent(tmp_path):
+    from promptshield_claude_hook import setup
+    mine = {"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "python3 ~/meu_hook.py"}]}]}, "description": "meu"}
+    once = setup.merge_codex(json.loads(json.dumps(mine)))
+    twice = setup.merge_codex(json.loads(json.dumps(once)))
+    assert once == twice and once["description"] == "meu"
+    ups = once["hooks"]["UserPromptSubmit"]
+    assert ups[0] == mine["hooks"]["UserPromptSubmit"][0]                     # o hook da pessoa continua, intacto
+    ours = [h for g in ups for h in g["hooks"] if "--codex" in h["command"]]
+    assert len(ours) == 1 and ours[0]["type"] == "command" and ours[0]["timeout"] == 10 and ours[0]["commandWindows"] == ours[0]["command"]
+    assert set(once["hooks"]) == {"UserPromptSubmit", "PreToolUse", "PostToolUse"}
+    assert once["hooks"]["PreToolUse"][0]["matcher"] == "*" and "matcher" not in ups[-1]   # matcher é ignorado no UserPromptSubmit
+    assert setup.remove_ours(once)["hooks"] == mine["hooks"]                  # remover deixa só o que era da pessoa
+
+
+def test_deploy_user_installs_and_removes_codex_hooks(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setattr(deploy, "enroll", lambda *a, **k: {"api_key": "ps_k"})
+    monkeypatch.setattr(deploy.client, "get_hook_config", lambda cfg: {"failure_mode": "open"})
+    monkeypatch.setattr(deploy.setup.Path, "home", classmethod(lambda cls: tmp_path))
+    out = []
+    rc = deploy.install("http://s", "pse_t", ["codex_cli"], None, "open", None, False, say=out.append, user=True)
+    f = tmp_path / ".codex" / "hooks.json"
+    assert rc == 0 and f.is_file() and "/hooks" in "\n".join(out)             # avisa que a pessoa precisa confiar nos hooks
+    assert "--codex" in f.read_text()
+    deploy.uninstall(None, say=out.append, user=True)
+    assert json.loads(f.read_text()).get("hooks", {}) == {}
+
+
+def test_codex_events_are_labelled_codex_cli_and_experimental():
+    from promptshield_claude_hook import cli, config
+    cfg = config.Config(api_url="http://x", api_key="k")
+    sent = []
+    import promptshield_claude_hook.client as c
+    orig = c.post_event
+    c.post_event = lambda cfg_, ev: sent.append(ev) or {"decision": "allow"}
+    try:
+        cli.run_hook(json.dumps({"hook_event_name": "UserPromptSubmit", "session_id": "s", "prompt": "SIMULADO: oi"}), cfg, "codex_cli")
+    finally:
+        c.post_event = orig
+    assert sent[0]["source"]["app"] == "codex_cli" and sent[0]["source"]["integration_status"] == "experimental"
