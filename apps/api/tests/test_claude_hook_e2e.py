@@ -274,7 +274,7 @@ def test_one_line_installer_served_by_the_api_installs_a_working_sensor(client, 
         env.pop(k, None)
     p = subprocess.run(["sh", "-c", 'curl -fsSL "$PS_API/sensor/install.sh" | sh'], capture_output=True, text=True, env=env, timeout=90)
     assert p.returncode == 0, p.stdout + p.stderr
-    assert "[7] Codex (CLI): MANUAL" in p.stdout and "Passo a passo de cada IA escolhida" in p.stdout      # o guia das opções manuais
+    assert "[7] Codex (CLI): AUTOMÁTICO" in p.stdout and "Passo a passo de cada IA escolhida" in p.stdout
     settings = json.loads((home / ".claude" / "settings.json").read_text())
     entry = settings["hooks"]["PreToolUse"][0]["hooks"][0]
     assert entry["args"][0].endswith("promptshield-sensor.pyz")                    # o hook chama o sensor baixado
