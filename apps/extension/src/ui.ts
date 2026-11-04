@@ -23,6 +23,10 @@ const CSS = `
 .pill[data-state="warning"] { background: #7a3b00; }
 .pill[data-state="warning"] .dot { background: #ffb15c; }
 .pill a { color: #9fd0ff; text-decoration: underline; }
+.pill .min { background: transparent; border: 0; color: #fff; padding: 0 4px; font-size: 16px; line-height: 1; margin-left: 4px; }
+.pill[data-min="1"] { padding: 6px; gap: 0; }
+.pill[data-min="1"] > :not(.dot):not(.min) { display: none; }
+.pill[data-min="1"] .min { padding: 0 2px 0 6px; }
 .overlay { position: fixed; inset: 0; z-index: 2147483647; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
 .dlg { background: #fff; color: #1b2733; border-radius: 10px; width: min(520px, 100%); padding: 20px; box-shadow: 0 8px 32px rgba(0,0,0,.4); }
 .dlg h2 { margin: 0 0 8px; font-size: 18px; }
@@ -88,6 +92,22 @@ export function showIndicator(policyUrl?: string): void {
     s.textContent = "Consulte a política de uso de IA da empresa.";
     pill.append(s);
   }
+  // Minimizar (não fechar): o aviso de transparência continua visível como um ponto; clicar de novo expande.
+  const min = document.createElement("button");
+  min.type = "button";
+  min.className = "min";
+  const sync = () => {
+    const m = pill?.dataset.min === "1";
+    min.textContent = m ? "+" : "–";
+    min.setAttribute("aria-label", m ? "Expandir o aviso do PromptShield" : "Minimizar o aviso do PromptShield");
+    min.title = m ? "PromptShield: monitoramento ativo (clique para expandir)" : "Minimizar";
+  };
+  min.addEventListener("click", () => {
+    if (pill) pill.dataset.min = pill.dataset.min === "1" ? "0" : "1";
+    sync();
+  });
+  sync();
+  pill.append(min);
   r.appendChild(pill);
 }
 

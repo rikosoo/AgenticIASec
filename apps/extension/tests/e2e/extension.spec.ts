@@ -31,6 +31,17 @@ test("indicador de monitoramento visível, com link da política", async () => {
   await expect(ui(page).locator("a")).toHaveAttribute("href", "https://intranet.exemplo.test/politica-ia");
 });
 
+test("o aviso pode ser minimizado (continua visível como ponto) e expandido de novo", async () => {
+  const page = await open();
+  const pill = ui(page).locator(".pill");
+  await ui(page).getByRole("button", { name: "Minimizar o aviso do PromptShield" }).click();
+  await expect(pill).toHaveAttribute("data-min", "1");
+  await expect(pill).toBeVisible();
+  await expect(ui(page).getByText("monitoramento ativo")).toBeHidden();    // o texto some, o ponto fica
+  await ui(page).getByRole("button", { name: "Expandir o aviso do PromptShield" }).click();
+  await expect(ui(page).getByText("monitoramento ativo")).toBeVisible();
+});
+
 test("CPF sintético: pede confirmação e envia a versão mascarada", async () => {
   api.mode = "mask";
   const page = await open();
