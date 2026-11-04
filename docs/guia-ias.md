@@ -9,7 +9,7 @@ No instalador de uma linha (ele pergunta) ou no assistente (`python -m promptshi
 | N | IA | Estado | O que acontece |
 |---|---|---|---|
 | 1 | ChatGPT (web, chatgpt.com) | extensão, experimental | o sensor prepara a extensão; você carrega a pasta no navegador uma vez |
-| 2 | Copilot (web, copilot.microsoft.com) | extensão, experimental | idem; seletores nunca conferidos na página real. Não cobre o GitHub Copilot em github.com/copilot nem o Microsoft 365 Copilot |
+| 2 | Copilot (web, copilot.com) | extensão, experimental | idem; seletores nunca conferidos na página real. Não cobre o GitHub Copilot em github.com/copilot nem o Microsoft 365 Copilot |
 | 3 | Gemini (web, gemini.google.com) | extensão, experimental | idem; seletores nunca conferidos na página real |
 | 4 | Codex (app desktop) | indisponível hoje | sem hooks documentados para o app desktop nas fontes lidas: A VERIFICAR |
 | 5 | Claude (app desktop) | manual | a aba Code usa os mesmos arquivos de configuração do CLI (marque também o 6; o disparo dos hooks lá é A VERIFICAR). O chat comum não tem hooks e não é coberto |

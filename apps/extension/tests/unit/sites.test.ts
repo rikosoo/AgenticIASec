@@ -49,6 +49,7 @@ describe("gemini e copilot web (seletores A VERIFICAR contra as páginas reais)"
     expect(gemini.matches("gemini.google.com")).toBe(true);
     expect(gemini.matches("google.com")).toBe(false);
     expect(copilot.matches("copilot.microsoft.com")).toBe(true);
+    expect(copilot.matches("copilot.com")).toBe(true);
     expect(copilot.matches("github.com")).toBe(false);          // o GitHub Copilot em github.com/copilot não é coberto
     expect(copilot.matches("copilot.microsoft.com.malicioso.test")).toBe(false);
   });
@@ -68,5 +69,7 @@ describe("gemini e copilot web (seletores A VERIFICAR contra as páginas reais)"
     const d = page('<span role="textbox" contenteditable="true" id="m365-chat-editor-target-element" data-lexical-editor="true" aria-label="Enviar uma mensagem para o Copilot"><p><br></p></span>');
     expect(copilot.findInput(d)?.id).toBe("m365-chat-editor-target-element");
     expect(copilot.findSend(d)).toBeNull();
+    const d2 = page('<button type="button" aria-label="Adicionar e gerenciar fontes"></button><button type="submit" aria-label="Enviar"></button>');
+    expect(copilot.findSend(d2)?.getAttribute("type")).toBe("submit");    // não confunde com o botão "+"
   });
 });

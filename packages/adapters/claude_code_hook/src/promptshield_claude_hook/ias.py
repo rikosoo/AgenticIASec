@@ -31,8 +31,8 @@ class IA:
 CATALOG: list[IA] = [
     IA(1, "ChatGPT (web, chatgpt.com)", EXT, "browser_extension",
        "Extensão do navegador. EXPERIMENTAL: o seu teste manual em chatgpt.com capturou prompts; os seletores podem mudar sem aviso.", EXT_STEPS),
-    IA(2, "Copilot (web, copilot.microsoft.com)", EXT, "browser_extension",
-       "Extensão do navegador. EXPERIMENTAL: seletores nunca conferidos na página real (A VERIFICAR). Cobre só copilot.microsoft.com; não cobre o GitHub Copilot em github.com/copilot nem o Microsoft 365 Copilot.",
+    IA(2, "Copilot (web, copilot.com)", EXT, "browser_extension",
+       "Extensão do navegador. EXPERIMENTAL: campo e botão de enviar conferidos no HTML real de copilot.com/chat (2026-11-04); falta teste de ponta a ponta. Cobre copilot.com e copilot.microsoft.com; não cobre o GitHub Copilot em github.com/copilot nem o Microsoft 365 Copilot.",
        EXT_STEPS),
     IA(3, "Gemini (web, gemini.google.com)", EXT, "browser_extension",
        "Extensão do navegador. EXPERIMENTAL: seletores nunca conferidos na página real (A VERIFICAR).", EXT_STEPS),
