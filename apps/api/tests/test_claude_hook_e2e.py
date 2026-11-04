@@ -286,7 +286,7 @@ def test_one_line_installer_served_by_the_api_installs_a_working_sensor(client, 
     assert hp.returncode == 0, hp.stderr
     assert any(c["id"] == "pii" for c in events(client, world)[0]["categories"])
     d = client.get("/v1/devices", headers=world.user("leitura")).json()
-    assert d["active"] == 1 and set(d["coverage"]) == {"claude_code", "github_copilot_cli", "browser_extension"}
+    assert d["active"] == 1 and set(d["coverage"]) == {"claude_code", "github_copilot_cli", "codex_cli", "browser_extension"}
     if (ext_dist / "manifest.json").exists():
         ext = home / ".promptshield" / "extension"
         ecfg = json.loads((ext / "promptshield-config.json").read_text())
