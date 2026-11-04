@@ -175,3 +175,26 @@ def test_client_put_ias_sends_a_put_with_the_key_and_the_mode(monkeypatch):
     monkeypatch.setattr(c.urllib.request, "urlopen", fake_urlopen)
     out = c.put_ias(Config(api_url="http://x", api_key="ps_k"), ["claude_code"], "add")
     assert out == {"ias": ["claude_code"]} and seen == {"method": "PUT", "url": "http://x/v1/device/ias", "body": {"ias": ["claude_code"], "mode": "add"}, "key": "ps_k"}
+
+
+def test_reinstalling_on_an_enrolled_machine_reports_the_ias_with_the_existing_key(tmp_path, monkeypatch, capsys):
+    """O instalador de uma linha não re-matricula quem já tem chave; ainda assim as IAs escolhidas precisam chegar ao painel Sensores."""
+    p = deploy.paths(tmp_path)
+    p["config"].parent.mkdir(parents=True, exist_ok=True)
+    p["config"].write_text(json.dumps({"api_url": "http://servidor:8000/", "api_key": "ps_ja_existe", "fail_mode": "open"}))
+    monkeypatch.setattr(deploy, "enroll", lambda *a, **k: (_ for _ in ()).throw(AssertionError("não pode re-matricular")))
+    monkeypatch.setattr(deploy.client, "get_hook_config", lambda cfg: {"failure_mode": "open"})
+    seen = []
+    monkeypatch.setattr(deploy.client, "put_ias", lambda cfg, keys, mode="add": seen.append((cfg.api_url, cfg.api_key, keys, mode)) or {"ias": keys})
+    rc = deploy.main(["--api-url", "http://novo:9999", "--token", "pse_t", "--ias", "6,1", "--confirm-employees-notified", "--root", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == 0 and "já está matriculada" in out and "IAs informadas ao servidor" in out
+    assert seen == [("http://servidor:8000", "ps_ja_existe", ["chatgpt_web", "claude_code"], "set")]         # usa o endereço e a chave que já estavam gravados
+    # sem --ias não chama o servidor à toa
+    seen.clear()
+    assert deploy.main(["--api-url", "http://x", "--token", "pse_t", "--tools", "claude_code", "--confirm-employees-notified", "--root", str(tmp_path)]) == 0
+    assert seen == []
+    # servidor fora do ar: avisa, não falha e não derruba a instalação
+    monkeypatch.setattr(deploy.client, "put_ias", lambda cfg, keys, mode="add": (_ for _ in ()).throw(deploy.client.ApiError("API indisponível")))
+    assert deploy.main(["--api-url", "http://x", "--token", "pse_t", "--ias", "6", "--confirm-employees-notified", "--root", str(tmp_path)]) == 0
+    assert "Não consegui informar as IAs" in capsys.readouterr().out

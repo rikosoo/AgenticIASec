@@ -137,6 +137,12 @@ def install(api_url: str, token: str, tools: list[str], department: str | None, 
     if existing and existing.get("api_key") and not force:
         say("Esta máquina já está matriculada (use --force para matricular de novo).")
         key = existing["api_key"]
+        if ias_keys:    # reinstalar só para informar/atualizar as IAs: usa a chave que já existe, sem gastar token nem vaga
+            try:
+                client.put_ias(Config(api_url=str(existing.get("api_url") or api_url).rstrip("/"), api_key=key, timeout_seconds=10), ias_keys, "set")
+                say("IAs informadas ao servidor (painel Sensores): " + ", ".join(ias_keys))
+            except client.ApiError as exc:
+                say(f"Não consegui informar as IAs ao servidor ({exc}). O monitoramento não depende disso; se o endereço mudou, use --force com um token novo.")
     else:
         try:
             key = enroll(api_url, token, tools, ias_keys=ias_keys)["api_key"]
