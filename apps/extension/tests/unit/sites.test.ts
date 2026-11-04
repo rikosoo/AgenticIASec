@@ -64,4 +64,9 @@ describe("gemini e copilot web (seletores A VERIFICAR contra as páginas reais)"
     expect(copilot.findSend(d)).not.toBeNull();
     expect(copilot.findInput(page("<p>x</p>"))).toBeNull();
   });
+  it("copilot M365: acha o editor Lexical do HTML real (campo verificado; botão ainda não)", () => {
+    const d = page('<span role="textbox" contenteditable="true" id="m365-chat-editor-target-element" data-lexical-editor="true" aria-label="Enviar uma mensagem para o Copilot"><p><br></p></span>');
+    expect(copilot.findInput(d)?.id).toBe("m365-chat-editor-target-element");
+    expect(copilot.findSend(d)).toBeNull();
+  });
 });
