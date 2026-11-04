@@ -15,6 +15,10 @@ LANG_SIGNALS: dict[str, re.Pattern[str]] = {
     "c": re.compile(r"#include\s*<|\bint main\s*\(|\b(?:void|int|float|double|char|bool)\s+\*?\w+\s*\([^)]*\)\s*\{"),
     "shell": re.compile(r"^#!/bin/(?:ba)?sh|^\s*(?:export \w+=|if \[ )", re.M),
 }
+# comandos de PowerShell/shell colados no texto: contam como "tem código" (não como linguagem, para não puxar o cabeçalho proprietário)
+SHELL_CMD = re.compile(
+    r"(?i)\b(?:Invoke-(?:WebRequest|RestMethod|Expression)|iwr|irm|iex|Expand-Archive|Select-String|Get-(?:ChildItem|Content|Item|Process|Service)|Set-(?:Content|ExecutionPolicy)|New-Item|Remove-Item)\b"
+    r"|\$env:\w+|(?m:^\s*(?:sudo|curl|wget|ssh|scp|chmod|chown|docker|kubectl|apt(?:-get)?|systemctl)\s+\S)")
 SQL_RE = re.compile(
     r"(?i)\b(?:select\s+[\w*,.\s()'\"`]+?\s+from\s+\w+|insert\s+into\s+\w+|update\s+\w+\s+set\s+\w+\s*=|"
     r"delete\s+from\s+\w+|create\s+table\s+\w+|drop\s+table\s+\w+|alter\s+table\s+\w+)")
@@ -42,7 +46,7 @@ ARCH_PARTS = re.compile(r"(?i)\b(?:api gateway|gateway|microsservi\w+|microservi
                         r"load balancer|balanceador|peered|peering|on-prem\w*|worker|fila|queue|topico|topic|cluster|replicas?|read replica|service mesh|vpn|firewall|dmz|kubernetes|k8s)\b")
 ARCH_OWN = re.compile(r"(?i)\b(?:nosso|nossa|nossos|nossas|our|internal|interno|interna|topologia|topology|desenho|nossa arquitetura|our architecture)\b")
 REVIEW_PHRASES = re.compile(
-    r"(?i)\b(?:revis[ea]r?|revisa|review|pull request|code review|tem bug|has a bug|me diz se|look at this|check this|what'?s wrong|o que (?:ta|esta) errado|olha (?:esse|este)|refator\w*|refactor|debug\w*|depur\w*|find the bug|ache o bug|"
+    r"(?i)\b(?:revis[ea]r?|revisa|review|o ?que (?:(?:voce|você|vc|tu) )?acha|what do you think|pull request|code review|tem bug|has a bug|me diz se|look at this|check this|what'?s wrong|o que (?:ta|esta) errado|olha (?:esse|este)|refator\w*|refactor|debug\w*|depur\w*|find the bug|ache o bug|"
     r"por que (?:este|esse) c[óo]digo|why (?:does|is) this (?:code|function))\b")
 OPEN_LICENSE = re.compile(r"(?i)SPDX-License-Identifier:\s*(?:MIT|Apache-2\.0|BSD|ISC|GPL|LGPL|MPL)|\b(?:MIT|Apache) License\b")
 PROPRIETARY = re.compile(
@@ -64,7 +68,8 @@ def code_presence(text: str) -> tuple[bool, str | None]:
         if n > best_n:
             best, best_n = lang, n
     structural = len(re.findall(r"[{};]\s*$", text, re.M)) >= 3
-    return (fenced or best_n >= 2 or (best_n >= 1 and structural)), best
+    shellish = len(SHELL_CMD.findall(text)) >= 2
+    return (fenced or best_n >= 2 or (best_n >= 1 and structural) or shellish), best
 
 
 def has_code(text: str) -> bool:

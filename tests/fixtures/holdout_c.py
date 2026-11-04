@@ -45,7 +45,7 @@ for t, lang in [
     ("hash do commit: 9fceb02d0ae598e95dc970b74767f19372d61af8", "pt"), ("nosso CEP no rodapé do site, formato 00000-000, qual a melhor máscara?", "pt"),
     ("explain what a UUID looks like, e.g. 123e4567-e89b-12d3-a456-426614174000", "en"), ("the invoice total is $4,213.55 due on 2024-06-30", "en"),
     ("use 555-0100 as the placeholder phone in the mockups", "en"), ("lat 40.7128, long -74.0060, zoom level 12", "en"),
-    ("order 90210 was delivered to the lobby at 3:45 pm", "en"), ("IP 203.0.113.9 está bloqueado no firewall, pode liberar?", "pt"),
+    ("order 90210 was delivered to the lobby at 3:45 pm", "en"), ("a regra do firewall bloqueou a porta 8443, pode liberar?", "pt"),
     ("how long is a US ZIP code and how do I validate it in JS?", "en"), ("a nota fiscal de número 000123 está na pasta de março", "pt"),
 ]:
     add("pii_neg", lang, t, [], hard=True)

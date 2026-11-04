@@ -1,10 +1,11 @@
 """analyze(event) -> Analysis. Biblioteca pura: sem rede, sem banco, sem LLM externo."""
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from typing import Any
 
-from .detectors import agent, business, code, files, injection, pii, secrets
+from .detectors import agent, business, code, files, infra, injection, pii, secrets
 from .detectors.injection import InjectionClassifier
 from .intents import detect_intents
 from .masking import apply_masks
@@ -60,14 +61,21 @@ def analyze(event: Mapping[str, Any], *, allowed_hosts: tuple[str, ...] = (),
     findings += injection.detect(ctx, classifier)
     findings += agent.detect(ctx)
     findings += business.detect(ctx)
+    findings += infra.detect(ctx)
     if ner is not None:
         findings += ner.detect(ctx)
     file_findings, attachments = files.detect(ctx.attachments)
     findings += file_findings    # sem posição no texto: contam como categoria e risco, não como trecho a mascarar
 
     conn = [(f.start, f.end) for f in findings if f.span_type == "conn_string"]
+    findings = [f for f in findings if not (       # o host dentro de uma string de conexão já sai mascarado junto com o segredo
+        f.span_type in ("ip", "internal_host") and any(a <= f.start < b for a, b in conn))]
+    if any(f.category == "exfiltracao_ferramenta" and f.confidence >= THRESHOLD for f in findings):
+        findings = [f for f in findings if f.span_type != "ip"]        # o IP de destino de um envio de dados é evidência do ataque, não da infraestrutura da empresa
+    ip_tail = re.compile(r"@\d{1,3}(?:\.\d{1,3}){3}$")     # usuario@10.0.0.5 (ssh/scp) não é e-mail: o IP é tratado à parte
     findings = [f for f in findings if not (
-        f.span_type == "email" and (ctx.kind == "tool_call" or any(a <= f.start < b for a, b in conn)))]
+        f.span_type == "email" and (ctx.kind == "tool_call" or any(a <= f.start < b for a, b in conn)
+                                    or ip_tail.search(ctx.text[f.start:f.end])))]
 
     best: dict[str, Finding] = {}
     for f in findings:

@@ -11,7 +11,7 @@ export const ACTION_LABEL: Record<Action, string> = {
 };
 export const ROLE_LABEL = { admin: "Administrador", analista: "Analista", auditor: "Auditor", leitura: "Leitura" } as const;
 export const APP_LABEL: Record<string, string> = {
-  claude_code: "Claude Code", gemini_web: "Gemini (web)", copilot_web: "Copilot (web)", claude_code_import: "Claude Code (histórico importado)", github_copilot_cli: "GitHub Copilot CLI", chatgpt_web: "ChatGPT (web)", claude_web: "Claude (web)", claude_ai: "Claude Enterprise (claude.ai)", cowork: "Claude Cowork", cursor: "Cursor",
+  claude_code: "Claude Code", gemini_web: "Gemini (web)", copilot_web: "Copilot (web)", claude_code_import: "Claude Code (histórico importado)", github_copilot_cli: "GitHub Copilot CLI", codex_cli: "Codex (CLI)", chatgpt_web: "ChatGPT (web)", claude_web: "Claude (web)", claude_ai: "Claude Enterprise (claude.ai)", cowork: "Claude Cowork", cursor: "Cursor",
 };
 
 export const appLabel = (a: string) => APP_LABEL[a] ?? a;
@@ -42,7 +42,7 @@ export const intentLabel = (i: string) => INTENT_LABEL[i] ?? i;
 /** Tipos de trecho sensível que o motor reconhece; o que não está aqui aparece com o nome técnico. */
 export const SPAN_LABEL: Record<string, string> = {
   aws_access_key: "Chave AWS", cpf: "CPF", cnpj: "CNPJ", email: "E-mail", phone: "Telefone", card: "Cartão", conn_string: "String de conexão",
-  private_key: "Chave privada", jwt: "Token JWT", github_token: "Token do GitHub", password: "Senha",
+  ip: "Endereço IP", internal_host: "Host interno", user_path: "Usuário em caminho de arquivo", private_key: "Chave privada", jwt: "Token JWT", github_token: "Token do GitHub", password: "Senha",
 };
 export const spanLabel = (t: string) => SPAN_LABEL[t] ?? t;
 export const KIND_LABEL: Record<string, string> = { prompt: "Prompt", response: "Resposta", tool_call: "Ação do agente", tool_result: "Resultado de ação", file_upload: "Arquivo enviado" };
