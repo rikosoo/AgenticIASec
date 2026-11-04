@@ -29,8 +29,15 @@ git checkout "$BRANCH"
 git pull origin "$BRANCH"
 git log --oneline | head -1
 
-echo "== 3/5 Subindo (build) =="
-$DC up -d --build
+echo "== 3/5 Build (um servico por vez, baixa prioridade: poupa a memoria de VMs pequenas) =="
+export COMPOSE_PARALLEL_LIMIT=1
+for svc in api worker web; do
+  echo "-- build $svc"
+  nice -n 10 $DC build "$svc"
+  sync; sleep 2
+done
+echo "-- subindo"
+$DC up -d
 
 echo "== 4/5 Aguardando a API =="
 for i in $(seq 1 40); do
